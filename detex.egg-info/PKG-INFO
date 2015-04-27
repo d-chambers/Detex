@@ -1,0 +1,16 @@
+Metadata-Version: 1.1
+Name: detex
+Version: 0.0.5
+Summary: A package for performing subspace detection, correlation detection, and waveform similarity clustering on seismic data
+Home-page: https://github.com/DerrickChambers/detex
+Author: Derrick Chambers
+Author-email: derrick.chambers@comcast.net
+License: MIT
+Description: UNKNOWN
+Keywords: seismology signal detection
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Geo-scientists
+Classifier: Topic :: Earthquake detections
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 2.7
