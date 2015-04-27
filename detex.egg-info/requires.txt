@@ -1,8 +1,0 @@
-obspy
-basemap
-numpy
-pandas
-scipy
-matplotlib
-joblib
-multiprocessing
