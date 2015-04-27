@@ -1,0 +1,73 @@
+Before Version Numbers
+______________________
+
+2/12/15- added plotBasisVectors method to subspace object in order to plot used basis vectors from the SVD
+
+2/12/15 - fixed a bug causing getAllData(reverse=True) to put hour 23 in the wrong jday folder
+
+2/12/15 - fixed a bug causing auto-correlations to be less than 1 (multiplexing got off by one sample on one channel because starttimes for all channels were not equal). Applied fix to subspace functions as well
+
+2/19/15 - fixed a bug causing 1 higher degree of rep. to be selected in the SVD function than necessary
+
+2/20/15 - Fixed a bug causing any incomplete data chunks to report wrong detection time
+
+2/20/15 - When calling detex.xcorr.getFAS the filter parameter was not passed to the apply filter function causing an error at line 91, fixed
+
+2/21/15 - Added a MSTMPmax and MSTAMPmin columns to the subspace database. These are calculated based on the min and max offset times of all of the events that went into creating the subspace. Essentially allows an estimation of the origin time of the event and to associated detections from different stations together
+
+2/21/15 - Added the Mag column to the subspace database. It is a magnitude estimate that works by first finding the subspace representation of the contours data by projecting the part of the data that triggered the detector into the current subspace. The templates that went into the subspace creation are then projected into the subspace and the Gibbons and Ringdal iterative scaling method is applied to estimate scaling factors and magnitudes for each of the template projections. The median value is then selected as the magnitude estimate. Seems to estimate about 10% too low currently.  
+
+2/25/15 - detex.subspace.SubSpaceStream method pickSubSpaceTimes now has a traceLimit parameter that will limit the number of events in the current subspace that obspyck will try and display
+
+3/3/15 - changed the multiplex command to properly handle 1 channel data in subspace module
+
+3/3/15 - added a try except clause around the function that reads the continous data so if one data chunk is bad it is skipped rather than killing the susbspace detection
+
+
+Version 0.0.1
+_____________
+
+Added the ssResults method to the detex.result module that asssociates detections from multiple stations together
+
+Improved the magnitude estimate method to use only the energy of the detected waveform and best correlated event to calculate a scaling factor.
+This was tested against local catalogs for both a mining region in Colorado and an Earthquake swarm in Yellow Stone
+
+In addition to the "master station" option for clustering, where waveform groups across the network are forced based on the clustering at one station,
+each station is allowed to cluster independently if no master station argument is passed. As a result, the subspaces dataframes of the subspace objects are now
+organized by a dictionary with the corresponding station as the key. 
+
+Added min. number of events for a subspace to be created. Default value is 3
+
+Added a version module for checking current version of detex by typing detex.version.version
+
+In detex.subspace, moved the import basemap line into the method that actually calls it so if someone cannot get basemap installed detex can still be run
+
+
+Version 0.0.2
+_____________
+The updateReqCC function of detex.subspace.SSclusterStream did not call the write function, now it does
+
+Changed the magnitude estimation scheme to a weighted average of the std ratios of continous data to each of the training waveforms based on the square of the correlation coeficient
+
+Suppressed the SQLite output so it will no longer spam the consol when performing detections
+
+Changed default acceptable probability of false detection of the detex.subspace.createSubSpace function from 10**-9 to 10**-10
+
+Added the eventDir input argument to the detex method of the subspace object. If a str of an event directory (the same structure orginized by the detex.getdata method) the subspace detections will be performed on all the events in the directory rather than on the continous data. Additionally, a dataframe will be created, whose name is governed by the eventCorFile parameter, showing each event and the maximum detection statstics. Useful for classifying events into pre-determined subspaces. 
+
+Added the UTCSaves parameters which if not None must be a list of UTC objects. If the data being processed during the subspace detection emcompasses a time in the UTCSaves list several parameters will be written to the "UTCsaves.pkl" dataframe including continous data, vector of detection statistics etc. This was created for determining causes of subspace failure to detect specific events.
+
+Fixed a bug in getdata that caused the code to throw an error if the instrument response could not be removed. Now such data chunks are simply not saved after a warning is printed to the screen. 
+ 
+Fragmented event files caused clustering to error out. Now any event file with 80% than the median data points for other event files will simply be skipped
+
+Version 0.0.4
+_____________
+
+Added a grid search function to estimate appropriate thresholds when scipy.stats.beta.isf fails (see this bug report https://github.com/scipy/scipy/issues/4677)
+
+Added a normalize option to the SVD method of the detex.subspace.SubSpaceStream class. Essentially just normalizes all the input training events used for making a subspace. This gives all inputs equal wweight, which might be bad if you input a lot of noisy events, but is recommended in the Harris paper
+
+Added the Stations input parameter to detex.results.ssResults to allow a list of stations to be passed to restrict the results to detections that occur on a station in the list
+
+Added the Pf input parameter to detex.results.ssResults which loads a pickled subspace and uses the false alarm statistic (FAS) beta parameters to only use detections for each station/subspace that correspond to some value on the fitted beta above the Pf. 
