@@ -9,7 +9,7 @@ Detex, has not been extensively tested. If you would like to help test/develop d
 To install detex, first make sure that you have a working distribution of python 2.7. I recommend the [Anaconda distribution] (http://continuum.io/downloads).
 Next, clone (or download) Detex and run the setupy.py by typing into the terminal (or command line if using windows)
 ``` bash
-Python setup.py install
+python setup.py install
 ```
 The install script will make sure you have the required packages and install detex in the appropriate place. 
 Note: If the process fails to install basemap, which it has been known to do, you can find manual installation instructions [here]( http://matplotlib.org/basemap/users/installing.html). Most of detex functionality does not require basemap so if you can’t get it working you can still use the majority of detex. 
