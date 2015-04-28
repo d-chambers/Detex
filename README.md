@@ -15,5 +15,4 @@ The install script will make sure you have the required packages and install det
 Note: If the process fails to install basemap, which it has been known to do, you can find manual installation instructions [here]( http://matplotlib.org/basemap/users/installing.html). Most of detex functionality does not require basemap so if you can’t get it working you can still use the majority of detex. 
 
 # Tutorial
-A tutorial can be found [here](http://d-chambers.github.io/Detex/), all of the required files are found in the tutorial directory.
-
+A tutorial can be found [here](https://github.com/d-chambers/Detex/tree/master/Tutorial) which includes a docx file to which will walk you through the detex workflow and all the required files. 
