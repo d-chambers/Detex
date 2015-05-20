@@ -21,9 +21,9 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.0.5',
+    version='0.0.6',
 
-    description='A package for performing subspace detection, correlation detection, and waveform similarity clustering on seismic data',
+    description='A package for performing subspace and correlation detections on seismic data',
     # The project's main homepage.
     url='https://github.com/DerrickChambers/detex',
 
@@ -46,6 +46,6 @@ setup(
 
     # What does your project relate to?
     keywords='seismology signal detection',
-    packages=find_packages(),
-    install_requires=['obspy','basemap','numpy','pandas','scipy','matplotlib','joblib','multiprocessing'],
+    packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
+    install_requires=['peppercorn','obspy','basemap','numpy','pandas','scipy','matplotlib','glob','joblib','multiprocessing'],
 )
