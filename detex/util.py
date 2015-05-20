@@ -602,26 +602,26 @@ def trimTemplates(EveDir='EventWaveForms',templatekey='TemplateKey.csv', pickDF=
             wfs=ef-set(DF['Name'])
             Eves=[os.path.join(EveDir,x) for x in list(wfs)]
     else:
-        DF=pd.DataFrame()
+        DF=pd.DataFrame(columns=['Starttime','Endtime','Station','Path','Name'])
         Eves=[os.path.join(EveDir,x) for x in list(ef)]
     for a in Eves:
         waveforms=glob.glob(os.path.join(a,'*'))
         for wf in waveforms:
             TR=obspy.core.read(wf)
             Pks=detex.streamPick.streamPick(TR)
-            d1={} #initialize blank dict
+            tdict={}
             saveit=0
             for b in Pks._picks:
                 if b:
-                    d1[b.phase_hint]=b.time.timestamp
+                    tdict[b.phase_hint]=b.time.timestamp
                     saveit=1
             if saveit:
-                d1['Starttime'],d1['Endtime']=[min(d1.values()),max(d1.values())]
-                d1['Station']=TR[0].stats.network+'.'+TR[0].stats.station
-                d1['Path']=wf
-                d1['Name']=os.path.basename(a)
-                
-                DF=DF.append(d1,ignore_index=True)
+                st,et=[min(tdict.values()),max(tdict.values())]
+                print [min(tdict.values()),max(tdict.values())]
+                sta=str(TR[0].stats.network+'.'+TR[0].stats.station)
+                path=str(wf)
+                name=str(os.path.basename(a))
+                DF=DF.append({'Starttime':st,'Endtime':et,'Station':sta,'Path':path,'Name':name},ignore_index=True)
             else:
                 print ('no picks passed, cant trim stream object')
             if not Pks.KeepGoing:
