@@ -71,3 +71,27 @@ Added a normalize option to the SVD method of the detex.subspace.SubSpaceStream 
 Added the Stations input parameter to detex.results.ssResults to allow a list of stations to be passed to restrict the results to detections that occur on a station in the list
 
 Added the Pf input parameter to detex.results.ssResults which loads a pickled subspace and uses the false alarm statistic (FAS) beta parameters to only use detections for each station/subspace that correspond to some value on the fitted beta above the Pf. 
+
+Version 0.0.5
+_____________
+
+Allows station/network names to be numbers with no letters
+
+added consistentLength input parameter to createCluster function of detex.subspace. Default is true. If false allows hopelessly inhomogenious lengthed data to still be correlated together, but is much slower and will not allow subspace construction (IE if False cannot be used for subspace construction)
+
+Version 0.0.6
+_____________
+
+Made SubSpaceStream object indexable
+Fixed various other bugs
+
+Version 0.0.7
+______________
+
+Added function to generate N distinct colors for dendrograms and plotting events if default is exceeded
+
+Fixed a problem causing OS X and pyqt to not play well together
+
+Added feature to allow event lists to be independent from station to station rather than just using the union of the two
+
+Accounted for various other bugs that can happen in subspace detection with less than high quality data
