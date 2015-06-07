@@ -626,7 +626,7 @@ def ssResults(trigCon=1,trigParameter=0,associateReq=0,associateBuffer=1,require
               veriFile=None,includeAllVeriColumns=True,reduceDets=True,sspickle='subspace.pkl',Pf=False,Stations=None,
               starttime=None,endtime=None):
     """
-    Wrapper function for the CorResults class. Used to associate detections across multiple stations into 
+    Function to create an instance of the CorResults class. Used to associate detections across multiple stations into 
     coherent events. CorResults class also has some useful methods for creating input files for location
     programs such as hypoDD and hypoInverse
     
@@ -723,7 +723,7 @@ def ssResults(trigCon=1,trigParameter=0,associateReq=0,associateBuffer=1,require
     ### Make a dataframe of verified detections if applicable
     Vers=_verifyEvents(Dets,Autos,veriFile,veriBuffer,includeAllVeriColumns)
 
-    ssres=SSResults(Dets,Autos,Vers,ss_info,ss_filt,temkey,stakey)
+    ssres=SSResults(Dets,Autos,Vers,ss_info,ss_filt,temkey,stakey,templateKey,templatePath,condir)
     return ssres
 
 def _makePfKey(sspickle,Pf):
@@ -992,7 +992,7 @@ def _checkExistence(existList):
             raise Exception('%s does not exists'%fil)
             
 class SSResults(object):
-    def __init__(self,Dets,Autos,Vers,ss_info,ss_filt,stakey,temkey):
+    def __init__(self,Dets,Autos,Vers,ss_info,ss_filt,temkey,stakey,templateKey,templatePath,condir):
         self.Autos=Autos
         self.Dets=Dets
         self.NumVerified=len(Vers) if isinstance(Vers,pd.DataFrame) else 'N/A'
@@ -1001,10 +1001,82 @@ class SSResults(object):
         self.filt=ss_filt
         self.StationKey=stakey
         self.TemplateKey=temkey
+        self.TemKeyPath=templateKey
+        self.eventDir=templatePath
+        self.condir=condir
+        
+    def makeDetTemps(self,onlyVerified=False,minSDave=False,minMag=False,eventDir=None,updateTemKey=True,temkeyPath=None,
+                                timeBeforeOrigin=3*60,timeAfterOrigin=9*60):
+        """
+        Function to make all of the eligable new detections templates. New event directories will be added to eventDir
+        and the template key will be updated with detected events having a lower case "d" before the name
+        
+        Parameters
+        ----------
+        onlyVerified : boolean
+            If true only use detections that are verified
+        minSDave : False or float between 0.0 and 1.0
+            If float only use detections with average detection statistics above minSDave
+        minMag : false or float
+            If float only use detections with estimated magnitudes above minMag
+        eventDir : None or str
+            If None new waveforms of detections are stored in default event directory (usually EventWaveForms). 
+            If str then the str must be path to new directory in which detected event waveforms will be stored. 
+            If it does not exist it will be created
+        updateTemKey : boolean
+            If true update the template key with the new detections
+        temkeyPath : None or str
+            if None use the default path to the template key, else new path to templatekey, if it does not 
+            exist it will be created
+        timeBeforeOrigin : real number (float or int)
+            Seconds before predicted origin to get (default is the same as the getData.getAllData defaults)
+        timeAfterOrigin : real number (float or int)
+            Seconds after predicted origin to get 
+        """
+        dets=self.Dets.copy()
+        if onlyVerified:
+            dets=dets[dets.Verified]
+        if minSDave:
+            dets=dets[dets.minSDave]
+        if minMag:
+            dets=dets[dets.Mag>=minMag]
+        if not eventDir:
+            eventDir=self.eventDir
+        if not temkeyPath:
+            temkeyPath=self.TemKeyPath
+        temkey=self.TemplateKey
+        
+        detTem=pd.DataFrame(index=range(len(dets)),columns=temkey.columns)
+            
+        for num,row in dets.iterrows(): #loop through detections and save each one
+            origin=obspy.UTCDateTime(np.mean([row.MSTAMPmax,row.MSTAMPmin]))
+            Evename=origin.formatIRISWebService().replace(':','-')
+            eveDirName='d'+Evename
+            
+            if not os.path.exists(os.path.join(eventDir,eveDirName)): #if the directory doesnt exists create it
+                os.makedirs(os.path.join(eventDir,eveDirName))
+                
+            for stanum,sta in self.StationKey.iterrows(): #loop through eac station and load stream then save
+                station=sta.NETWORK+'.'+sta.STATION
+                try:
+                    ST=detex.util.loadContinousData(origin-timeBeforeOrigin,origin+timeAfterOrigin,station,Condir=self.condir)
+                    ST.write(os.path.join(eventDir,eveDirName,station+'.'+Evename+'.'+'pkl'),'pickle')
+                except:   
+                    print ('Could not write and save %s for station %s' %(Evename,station))
+            
+            detTem.loc[num,'NAME'],detTem.loc[num,'TIME'],detTem.loc[num,'MAG']=eveDirName,origin.timestamp,row.Mag
+        
+        temkeyNew=pd.concat([temkey,detTem],ignore_index=True)
+        temkeyNew.reset_index(inplace=True,drop=True)
+        if updateTemKey:
+            temkeyNew.to_csv(temkeyPath)
+        
+        
     def __repr__(self):
         outstr='SSResults class with %d autodections and %d new detections, %s are verified'%(len(self.Autos),len(self.Dets),str(self.NumVerified))
         return outstr
-                       
+        
+
             
             
             

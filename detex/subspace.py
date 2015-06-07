@@ -10,10 +10,13 @@ import matplotlib as mpl
 import detex, scipy
 import cPickle, itertools
 import collections, copy
+import colorsys
 
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 import multiprocessing,sys, warnings, numbers
 pd.options.mode.chained_assignment = None #mute setting copy warning
+from struct import pack
+
 #warnings.filterwarnings('error') #uncomment this to make all warnings be thrown as errors in order to find where warnings are coming from
  
 #np.seterr(all='raise')
@@ -23,7 +26,7 @@ pd.options.mode.chained_assignment = None #mute setting copy warning
 
 def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2,True],StationKey='StationKey.csv',
                   TemplateKey='TemplateKey.csv',trim=[100,200],filelist=None,allram=True,masterStation=None,saveclust=True,
-                  clustname='clust.pkl',decimate=None, dtype='double',consistentLength=True):
+                  clustname='clust.pkl',decimate=None, dtype='double',consistentLength=True,eventsOnAllStations=False):
                       
                       
     """ Function to create the cluster class which contains the linkage matrix, event names, and a few visualization methods
@@ -68,6 +71,8 @@ def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2
     consistentLength : boolean
         If true the data in the events files are more or less the same length. Switch to false if the data are not, but can greatly increase 
         run times. 
+    eventsOnAllStations : boolean
+        If true only use the events that occur on all stations, if false dont let each station have an independant event list
     Returns
     ---------
     An instance of the detex SSSlustering class
@@ -75,6 +80,7 @@ def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2
     # Read in stationkey and set master station, if no master station selected us first station
     # 
     stakey=pd.read_csv(StationKey)
+    stakey=stakey[[isinstance(x,str) or abs(x) >= 0 for x in stakey.NETWORK]]
     stakey['STATION']=[str(x) for x in stakey.STATION] #make sure station and network are strs
     stakey['NETWORK']=[str(x) for x in stakey.NETWORK]
     if masterStation == None:
@@ -97,19 +103,23 @@ def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2
     if not templateDir:
         filelist=glob.glob(os.path.join(indir,'*'))
     TRDF=_loadEvents(filelist,indir,filt,trim,stakey,templateDir,decimate,temkey,dtype)  
+    TRDF.sort(columns='Station',inplace=True)
+    TRDF.reset_index(drop=True,inplace=True)
     if consistentLength:
         TRDF=_testStreamLengths(TRDF)
     #deb([TRDF,ddf])
     TRDF['Link']=None
 
     # Loop through stationkey performing cluster analsis only on stationkey    
-    eventList=list(set.intersection(*[set(x) for x in TRDF.Events])) #get list of events that occur on all required stations
-    
-    eventList.sort()
-    if len(eventList)<2:
-        raise Exception('less than 2 events in population have required stations')
+    if eventsOnAllStations: #If only useing events common to all stations
+        eventList=list(set.intersection(*[set(x) for x in TRDF.Events])) #get list of events that occur on all required stations
+        eventList.sort()        
+        if len(eventList)<2:
+            raise Exception('less than 2 events in population have required stations')
     for a in TRDF.iterrows(): #loop over master station(s)
         print 'getting CCs and lags on ' + a[1].Station   
+        if not eventsOnAllStations:
+            eventList=a[1].Events
         DFcc,DFlag=_makeDFcclags(eventList,a,consistentLength=consistentLength)
         TRDF.Lags[a[0]]=DFlag
         TRDF.CCs[a[0]]=DFcc
@@ -125,11 +135,14 @@ def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2
             deb([cx,cxdf])
         for b in DFlag.iterrows(): #this is not efficient, consider rewriting withoutloops
             lags=np.append(lags,b[1].dropna().tolist())
-        link = linkage(cx) #get cluster linkage
+        try:    
+            link = linkage(cx) #get cluster linkage
+        except:
+            deb([a,cx,cxdf,lags])
         TRDF.loc[a[0],'Link']=link
     #DFcc=pd.DataFrame(cxw,index=range(len(cxw)),columns=range(1,len(cxw)+1))
-    trdf=TRDF[['Station','Link','CCs']] # a truncated TRDF only passign what is needed for clustering
-    clust=SSClusterStream(trdf,temkey,eventList,CCreq,filt,decimate,trim,indir,saveclust,clustname,templateDir,filelist,StationKey,saveclust,clustname)
+    trdf=TRDF[['Station','Link','CCs','Lags','Events']] # a truncated TRDF only passign what is needed for clustering
+    clust=SSClusterStream(trdf,temkey,eventList,CCreq,filt,decimate,trim,indir,saveclust,clustname,templateDir,filelist,StationKey,saveclust,clustname,eventsOnAllStations)
     
     if saveclust:
         clust.write()
@@ -161,13 +174,18 @@ class SSClusterStream(object):
     """
     A container for multiple cluster objects
     """
-    def __init__(self,TRDF,temkey,eventList,CCreq,filt,decimate,trim,indir,saveclust,clustname,templateDir,filelist,StationKey,save,filename): #save,filename
-        self.__dict__.update(locals()) #Instantiate all input variables
+    def __init__(self,TRDF,temkey,eventList,CCreq,filt,decimate,trim,indir,saveclust,clustname,templateDir,filelist,StationKey,save,filename,eventsOnAllStations): #save,filename
+        #self.__dict__.update(locals()) #Instantiate all input variables
         self.clusters=[0]*len(TRDF)
         self.stalist=TRDF.Station.values.tolist() #get station lists for indexing
         self.stalist2=[x.split('.')[1] for x in self.stalist]
+        self.filename=filename
         for num,row in TRDF.iterrows():
-            self.clusters[num]=SSCluster(self,row.Station,temkey,eventList,row.Link,CCreq,filt,decimate,trim,row.CCs,indir,templateDir,filelist,StationKey)
+            if not eventsOnAllStations:
+                evlist=row.Events
+            else:
+                evlist=eventList
+            self.clusters[num]=SSCluster(self,row.Station,temkey,evlist,row.Link,CCreq,filt,decimate,trim,row.CCs,indir,templateDir,filelist,StationKey)
         if save:
             self.write()
     
@@ -225,6 +243,19 @@ class SSClusterStream(object):
             dout=cl.simMatrix(groupClusts,savename,returnMat,**kwargs)
             out.append(dout)
             
+    def plotEvents(self,projection='merc',plotNonClusts=True):
+        """
+        Plot the event locations for each station
+        
+        Parameters
+        ---------
+        projection : str
+            The pojection type to pass to basemap
+        plotNonClusts : boolean
+            If true also plot the events that don't cluster
+        """
+        for cl in self.clusters:
+            cl.plotEvents(projection=projection,plotNonClusts=plotNonClusts)        
             
     def write(self): #uses pickle to write class to disk
         print 'writing cluster object as %s' % self.filename
@@ -250,10 +281,10 @@ class SSClusterStream(object):
 class SSCluster(object):
     def __init__(self,clustStream,station,temkey,eventList,link,CCreq,filt,decimate,trim,DFcc,indir,templateDir,filelist,StationKey):
         #self.__dict__.update(locals()) #Instantiate all input variables
-        self.link,self.DFcc,self.station,self.temkey=link,DFcc,station,clustStream.temkey #instatiate the few needed varaibles
+        self.link,self.DFcc,self.station,self.temkey=link,DFcc,station,temkey #instatiate the few needed varaibles
         self.key=eventList
         self.updateReqCC(CCreq)
-        
+        self.nonClustColor='0.6' #use a grey of 0.6 for non-clustering events
             
     def updateReqCC(self,newCCreq):
         """
@@ -273,7 +304,7 @@ class SSCluster(object):
         clustlinks={}
         clustEvents={}
         clnum=0
-        while len(dftemp)>0: #TODO make this more pythonic
+        while len(dftemp)>0: 
             ser=dftemp.iloc[0]
             ndf=dftemp[[set(x).issubset(ser.II) for x in dftemp.II]]
             clustlinks[clnum]=ndf.clust
@@ -284,9 +315,27 @@ class SSCluster(object):
         self.clusts=[[self.key[y] for y in clustEvents[x]] for x in clustEvents.keys()]
         self.singles=list(set(self.key).difference(set([y for x in self.clusts for y in x])))
         self.clustcount=np.sum([len(x) for x in self.clusts])
+        self.clustColors=self._getColors(len(self.clusts))
         print('CCreq for station %s updated to CCreq=%1.3f'%(self.station,newCCreq))
 
-    
+    def _getColors(self,numClusts):
+        """
+        See if there are enough defualt colors for the clusters, if not 
+        Generate N unique colors (that probably dont look good together) 
+        """        
+        clustColorsDefault=['b','g','r','c','m','y','k']
+        if numClusts<=len(clustColorsDefault): # if there are enough default python colors use them
+            return clustColorsDefault[:numClusts]
+        else: #if not generaete N uniwue colors
+            colors=[]
+            for i in np.arange(0., 360., 360. / numClusts):
+                hue = i/360.
+                lightness = (50 + np.random.rand() * 10)/100.
+                saturation = (90 + np.random.rand() * 10)/100.
+                cvect=colorsys.hls_to_rgb(hue, lightness, saturation)
+                rgb=[int(x*255) for x in cvect]
+                colors.append('#'+pack("BBB",*rgb).encode('hex')) #covnert to hex code
+            return colors    
         
     def _makeColorDict(self,clustColors,nonClustColor):
         if len(self.clusts)<1:
@@ -299,8 +348,6 @@ class SSCluster(object):
         for a in range(len(self.clusts)):
             for b in self.clustlinks[a]:
                 color_list[int(b)]=colorsequence[a]
-        self.usedColors=colorsequence[:len(self.clusts)]
-        self.nonClustColor=nonClustColor
         return color_list
 
     def _makeDFLINK(self,truncate=True): #make the link dataframe 
@@ -328,7 +375,7 @@ class SSCluster(object):
     
         
             
-    def dendro(self,hideEventLabels=True,clustColors=['g','r','c','m','y','k'],nonClustColor='b',show=True,saveName=False,legend=True,**kwargs): #creates a basic dendrogram plot
+    def dendro(self,hideEventLabels=True,show=True,saveName=False,legend=True,**kwargs): #creates a basic dendrogram plot
         """
         Function to plot the dendrogram clusters using scipy
         
@@ -336,13 +383,6 @@ class SSCluster(object):
         -----
         hideEventLabels : boolean
             turns x axis labeling on/off. Better set to false if many events are in event pool
-        clustColors : list
-            A list of any matploblib color strings. Can be known letters, rgb values, or grey shades. 
-            colors allows user to define a list of matplotlib accetable color sequencies to be used for each cluster. If colors is longer
-            than number of clusters only needed number will be used, starting at index 0. If it is shorter than number of clusters then
-            color will repeat. Defaults to the 'g','r','c','m','y','k' sequence used naturally by scipy dendrogram
-        nonClustColor : matplotlib color representation
-            A color representation readable by matplotlib
         show : boolean
             If true call the plt.show function
         saveName : str
@@ -358,12 +398,14 @@ class SSCluster(object):
         # Get color schemes
         
 
-        color_list=self._makeColorDict(clustColors,nonClustColor)
+        color_list=self._makeColorDict(self.clustColors,self.nonClustColor)
         #plt.subplot(111)
         for a in range(len(self.clusts)):
-            plt.plot([],[],'-',color=self.usedColors[a])
-        plt.plot([],[],'-',color=nonClustColor)
-        dendrogram(self.link,count_sort=True,link_color_func=lambda x: color_list[x],**kwargs)
+            plt.plot([],[],'-',color=self.clustColors[a])
+        plt.plot([],[],'-',color=self.nonClustColor)
+        #deb(color_list)
+       # dendrogram(self.link,count_sort=True,link_color_func=lambda x: color_list[x],**kwargs)
+        #deb([self.link,1-self.CCreq,c,color_list,self.clustColors])
         dendrogram(self.link,color_threshold=1-self.CCreq,count_sort=True,link_color_func=lambda x: color_list[x],**kwargs)
         ax=plt.gca()
         if legend:
@@ -381,11 +423,10 @@ class SSCluster(object):
         if show:
             plt.show()
     
-    def plotEvents(self,plotdendro=True,projection='merc',plotNonCluts=True):
+    def plotEvents(self,projection='merc',plotNonClusts=True):
         """
         Function to use basemap to plot the physical locations of the events in the same color as their respective clusters
         
-        If plotdendro then also plot the dendrogram above the locations
         """
         try:
             from  mpl_toolkits.basemap import Basemap
@@ -393,7 +434,7 @@ class SSCluster(object):
             raise ImportError('mpl_toolskits does not have basemap, plotting cannot be perfromed')
         #TODO make dot size scale with magnitudes 
         self.dendro()
-        plt.figure(1)
+        plt.figure()
         #plt.subplot(1,3,1)
         
         latmin,latmax,lonmin,lonmax=self.temkey.LAT.min(),self.temkey.LAT.max(),self.temkey.LON.min(),self.temkey.LON.max()
@@ -415,40 +456,37 @@ class SSCluster(object):
         
         x,y=emap(nocldf.LON.values,nocldf.LAT.values)
         emap.plot(x,y,'.',color=self.nonClustColor,ms=6.0)
-        plt.figure(2)
-        plt.plot(x,nocldf.DEPTH*zscaleFactor,'.',color=self.nonClustColor,ms=6.0)
-        plt.figure(3)
-        plt.plot(y,nocldf.DEPTH*zscaleFactor,'.',color=self.nonClustColor,ms=6.0)
-        for a in range(len(self.clusts)):
-                plt.figure(1)
-                x,y=emap(temDFs[a].LON.values,temDFs[a].LAT.values)
-                emap.plot(x,y,'.',color=self.usedColors[a])
-                plt.figure(2)
-                plt.plot(x,temDFs[a].DEPTH*zscaleFactor,'.',color=self.usedColors[a])
-                plt.figure(3)
-                plt.plot(y,temDFs[a].DEPTH*zscaleFactor,'.',color=self.usedColors[a])
-        #make labels
-        plt.figure(1)
         latdi,londi=[abs(latmax-latmin),abs(lonmax-lonmin)] #get maximum degree distance for setting scalable ticks   
         maxdeg=max(latdi,londi)
         parallels = np.arange(0.,80,maxdeg/4)
         emap.drawparallels(parallels,labels=[1,0,0,1])
         meridians = np.arange(10.,360.,maxdeg/4)
-        emap.drawmeridians(meridians,labels=[1,0,0,1])
-        plt.figure(2)
+        emap.drawmeridians(meridians,labels=[1,0,0,1])        
+        
+        plt.figure()
+        plt.plot(x,nocldf.DEPTH*zscaleFactor,'.',color=self.nonClustColor,ms=6.0)
         plt.yticks(np.linspace(zmin*zscaleFactor,zmax*zscaleFactor,10),['%0.1f'% x1 for x1 in np.linspace(zmin,zmax,10)])
         plt.gca().invert_yaxis()
         plt.xticks([])
         plt.ylabel('Depth (km)')
         plt.xlabel('Longitude')
-        plt.figure(3)
+        
+        plt.figure()
+        plt.plot(y,nocldf.DEPTH*zscaleFactor,'.',color=self.nonClustColor,ms=6.0)
+        for a in range(len(self.clusts)):
+                plt.figure(1)
+                x,y=emap(temDFs[a].LON.values,temDFs[a].LAT.values)
+                emap.plot(x,y,'.',color=self.clustColors[a])
+                plt.figure(2)
+                plt.plot(x,temDFs[a].DEPTH*zscaleFactor,'.',color=self.clustColors[a])
+                plt.figure(3)
+                plt.plot(y,temDFs[a].DEPTH*zscaleFactor,'.',color=self.clustColors[a])
+        #make labels
         plt.yticks(np.linspace(zmin*zscaleFactor,zmax*zscaleFactor,10),['%0.1f'% x1 for x1 in np.linspace(zmin,zmax,10)])
         plt.gca().invert_yaxis()
         plt.xticks([])
         plt.ylabel('Depth (km)')
         plt.xlabel('Lattitude')
-        
-        plt.show()
                 
     def simMatrix(self,groupClusts=False,savename=False,returnMat=False,**kwargs):
         """
@@ -796,7 +834,9 @@ class SubSpaceStream(object):
         self.dtype=dtype
         self.Pf=Pf
         self.ssStations=self.subspaces.keys()
-        self.singStations=self.singles.keys()
+        self.singStations=self.singles.keys()     
+        self._stakey2={x:x for x in self.ssStations}
+        self._stakey1={x.split('.')[1]:x for x in self.ssStations}
         
     def _checkSelection(self,selectCriteria,selectValue,Threshold): #make sure user defined values are acceptable
         if selectCriteria in [1,2,3]:
@@ -1259,6 +1299,7 @@ class SubSpaceStream(object):
             for starow in trdfDict[station].iterrows():
                 if not starow[1].SampleTrims: # If the sample trim dictionary is empty
                     TR=self._makeOpStream(starow,traceLimit) #Make an obspy stream
+                    Pks=None #This is needed or it crashes OS X versions
                     Pks=detex.streamPick.streamPick(TR)
                     d1={}
                     for b in Pks._picks:
@@ -1446,6 +1487,22 @@ class SubSpaceStream(object):
             #dfsingkey['Single']=','.join([x.Events.values[0][0] for x in self.singles]) # make list of subspaces
             #dfsskey['Stations']=','.join([x.Station.values[0] for x in self.singles]) # get all stations in each subspace
             #detex.util.saveSQLite(dfsskey,subspaceDB,'single_info')
+      
+    def __getitem__(self,key): #make object indexable
+        if isinstance(key,int):
+            return self.subspaces[self.ssStations[key]]
+        elif isinstance(key,str):
+            if len(key.split('.'))==2:
+                return self.subspaces[self._stakey2[key]]
+            elif len(key.split('.'))==1:
+                return self.subspaces[self._stakey1[key]]
+            else:
+                raise Exception('%s is not a station in this cluster object' % key)
+        else:
+            raise Exception ('%s must either be a int or str of station name')
+            
+    def __len__(self): 
+        return len(self.subspaces) 
                 
         
 ########################## Shared Subspace and Cluster Functions ###########################################
@@ -1455,6 +1512,7 @@ def _loadEvents(filelist,indir,filt,trim,stakey,templateDir,decimate,temkey,dtyp
     TRDF=pd.DataFrame()
     if not isinstance(filelist,list) and not filelist==None:
         raise Exception ('filelist must be set to either a list or None')
+    stakey=stakey[[isinstance(x,str) for x in stakey.STATION]]
     TRDF['Station']=[str(x)+'.'+str(y) for x,y in zip(stakey.NETWORK.values,stakey.STATION.values)]
     if not isinstance(filelist,list):
         eventFiles=np.array([os.path.join(indir,x) for x in temkey.NAME])
@@ -1677,8 +1735,10 @@ def _loadStream (eventFiles,templateDir,filt,trim,decimate,station,dtype): #load
         channelDict.pop(key,None)
         stats.pop(key,None)
     if len(StreamDict.keys())<2:
-        raise Exception('Less than 2 events survived preprocessing. Check input parameters, especially trim')
-    return StreamDict, StreamDict.keys(), channelDict, stats
+        raise Exception('Less than 2 events survived preprocessing for station %s. Check input parameters, especially trim' % station)
+    evlist= StreamDict.keys()
+    evlist.sort()
+    return StreamDict, evlist, channelDict, stats
             
 def multiplex(TR,Nc,trimTolerance=15,Template=False,returnlist=False,retTR=False):
     if Nc==1:
@@ -2540,10 +2600,17 @@ class SSDetex(object):
                 MPcon=None            
             if isinstance(MPcon,np.ndarray): #If channels not equal in length and multiplexing fails delete hour, else continue with CCs                  
                 ssd=self._MPXSD(MPconcur,reqlen[name],ssArrayTD[name],ssArrayFD[name],Nc,MPconFD)
-                maxind=ssd.argmax()
+                try:                
+                    maxind=ssd.argmax()
+                except ValueError:
+                    return None,None,None
+                    
                 CorDF.SSdetect[name]=ssd
                 CorDF.MaxSD[name]=CorDF.SSdetect[name].max()
-                CorDF.STALTA[name]=self._getStaLtaArray(CorDF.SSdetect[name],self.triggerLTATime*CorDF.SampRate[0],self.triggerSTATime*CorDF.SampRate[0])
+                try:
+                    CorDF.STALTA[name]=self._getStaLtaArray(CorDF.SSdetect[name],self.triggerLTATime*CorDF.SampRate[0],self.triggerSTATime*CorDF.SampRate[0])
+                except:
+                    return None,None,None
                 CorDF.MaxSTALTA[name]=CorDF.STALTA[name].max()
                 CorDF.Nc[name]=Nc
                 

@@ -5,7 +5,7 @@ Created on Thu May 29 16:41:48 2014
 @author: Derrick
 """
 import numpy as np, obspy, glob, os, streamPick, sys, sqlite3, detex.pandas_dbms, random
-import pandas.io.sql as psql, simplekml, pandas as pd,matplotlib.pyplot as plt
+import pandas.io.sql as psql, simplekml, pandas as pd ,matplotlib.pyplot as plt
 
 class AllTemplates(object): #class to load all templates
     """Class for visualization purposes"""
@@ -83,6 +83,31 @@ def writeKMLFromDF(DF,outname='map.kml'):
         pnt.name=str(a[1].DateString)
         pnt.coords=[(a[1].Lon,a[1].Lat)]
     kml.save(outname)
+    
+def writeKMLFromTempalteKey(df='TemplateKey.csv',outname='map.kml'):
+    """ 
+    Write a KML file from a tempalteKey
+
+    Parameters
+    -------------
+    DF : str or pandas Dataframe
+        If str then the path to the Templatekey. If dataframe the loaded tempalte key
+    outname : str
+        name of the kml file
+    """
+    if isinstance(df,str):
+        df=pd.read_csv(df)
+    elif isinstance(df,pd.DataFrame):
+        pass
+    else:
+        raise Exception('DF must be the Path to the TempalteKey or the loaded template key, unaccpetable type passed')
+    kml = simplekml.Kml(open=1)
+    for a in df.iterrows():             
+        pnt=kml.newpoint()
+        pnt.name=a[1].NAME
+        pnt.coords=[(a[1].LON,a[1].LAT)]
+    kml.save(outname)    
+
            
 def writeKMLFromHypInv(hypout='sum2000',outname='hypoInv.kml'):
     """Uses simplekml to create a KML file (used by Google Earth, Google Maps, etc)
@@ -130,6 +155,73 @@ def writeKMLFromHypDD(hypreloc='hypoDD.reloc',outname='hypo.kml'):
         pnt.name=str(int(a[0]))
         pnt.coords=[(a[2],a[1])]
     kml.save(outname)
+
+def writeKMLFromEQSearchSum(eqsum='eqsrchsum',outname='eqsearch.kml'):
+    """
+    Write a KML from the eqsearch sum file (produced by the University of Utah seismograph stations code EQsearch)
+    
+    Parameters
+    -------------
+    eqsum : str
+        eqsearch sum. file
+    outname : str
+        name of the kml file
+    """
+    clspecs=[(0,2),(2,4),(4,6),(7,9),(9,11),(12,17),(18,20),(21,26),(27,30),(31,36),(37,43),(45,50)]
+    names=['year','mo','day','hr','min','sec','latdeg','latmin','londeg','lonmin','dep','mag']
+    df=pd.read_fwf(eqsum,colspecs=clspecs,header=None,names=names)
+    year=['19%02d' % x if x>50 else '20%02d' % x for x in df['year']]
+    month=['%02d'% x for x in df['mo']]
+    day=['%02d'% x for x in df['day']]
+    hr=['%02d'% x for x in df['hr']]
+    minute=['%02d'% x for x in df['min']]
+    second=['%05.02f'% x for x in df['sec']]
+    TIME=['%s-%s-%sT%s-%s-%s' % (x1,x2,x3,x4,x5,x6) for x1,x2,x3,x4,x5,x6 in zip(year,month,day,hr,minute,second)]
+    Lat=df['latdeg'].values+df['latmin'].values/60.0
+    Lon=-df['londeg'].values-df['lonmin'].values/60.0
+    
+    kml = simplekml.Kml(open=1)
+    for T,Lat,Lon in zip(TIME,Lat,Lon):
+        pnt=kml.newpoint()
+        pnt.name=str(T)
+        pnt.coords=[(Lon,Lat)]
+    kml.save(outname)
+    
+    
+def writeTemplateKeyFromEQSearchSum(eqsum='eqsrchsum',outname='eqTemplateKey.csv'):
+    """
+    Write a KML from the eqsearch sum file (produced by the University of Utah seismograph stations code EQsearch)
+    
+    Parameters
+    -------------
+    eqsum : str
+        eqsearch sum. file
+    outname : str
+        name of the kml file
+    """
+    clspecs=[(0,2),(2,4),(4,6),(7,9),(9,11),(12,17),(18,20),(21,26),(27,30),(31,36),(37,43),(45,50)]
+    names=['year','mo','day','hr','min','sec','latdeg','latmin','londeg','lonmin','dep','mag']
+    df=pd.read_fwf(eqsum,colspecs=clspecs,header=None,names=names)
+    year=['19%02d' % x if x>50 else '20%02d' % x for x in df['year']]
+    month=['%02d'% x for x in df['mo']]
+    day=['%02d'% x for x in df['day']]
+    hr=['%02d'% x for x in df['hr']]
+    minute=['%02d'% x for x in df['min']]
+    second=['%05.02f'% x for x in df['sec']]
+    TIME=['%s-%s-%sT%s-%s-%s' % (x1,x2,x3,x4,x5,x6) for x1,x2,x3,x4,x5,x6 in zip(year,month,day,hr,minute,second)]
+    Lat=df['latdeg'].values+df['latmin'].values/60.0
+    Lon=-df['londeg'].values-df['lonmin'].values/60.0
+    
+    DF=pd.DataFrame()
+    DF['TIME']=TIME
+    DF['NAME']=TIME
+    DF['LAT']=Lat
+    DF['LON']=Lon
+    DF['MAG']=df['mag']
+    DF['DEPTH']=df['dep']
+    DF.to_csv(outname)
+
+    
 
 def writeHypoFromDict(TTdict,phase='P',output='all.phases'):
     """ Function to write a hyp phase input file based on dictionary or list of dictionaries
@@ -608,6 +700,7 @@ def trimTemplates(EveDir='EventWaveForms',templatekey='TemplateKey.csv', pickDF=
         waveforms=glob.glob(os.path.join(a,'*'))
         for wf in waveforms:
             TR=obspy.core.read(wf)
+            Pks=None #needed so OS X doesn't crash
             Pks=detex.streamPick.streamPick(TR)
             tdict={}
             saveit=0
