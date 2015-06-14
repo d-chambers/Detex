@@ -175,7 +175,10 @@ class SSClusterStream(object):
     A container for multiple cluster objects
     """
     def __init__(self,TRDF,temkey,eventList,CCreq,filt,decimate,trim,indir,saveclust,clustname,templateDir,filelist,StationKey,save,filename,eventsOnAllStations): #save,filename
-        #self.__dict__.update(locals()) #Instantiate all input variables
+        self.__dict__.update(locals()) #Instantiate all input variables
+        self.TRDF=None # clear this variable as it takes up too much space and is not used later
+        self.StationKey=StationKey
+        self.temkey=temkey
         self.clusters=[0]*len(TRDF)
         self.stalist=TRDF.Station.values.tolist() #get station lists for indexing
         self.stalist2=[x.split('.')[1] for x in self.stalist]
@@ -1148,7 +1151,7 @@ class SubSpaceStream(object):
                 plt.title(row[1].Station)
                 plt.xticks([])
                 plt.yticks([])
-                plt.title('Station %s, %d' % (station,row.Name))
+                plt.title('Station %s, %d' % (station,row[1].Name))
             #f.suptitle() #plot does not look great, fix when possible
             plt.show()
                 
@@ -1390,7 +1393,7 @@ class SubSpaceStream(object):
 
     def detex(self,UTCstart=None,UTCend=None,subspaceDB='SubSpace.db',trigCon=0,triggerLTATime=5,triggerSTATime=0,
         multiprocess=False,delOldCorrs=True,extrapolateTimes=True, calcHist=True,useSubSpaces=True,useSingles=False,
-        estimateMags=True,pks=None,eventDir=None,eventCorFile='EventCors.pkl',UTCSaves=None):
+        estimateMags=True,pks=None,eventDir=None,eventCorFile='EventCors.pkl',UTCSaves=None,fillZeros=False):
         """
         function to run subspace detection over continous data and store results in SQL database subspaceDB
         
@@ -1442,7 +1445,8 @@ class SubSpaceStream(object):
             Either none (no effect) or an iterrable  of obspy.core.UTCDateTime readable objects. For continous data chunk being scanned if a time in the 
             UTCdate falls within the start time and end time of the continous data the vector of SD, along with cotninous data, thresholds, etc. is save to
             a pickled dataframe of the name "UTCsaves.pkl"
-            
+        fillZeros : boolean
+            If true fill the gaps in continous data with 0s. If True STA/LTA of detection statistic cannot be calculated in order to avoid dividing by 0            
         """
     
         if multiprocess or trigCon!=0 or useSingles: #make sure no parameters that dont work yet are selected
@@ -1453,7 +1457,7 @@ class SubSpaceStream(object):
                 raise Exception('subspace not yet defined, call SVD before attempting to run subspace detectors')
             Det=SSDetex(TRDF,UTCstart,UTCend,self.condir,self.clusters.indir,subspaceDB,trigCon,triggerLTATime,triggerSTATime,
             multiprocess,self.clusters.filt,self.clusters.decimate,delOldCorrs,extrapolateTimes,calcHist,self.dtype,estimateMags,
-            pks,eventDir,eventCorFile,UTCSaves)
+            pks,eventDir,eventCorFile,UTCSaves,fillZeros)
             
             self.histSubSpaces=Det.hist
 #            if any([x is not None for x in Det.hists]): #see if histograms were returned
@@ -1780,6 +1784,10 @@ def _mergeChannels(TR): #function to find longest continous data chucnk and disc
     TR.trim(starttime=TR[lemax].stats.starttime,endtime=TR[lemax].stats.endtime)
     return TR
 
+def _mergeChannelsFill(TR):
+    TR.merge(fill_value=0.0)
+    return TR
+
 ############################## Subspace Detex and FAS ###################################################
 
 def _initFAS(TRDF,conDatNum,cluster,ConDir='ContinousWaveForms',LTATime=5,STATime=0.5,numBins=401,dtype='double',staltalimit=6.5):
@@ -1815,6 +1823,7 @@ def _initFAS(TRDF,conDatNum,cluster,ConDir='ContinousWaveForms',LTATime=5,STATim
         for c in range(conDatNum):
             condat,usedJdayHours=_loadRandomContinousData(a,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit)
             if c<10 and condat[0].stats.endtime-condat[0].stats.starttime > ContinousDataLength: #test first 10 random samples for length requirement
+                deb([c,condat,ContinousDataLength,a,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit])
                 raise Exception('Continous data read in is %d, which is longer than %d seconds, redefine ContinousDataLength when calling getFAS' 
                 % (int(condat[0].stats.endtime-condat[0].stats.starttime),ContinousDataLength))
             MPcon=multiplex(condat,Nc)
@@ -1987,19 +1996,22 @@ def _loadRandomContinousData(station,jdays,cluster,usedJdayHours,dtype,LTATime,S
             raise Exception('something is broked')
     return TR,usedJdayHours
                                  
-def _applyFilter(ST,filt,decimate=False,dtype='double'):# Apply a filter/decimateion to an obspy trace object and trim 
+def _applyFilter(ST,filt,decimate=False,dtype='double',fillZeros=False):# Apply a filter/decimateion to an obspy trace object and trim 
     ST.sort()
     if dtype=='single': #cast into single if desired
         for num,tr in enumerate(ST):
             ST[num].data=tr.data.astype(np.float32)
     Nc=list(set([x.stats.channel for x in ST]))
-    if len(ST)>Nc: #if data is fragmented merge and fill with 0s
-        ST=_mergeChannels(ST)
+    if len(ST)>len(Nc): #if data is fragmented only keep largest chunk
+        if fillZeros:
+            ST=_mergeChannelsFill(ST)
+        else:
+            ST=_mergeChannels(ST)
     if decimate:
         ST.decimate(decimate)
     startTrim=max([x.stats.starttime for x in ST])
     endTrim=min([x.stats.endtime for x in ST])
-    ST=ST.slice(starttime=startTrim,endtime=endTrim)   
+    ST=ST.slice(starttime=startTrim,endtime=endTrim) 
     ST.detrend('linear')
     if isinstance(filt,list) or isinstance(filt,tuple):
         ST.filter('bandpass',freqmin=filt[0],freqmax=filt[1],corners=filt[2],zerophase=filt[3])
@@ -2067,7 +2079,7 @@ class SSDetex(object):
     ConDir
     """
     def __init__(self,TRDF,UTCstart,UTCend,ConDir,EveDir,subspaceDB,trigCon,triggerLTATime,triggerSTATime,multiprocess,filt,
-                 decimate,delOldCorrs,extrapolateTimes,calcHist,dtype,estimateMags,pks,eventDir,eventCorFile,UTCSaves):
+                 decimate,delOldCorrs,extrapolateTimes,calcHist,dtype,estimateMags,pks,eventDir,eventCorFile,UTCSaves,fillZeros):
         self.__dict__.update(locals()) # Instantiate all input variables
         if not os.path.exists(ConDir):
             raise Exception('%s does not exist, make sure you are in the correct directory'%ConDir)
@@ -2165,6 +2177,7 @@ class SSDetex(object):
                 CorDF,MPcon,ConDat=self._getRA(ssArrayTD,ssArrayFD,fileToCorr,len(channels),reqlen,contrim,Names)
                 if not isinstance(CorDF,pd.DataFrame): #if something is broken skip hour
                     print '%s failed' % fileToCorr 
+                    
                     continue
                 for name,row in CorDF.iterrows(): # iterate through each subspace/single
                     self.eventCorList.append(pd.DataFrame([[sta,name,row.File,row.MaxSD,row.MaxSTALTA]],columns=['Station','Subspace','File','SD','SD_STALTA']))
@@ -2207,7 +2220,7 @@ class SSDetex(object):
                 FilesToCorr=glob.glob(os.path.join(self.ConDir,sta,str(conrangeyear[a]),str(b),sta+'*'))
                 for fileToCorr in FilesToCorr: #loop through each chunk of continous data
                     CorDF,MPcon,ConDat=self._getRA(ssArrayTD,ssArrayFD,fileToCorr,len(channels),reqlen,contrim,Names)
-                    if not isinstance(CorDF,pd.DataFrame): #if something is broken skip hour
+                    if not isinstance(CorDF,pd.DataFrame): #if something is broken skip hour                        
                         print '%s failed' % fileToCorr 
                         continue
                     for name,row in CorDF.iterrows(): # iterate through each subspace/single
@@ -2219,6 +2232,7 @@ class SSDetex(object):
                         if isinstance(self.UTCSaves,collections.Iterable):
                             self._makeUTCSaveDF(row,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD)
                         if self._evalTriggerCondition(row,name,threshold): # Trigger Condition
+                            #deb(row)
                             Sar=self._CreateCoeffArray(row,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD,WFU,UtU,staPksDf,pwave,swave)
                             if len(Sar)>300:
                                 print 'over 300 events found in single continous data chunk, perphaps minCoef is too low?' 
@@ -2318,7 +2332,6 @@ class SSDetex(object):
         #deb([PKS,a])                             
     def _CreateCoeffArray(self,CorSeries,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD,WFU,UtU,staPKsDf,pwave,swave):  
         #WFlen=np.shape(WFU[name])[1] #get length of window in samples
-
         dpv=0
         if self.trigCon==0:
             Ceval=CorSeries.SSdetect.copy()
@@ -2338,8 +2351,10 @@ class SSDetex(object):
             else:
                 times=[float(trigIndex)/CorSeries.SampRate+CorSeries.TimeStamp]
                 
-                
-            SLValue=CorSeries.STALTA[trigIndex]
+            if self.fillZeros: #if zeros are being filled dont even try STA/LTA
+                SLValue=0.0
+            else:
+                SLValue=CorSeries.STALTA[trigIndex]
             #alpha[len(alpha)]=self._calcAlpha(trigIndex,Y,X,chans)
             Ceval=self._downPlayArrayAroundMax(Ceval,CorSeries.SampRate,dpv)
             
@@ -2357,6 +2372,8 @@ class SSDetex(object):
             if count>4000: #kill switch to prevent infinite loop (just in case)
                 raise Exception (' _CreatCoeffArray loop exceeds limit of 4000 events in one continous data chunk')
             MSTAMPmax,MSTAMPmin=times-np.min(offsets[name]),times-np.max(offsets[name])
+            if not MSTAMPmin>0:
+                deb([CorSeries,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD,WFU,UtU,staPKsDf,pwave,swave])
             Sar.loc[count]=[coef,SLValue,times,name,sta,MSTAMPmin,MSTAMPmax,stdMag,SNR,ProEnmag]
             count+=1
         #deb(Sar)
@@ -2577,9 +2594,10 @@ class SSDetex(object):
         CorDF=pd.DataFrame(index=Names,columns=['SSdetect','STALTA','TimeStamp','SampRate','MaxSD','MaxSTALTA','Nc','File'])
         CorDF['File']=os.path.basename(fileToCorr)
         try:
-            conStream=_applyFilter(obspy.core.read(fileToCorr),self.filt,self.decimate,self.dtype)
+            conStream=_applyFilter(obspy.core.read(fileToCorr),self.filt,self.decimate,self.dtype,fillZeros=self.fillZeros)
         except ValueError:
             return None,None,None
+        
         CorDF.SampRate=conStream[0].stats.sampling_rate
         MPcon,ConDat,TR=multiplex(conStream,Nc,returnlist=True,retTR=True)
         CorDF.TimeStamp=TR[0].stats.starttime.timestamp
@@ -2594,24 +2612,29 @@ class SSDetex(object):
         MPconFD=scipy.fftpack.fft(MPcon,n=2**int(np.median(reqlen.values())).bit_length())
  
         
-        for name,row in CorDF.iterrows(): #loop through each hour in this Jday and calculate statistics
-
+        for name,row in CorDF.iterrows(): #loop through each hour in this Jday and calculate statistic
             if len(MPcon)<=np.max(np.shape(ssArrayTD[name])): # make sure the template is shorter than continous data else skip
                 MPcon=None            
             if isinstance(MPcon,np.ndarray): #If channels not equal in length and multiplexing fails delete hour, else continue with CCs                  
                 ssd=self._MPXSD(MPconcur,reqlen[name],ssArrayTD[name],ssArrayFD[name],Nc,MPconFD)
-                try:                
-                    maxind=ssd.argmax()
-                except ValueError:
-                    return None,None,None
-                    
+#                try:                
+#                    maxind=ssd.argmax()
+#                except ValueError:
+#                    return None,None,None
                 CorDF.SSdetect[name]=ssd
-                CorDF.MaxSD[name]=CorDF.SSdetect[name].max()
-                try:
-                    CorDF.STALTA[name]=self._getStaLtaArray(CorDF.SSdetect[name],self.triggerLTATime*CorDF.SampRate[0],self.triggerSTATime*CorDF.SampRate[0])
-                except:
+                if len(ssd)<10:
                     return None,None,None
-                CorDF.MaxSTALTA[name]=CorDF.STALTA[name].max()
+                CorDF.MaxSD[name]=ssd.max()
+                if CorDF.MaxSD[name]>1.1: # If an infinity value occurs, zero it. 
+                    ssd[np.isinf(ssd)] = 0
+                    CorDF.SSdetect[name]=ssd
+                    CorDF.MaxSD[name]=ssd.max()
+                if not self.fillZeros: #dont calculate sta/lta if zerofill is used
+                    try:
+                        CorDF.STALTA[name]=self._getStaLtaArray(CorDF.SSdetect[name],self.triggerLTATime*CorDF.SampRate[0],self.triggerSTATime*CorDF.SampRate[0])
+                    except:
+                        return None,None,None
+                    CorDF.MaxSTALTA[name]=CorDF.STALTA[name].max()
                 CorDF.Nc[name]=Nc
                 
             else:

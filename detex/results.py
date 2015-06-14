@@ -621,7 +621,7 @@ def deb(varlist):
     sys.exit(1)                   
 
 
-def ssResults(trigCon=1,trigParameter=0,associateReq=0,associateBuffer=1,requiredNumStations=4,veriBuffer=1,ssDB='SubSpace.db',
+def ssResults(trigCon=0,trigParameter=0,associateReq=0,associateBuffer=1,requiredNumStations=4,veriBuffer=1,ssDB='SubSpace.db',
               templatePath='EventWaveForms',condir='ContinousWaveForms',templateKey='TemplateKey.csv',stationKey='StationKey.csv',
               veriFile=None,includeAllVeriColumns=True,reduceDets=True,sspickle='subspace.pkl',Pf=False,Stations=None,
               starttime=None,endtime=None):
@@ -717,6 +717,7 @@ def ssResults(trigCon=1,trigParameter=0,associateReq=0,associateBuffer=1,require
     
     if isinstance(Stations,(list,tuple)): # reduce stations if requested
         ssdf=ssdf[ssdf.Sta.isin(Stations)]    
+    
     ### Associate detections on different stations together
     Dets,Autos=_associateDetections(ssdf,associateReq,requiredNumStations,associateBuffer,ss_info,temkey)
     
@@ -857,7 +858,7 @@ def _buildSQL(PfKey,trigCon,trigParameter,Stations,starttime,endtime):
             
     if isinstance(PfKey,pd.DataFrame):
         for num,row in PfKey.iterrows():
-            SQL.append('SELECT %s FROM %s WHERE Sta="%s" AND Name="%s" AND  SD>%f AND MSTAMPmin>%f AND MSTAMPmin<%f'% ('*','ss_df',row.Sta,row.Name,row.SD,starttime,endtime))
+            SQL.append('SELECT %s FROM %s WHERE Sta="%s" AND Name="%s" AND  SD>=%f AND MSTAMPmin>%f AND MSTAMPmin<%f'% ('*','ss_df',row.Sta,row.Name,row.SD,starttime,endtime))
     
     else:         
         if trigCon==0:
@@ -866,9 +867,9 @@ def _buildSQL(PfKey,trigCon,trigParameter,Stations,starttime,endtime):
             cond='SD_STALTA'
         for sta in Stations:
             if sta=='*':
-                SQL.append('SELECT %s FROM %s WHERE %s > %s AND MSTAMPmin>%f AND MSTAMPmin<%f' % ('*', 'ss_df',cond,trigParameter,starttime,endtime))
+                SQL.append('SELECT %s FROM %s WHERE %s >= %s AND MSTAMPmin>=%f AND MSTAMPmin<=%f' % ('*', 'ss_df',cond,trigParameter,starttime,endtime))
             else:
-                SQL.append('SELECT %s FROM %s WHERE %s="%s" AND %s > %s AND MSTAMPmin>%f AND MSTAMPmin<%f' % ('*', 'ss_df','Sta',sta,cond,trigParameter,starttime,endtime))
+                SQL.append('SELECT %s FROM %s WHERE %s="%s" AND %s >= %s AND MSTAMPmin>=%f AND MSTAMPmin<=%f' % ('*', 'ss_df','Sta',sta,cond,trigParameter,starttime,endtime))
     return SQL
     
 def _deleteDetDuplicates(ssDB,trigCon,trigParameter,associateBuffer,starttime,endtime,Stations,PfKey=None):
@@ -882,6 +883,7 @@ def _deleteDetDuplicates(ssDB,trigCon,trigParameter,associateBuffer,starttime,en
         sslist.append(detex.util.loadSQLite(ssDB,'ss_df',sql=sql))
         
     ssdf=pd.concat(sslist,ignore_index=True)
+    
     ssdf.reset_index(drop=True,inplace=True)
 
     ssdf.sort(columns=['Sta','MSTAMPmin'],inplace=True)

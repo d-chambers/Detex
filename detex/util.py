@@ -346,7 +346,9 @@ def getContinousDataLength(Condir='ContinousWaveForms',numToRead=10):
             rannum=int(round(np.random.rand()*len(years)))
             traces=glob.glob(os.path.join(random.choice(jdays[rannum-1]),'*'))
             st=obspy.core.read(random.choice(traces))
-            lenlist.append(st[0].stats.endtime-st[0].stats.starttime)
+            stimes=[x.stats.starttime.timestamp for x in st]
+            etimes=[x.stats.endtime.timestamp for x in st]
+            lenlist.append(max(etimes)-min(stimes))
         ledict[sta]=np.median(lenlist)
     lenlist=ledict.values()
     if not all([abs(x-lenlist[0])<1 for x in lenlist]): #if difference in median lengths are greater than 1 second accross all stations abort
@@ -422,7 +424,9 @@ def loadSQLite(corDB,tableName,sql=None):
         sql='SELECT %s FROM %s' % ('*', tableName)
     #sys.exit(1)
     with sqlite3.connect(corDB, detect_types=sqlite3.PARSE_DECLTYPES) as con:
-        df=psql.read_sql(sql, con)
+        #df=pd.read_sql(sql, con)
+        df=psql.read_sql(sql,con)
+        df=df.convert_objects(convert_dates=False,convert_numeric=True) #convert unicode to flaot where possible
     return df
         
 def parseEvents(EveDir='EventWaveForms'):

@@ -95,3 +95,9 @@ Fixed a problem causing OS X and pyqt to not play well together
 Added feature to allow event lists to be independent from station to station rather than just using the union of the two
 
 Accounted for various other bugs that can happen in subspace detection with less than high quality data
+
+Version 0.0.8
+_____________
+Small bug fixes
+
+Added option to subspace detection to allow continous data to be filled with 0s, facilitates the use of gappy data
