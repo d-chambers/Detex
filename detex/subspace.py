@@ -14,28 +14,28 @@ import colorsys
 
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
 import multiprocessing,sys, warnings, numbers
-pd.options.mode.chained_assignment = None #mute setting copy warning
+pd.options.mode.chained_assignment = None #mute setting copy warning 
 from struct import pack
 
 #warnings.filterwarnings('error') #uncomment this to make all warnings be thrown as errors in order to find where warnings are coming from
  
-#np.seterr(all='raise')
+ 
 
 ######################################## CLUSTERING FUNCTIONS AND CLASSES  ###############################
 
 
 def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2,True],StationKey='StationKey.csv',
                   TemplateKey='TemplateKey.csv',trim=[100,200],filelist=None,allram=True,masterStation=None,saveclust=True,
-                  clustname='clust.pkl',decimate=None, dtype='double',consistentLength=True,eventsOnAllStations=False):
+                  clustname='clust.pkl',decimate=None, dtype='double',consistentLength=True,eventsOnAllStations=False,
+                  subSampleExtrapolate=True,enforceOrigin=False):
                       
                       
     """ Function to create the cluster class which contains the linkage matrix, event names, and a few visualization methods
-    
     Parameters
     -------
-
+    
     CCreq : float, between 0 and 1
-        The required cc between vectors in order for a cluster group to form. 0 means all vectors used
+        The minimum correlation coefficient for a grouping waveforms. 0 means all waveforms grouped together, 1 will not form any groups (in order to run each waveform as a correlation detector)
     indir : str
         Path to the directory containing the event waveforms
     templateDir : boolean
@@ -43,7 +43,7 @@ def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2
     filt : list
         A list of the required input parameters for the obspy bandpass filter [freqmin,freqmax,corners,zerophase]
     StationKey : str
-        Path to the station key used by the events (#TODO get ride of this parameter and use station key path already in template key )
+        Path to the station key used by the events 
     TemplateKey : boolean
         Path to the template key 
     trim : list 
@@ -52,11 +52,11 @@ def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2
     filelist : list of str or None
         A list of paths to obspy readable seismic records. If none use indir
     allram : boolean 
-        If true then all the taces are read into the ram before correlations, saves time but could potentially fill up ram (Only True is currently supported)
+        If true then all the traces are read into the ram before correlations, saves time but could potentially fill up ram (Only True is currently supported)
     masterStation : str
         Allows user to set which station in StationKey should be used for clustering, if the string of a single
         station name is passed cluster analysis is only performed on that station. The event groups will then be forced for all stations
-        If none is passed then all stations are clustered independantly (IE no master station to force event groups in subspace class)
+        If none is passed then all stations are clustered independently (IE no master station to force event groups in subspace class)
     saveClust : boolean
         If true save the cluster object in the current working directory as clustname
     clustname : str
@@ -65,17 +65,22 @@ def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2
         A decimation factor to apply to all data (parameter is simply passed to the obspy trace/stream method decimate). Can greatly increase 
         speed and is desirable if the data are oversampled
     dytpe : str
-        The data type to use for recasting both event waveforms and continous data arrays. If none the defualt of float 64 is kept. Options include:
+        The data type to use for recasting both event waveforms and continuous data arrays. If none the default of float 64 is kept. Options include:
             double- numpy float 64
             single- numpy float 32, much faster and amenable with cuda GPU processing, sacrifices precision
     consistentLength : boolean
         If true the data in the events files are more or less the same length. Switch to false if the data are not, but can greatly increase 
         run times. 
     eventsOnAllStations : boolean
-        If true only use the events that occur on all stations, if false dont let each station have an independant event list
+        If True only use the events that occur on all stations, if false dont let each station have an independant event list
+    subSampleExtrapolate : boolean
+        If True subsample extrapolate lag times
+    enforceOrigin : boolean
+        If True make sure each traces starts at the reported origin time for a give event (trim or merge with zeros if not). Required for lag times
+        to be meaningful for hypoDD input
     Returns
     ---------
-    An instance of the detex SSSlustering class
+        An instance of the detex SSSlustering class
     """
     # Read in stationkey and set master station, if no master station selected us first station
     # 
@@ -94,15 +99,20 @@ def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2
             masterStation=[x.split('.')[1] for x in masterStation]
         stakey=stakey[stakey.STATION.isin(masterStation)]
     if len(stakey)==0:
+        detex.log(__name__,'Master station is not in the station key, aborting clustering',level='warning')
         raise Exception('Master station is not in the station key, aborting clustering')
     temkey=pd.read_csv(TemplateKey)
-    # Intialize parts of DF that will be used to store cluster info
-
+    if not temkey.equals(temkey.sort(columns='NAME')): #if template key is not sorted sort it and save over unsorted version
+        temkey.sort(columns='NAME',inplace=True)
+        temkey.reset_index(inplace=True,drop=True)
+        temkey.to_csv(TemplateKey,index=False)
     stakey.reset_index(drop=True,inplace=True)
-    #stakey['Delay']=list
+    
+    # Intialize parts of DF that will be used to store cluster info    
     if not templateDir:
         filelist=glob.glob(os.path.join(indir,'*'))
-    TRDF=_loadEvents(filelist,indir,filt,trim,stakey,templateDir,decimate,temkey,dtype)  
+    TRDF=_loadEvents(filelist,indir,filt,trim,stakey,templateDir,decimate,temkey,dtype,enforceOrigin=enforceOrigin)  
+    #deb(TRDF)
     TRDF.sort(columns='Station',inplace=True)
     TRDF.reset_index(drop=True,inplace=True)
     if consistentLength:
@@ -115,12 +125,15 @@ def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2
         eventList=list(set.intersection(*[set(x) for x in TRDF.Events])) #get list of events that occur on all required stations
         eventList.sort()        
         if len(eventList)<2:
+            detex.log(__name__,'less than 2 events in population have required stations',level='warning')
             raise Exception('less than 2 events in population have required stations')
     for a in TRDF.iterrows(): #loop over master station(s)
-        print 'getting CCs and lags on ' + a[1].Station   
+        detex.log(__name__,'getting CCs and lags on ' + a[1].Station,pri=True)
         if not eventsOnAllStations:
             eventList=a[1].Events
-        DFcc,DFlag=_makeDFcclags(eventList,a,consistentLength=consistentLength)
+        if len(a[1].Events)<2: #if only one event on this station skip it
+            continue
+        DFcc,DFlag=_makeDFcclags(eventList,a,consistentLength=consistentLength,subSampleExtrapolate=subSampleExtrapolate)
         TRDF.Lags[a[0]]=DFlag
         TRDF.CCs[a[0]]=DFcc
         #deb([DFlag,DFcc])
@@ -129,21 +142,19 @@ def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2
         cxdf=1.0000001-DFcc
         cxx=[x[xnum:] for xnum,x in enumerate(cxdf.values)] #flatten cxdf and index out nans 
         cx=np.fromiter(itertools.chain.from_iterable(cxx), dtype=np.float64)     
-        try:
-            cx,cxdf=_ensureUnique(cx,cxdf) # ensure x is unique in order to link correlation coeficients to lag time in dictionary
-        except:
-            deb([cx,cxdf])
-        for b in DFlag.iterrows(): #this is not efficient, consider rewriting withoutloops
-            lags=np.append(lags,b[1].dropna().tolist())
-        try:    
-            link = linkage(cx) #get cluster linkage
-        except:
-            deb([a,cx,cxdf,lags])
-        TRDF.loc[a[0],'Link']=link
+        cx,cxdf=_ensureUnique(cx,cxdf) # ensure x is unique in order to link correlation coeficients to lag time in dictionary
+        for b in DFlag.iterrows(): #TODO this is not efficient, consider rewriting withoutloops
+            lags=np.append(lags,b[1].dropna().tolist())   
+        link = linkage(cx) #get cluster linkage
+        TRDF['Link'][a[0]]=link
+            #TRDF.loc[a[0],'Link']=link
     #DFcc=pd.DataFrame(cxw,index=range(len(cxw)),columns=range(1,len(cxw)+1))
-    trdf=TRDF[['Station','Link','CCs','Lags','Events']] # a truncated TRDF only passign what is needed for clustering
-    clust=SSClusterStream(trdf,temkey,eventList,CCreq,filt,decimate,trim,indir,saveclust,clustname,templateDir,filelist,StationKey,saveclust,clustname,eventsOnAllStations)
+    trdf=TRDF[['Station','Link','CCs','Lags','Events','Stats']] # a truncated TRDF, only passing what is needed for clustering
     
+    #try:
+    clust=ClusterStream(trdf,temkey,eventList,CCreq,filt,decimate,trim,indir,saveclust,clustname,templateDir,filelist,StationKey,saveclust,clustname,eventsOnAllStations,stakey,enforceOrigin)
+#    except:
+#        deb([trdf,TRDF,a])
     if saveclust:
         clust.write()
     return clust
@@ -170,27 +181,160 @@ def loadSubSpace(filename='subspace.pkl'):
     return outob
 
 
-class SSClusterStream(object):
+class ClusterStream(object):
     """
     A container for multiple cluster objects
     """
-    def __init__(self,TRDF,temkey,eventList,CCreq,filt,decimate,trim,indir,saveclust,clustname,templateDir,filelist,StationKey,save,filename,eventsOnAllStations): #save,filename
+    def __init__(self,TRDF,temkey,eventList,CCreq,filt,decimate,trim,indir,saveclust,clustname,templateDir,filelist,StationKey,save,filename,eventsOnAllStations,stakey,enforceOrigin): #save,filename
+       
         self.__dict__.update(locals()) #Instantiate all input variables
-        self.TRDF=None # clear this variable as it takes up too much space and is not used later
-        self.StationKey=StationKey
-        self.temkey=temkey
+        self.CCreq=None # get rid of this attribute as it can vary between stations
+        #self.TRDF=None # clear this variable as it takes up too much space and is not used later
+#        self.StationKey=StationKey
+#        self.temkey=temkey
         self.clusters=[0]*len(TRDF)
         self.stalist=TRDF.Station.values.tolist() #get station lists for indexing
         self.stalist2=[x.split('.')[1] for x in self.stalist]
         self.filename=filename
+        self.eventCodes=self._makeCodes()
         for num,row in TRDF.iterrows():
             if not eventsOnAllStations:
                 evlist=row.Events
             else:
                 evlist=eventList
-            self.clusters[num]=SSCluster(self,row.Station,temkey,evlist,row.Link,CCreq,filt,decimate,trim,row.CCs,indir,templateDir,filelist,StationKey)
+            self.clusters[num]=Cluster(self,row.Station,temkey,evlist,row.Link,CCreq,filt,decimate,trim,row.CCs,indir,templateDir,filelist,StationKey)
         if save:
             self.write()
+
+    def writeSimpleHypoDDInput(self,fileName='dt.cc',coef=1,minCC=.35):
+        """
+        create a hypoDD cross correlation file (IE dt.cc), assuming the lag times are pure S times (true if S amplitude is larger than P)
+       
+        Parameters
+        ----------
+        fileName : str
+            THe path to the new file to be created
+        coef : float or int
+            The exponential coeficient to apply to the correlation coeficient when creating file
+       """
+        if not self.enforceOrigin:
+            detex.log(__name__,'Sample Lags are not meaningful unless origin times are enforced on each waveform. re-run detex.subspace.createCluster with enforceOrigins=True',level='warning')
+            raise Exception('Sample Lags are not meaningful unless origin times are enforced on each waveform. re-run detex.subspace.createCluster with enforceOrigins=True')
+        fil=open(fileName,'wb')
+        reqZeros=int(np.ceil(np.log10(len(self.temkey)))) #required number of zeros for numbering all events
+        for num1,everow1 in self.temkey.iterrows():
+            for num2,everow2 in self.temkey.iterrows():
+                if num1>=num2: #if autocorrelation or redundant pair just skip it
+                    continue    
+                ev1,ev2=everow1.NAME,everow2.NAME
+                header=self._makeHeader(num1,num2,reqZeros)
+                count=0
+                for sta in self.stalist: #itterate through each station
+                    Clu=self[sta]
+                    
+                    try:
+                        
+                        ind1=np.where(np.array(Clu.key)==ev1)[0][0] #find station specific index for event1
+                        ind2=np.where(np.array(Clu.key)==ev2)[0][0]
+                    except IndexError: #if either event is nopt in index
+                        detex.log(__name__,'%s or %s not found on station %s'%(ev1,ev2,sta))
+                        #deb([Clu,ev1,ev2])
+                        continue
+                    
+                    trdf=self.TRDF[self.TRDF.Station==sta].iloc[0]
+                    #deb([trdf,ind1,ind2])
+                    sr1,sr2=trdf.Stats[ev1]['sampling_rate'],trdf.Stats[ev2]['sampling_rate']
+                    if sr1!=sr2:
+                        detex.log(__name__,'Sampling rates not equal for %s and %s'%(ev1,ev2))
+                        raise Exception('Sampling rates not equal for %s and %s'%(ev1,ev2))
+                    else:
+                        sr=sr1
+                    Nc1,Nc2=trdf.Stats[ev1]['Nc'],trdf.Stats[ev2]['Nc']
+                    if Nc1!=Nc2:
+                        #deb([trdf,ev1,ev2,sta])
+                        detex.log(__detex__,'Number of channels not equal for %s and %s on %s',level='warning')
+                        continue
+                    else:
+                        Nc=Nc1
+                    cc=trdf.CCs[ind2][ind1] #get cc value
+                    if np.isnan(cc): # grab other part of symetric matrix if nan
+                        try:
+                            cc=trdf.CCs[ind1][ind2]
+                        except KeyError:
+                            continue
+                        if np.isnan(cc):
+                            continue
+                    if cc<minCC:
+                        continue
+                    lagsamps=trdf.Lags[ind2][ind1]
+                    if np.isnan(lagsamps):
+                        lagsamps=-trdf.Lags[ind2][ind1]
+                    lags=lagsamps/(sr*Nc)
+                    obsline=self._makeObsLine(sta,lags,cc**coef)
+                    if np.isnan(cc):
+                        deb(1)
+                    if isinstance(obsline,str):
+                        count+=1
+                        if count==1:
+                            fil.write(header+'\n')
+                        fil.write(obsline+'\n')
+        fil.close()
+    
+    def _makeObsLine(self,sta,dt,cc,pha='S',mincc=0,weightCoef=1):
+        if cc<mincc: #if cc is lower than min, return nothing
+            return
+        line='%s %0.4f %0.4f %s' %(sta,dt,cc**weightCoef,pha)
+        return line
+    
+    def _makeHeader(self,num1,num2,reqZeros):
+        fomatstr='{:0'+"{:d}".format(reqZeros)+'d}'
+        head='# '+fomatstr.format(num1)+' '+fomatstr.format(num2)+' '+'0.0' #assume cross corr and cat origins are identical
+        return head
+    
+    def writeHypoDDStationInput(self,fileName='station.dat',useElevations=True,inFt=False):
+        """
+        Write the station input file for hypoDD (station.dat)
+        
+        Parameters
+        ---------
+        fileName : str
+            Path to the output file
+        useElevations : boolean
+            If true also print elevations
+        inFt : boolean
+            If true elevations in station key are in ft, convert to meters
+        """
+        fil=open(fileName,'wb')
+        conFact=0.3048 if inFt else 1 #conversion factor from ft to meters if needed
+        for num,row in self.stakey.iterrows():
+            line='%s %.6f %.6f'%(row.NETWORK+'.'+row.STATION,row.LAT,row.LON)
+            if useElevations:
+                line=line+' %.2f'%row.ELEVATION*conFact 
+            fil.write(line+'\n')
+        fil.close()
+        
+    def writeHypoDDEventInput(self,fileName='event.dat'):
+        fil=open(fileName,'wb')
+        reqZeros=int(np.ceil(np.log10(len(self.temkey))))
+        fomatstr='{:0'+"{:d}".format(reqZeros)+'d}'
+        for num,row in self.temkey.iterrows():
+            utc=obspy.UTCDateTime(row.TIME)
+            DATE='%04d%02d%02d'%(int(utc.year),int(utc.month),int(utc.day))
+            TIME='%02d%02d%04d'%(int(utc.hour),int(utc.minute),int(utc.second*100))
+            mag=row.MAG if row.MAG>-20 else 0.0
+            ID=fomatstr.format(num)
+            linea=DATE+', '+TIME+', '+'{:04f}, '.format(row.LAT)+'{:04f}, '.format(row.LON)+'{:02f}, '.format(row.DEPTH)
+            lineb='{:02f}, '.format(mag)+'0.0, 0.0, 0.0, ' + ID
+            fil.write(linea+lineb+'\n')
+        fil.close()
+            
+        
+        
+    def _makeCodes(self):
+        evcodes={}
+        for num,row in self.temkey.iterrows():
+            evcodes[num]=row.NAME
+        return evcodes
     
     def updateReqCC(self,reqCC):
         """
@@ -202,6 +346,7 @@ class SSClusterStream(object):
         """
         if isinstance(reqCC,float):
             if reqCC<0 or reqCC>1:
+                detex.log(__name__,'reqCC must be between 0 and 1',level='error')
                 raise Exception ('reqCC must be between 0 and 1')
             for cl in self.clusters:
                 cl.updateReqCC(reqCC)
@@ -261,7 +406,7 @@ class SSClusterStream(object):
             cl.plotEvents(projection=projection,plotNonClusts=plotNonClusts)        
             
     def write(self): #uses pickle to write class to disk
-        print 'writing cluster object as %s' % self.filename
+        detex.log(__name__,'writing cluster object as %s' % self.filename,pri=True)
         cPickle.dump(self,open(self.filename,'wb'))
     
     def __getitem__(self,key):
@@ -273,15 +418,21 @@ class SSClusterStream(object):
             elif len(key.split('.'))==1:
                 return self.clusters[self.stalist2.index(key)]
             else:
+                detex.log(__name__,'%s is not a station in this cluster object' % key,level='error')
                 raise Exception('%s is not a station in this cluster object' % key)
         else:
-            raise Exception ('%s must either be a int or str of station name')
+            detex.log(__name__,'%s must either be a int or str of station name' %key,level='error')
+            raise Exception ('%s must either be a int or str of station name' %key)
             
     def __len__(self): 
         return len(self.clusters) 
         
+    def __repr__(self):
+        outstr='SSClusterStream with %d stations '%(len(self.stalist))
+        return outstr
+        
 
-class SSCluster(object):
+class Cluster(object):
     def __init__(self,clustStream,station,temkey,eventList,link,CCreq,filt,decimate,trim,DFcc,indir,templateDir,filelist,StationKey):
         #self.__dict__.update(locals()) #Instantiate all input variables
         self.link,self.DFcc,self.station,self.temkey=link,DFcc,station,temkey #instatiate the few needed varaibles
@@ -296,6 +447,7 @@ class SSCluster(object):
         newCCreq is the new required correlation coeficient
         """
         if newCCreq<0 or newCCreq>1:
+            detex.log(__name__,'Parameter CCreq must be between 0 and 1')
             raise Exception ('Parameter CCreq must be between 0 and 1')
         self.CCreq=newCCreq        
         self.dflink,serclus=self._makeDFLINK(truncate=False)
@@ -319,7 +471,7 @@ class SSCluster(object):
         self.singles=list(set(self.key).difference(set([y for x in self.clusts for y in x])))
         self.clustcount=np.sum([len(x) for x in self.clusts])
         self.clustColors=self._getColors(len(self.clusts))
-        print('CCreq for station %s updated to CCreq=%1.3f'%(self.station,newCCreq))
+        detex.log(__name__,'CCreq for station %s updated to CCreq=%1.3f'%(self.station,newCCreq),pri=True)
 
     def _getColors(self,numClusts):
         """
@@ -370,7 +522,7 @@ class SSCluster(object):
         if len(dflink)>0:
             dflink['II']=list
         else:
-            print 'WARNING : No events clustered bassed on the requirement that cor coef = %1.3f' % self.CCreq
+            detex.log(__name__,'No events clustered bassed on the requirement that cor coef = %1.3f' % self.CCreq)
         for a in dflink.iterrows(): #enumerate cluster contents
             #dflink['II'][a[0]]=clusdict[a[1].i1].values.tolist()+clusdict[a[1].i2].values.tolist()
             dflink['II'][a[0]]=np.array(clusdict[int(a[1].i1)]).tolist()+np.array(clusdict[int(a[1].i2)]).tolist()
@@ -434,6 +586,7 @@ class SSCluster(object):
         try:
             from  mpl_toolkits.basemap import Basemap
         except ImportError:
+            detex.log(__name__,'mpl_toolskits does not have basemap, plotting cannot be perfromed')
             raise ImportError('mpl_toolskits does not have basemap, plotting cannot be perfromed')
         #TODO make dot size scale with magnitudes 
         self.dendro()
@@ -541,12 +694,12 @@ class SSCluster(object):
     def write(self): #uses pickle to write class to disk
         cPickle.dump(self,open(self.filename,'wb'))
         
-
     def printAtr(self): #print out basic attributes used to make cluster
         print('%s Cluster'%self.station)
         print ('%d Events cluster out of %d'%(self.clustcount,len(self.singles)+self.clustcount))
         print('Total number of clusters = %d' % len(self.clusts))
         print ('Required Cross Correlation Coeficient = %.3f' % self.CCreq)
+        
     def __getitem__(self,index): # allow indexing
         return self.clusts[index]
     def __iter__(self): # make class iterable
@@ -561,24 +714,19 @@ class SSCluster(object):
 ######################### SUBSPACE FUNCTIONS AND CLASSES #####################
 
 
-def createSubSpace(Pf=10**-10,clust=None,clustFile='clust.pkl',minEvents=3,dtype='double',condir='ContinousWaveForms' ):
+def createSubSpace(Pf=10**-12,clust=None,clustFile='clust.pkl',minEvents=2,dtype='double',condir='ContinuousWaveForms' ):
     """
-    Function to create subspaces on all avaliable stations bassed on the clusters in cSSClustering object which will either
-    be passed directly as the keyword clust or will be loaded from the path in clustFile
-    
+    Function to create subspaces on all available stations based on the clusters in Clustering object which will either be passed directly as the keyword clust or will be loaded from the path in clustFile
     Note
     ----------
     Most of the parameters that define where seismic data are located, which events to use, and which stations to use
     are already defined in the cluster (SSClustering) object. Therefore, it is extremely important to not move any files
     around and to call the detex.subspace.createSubSpace function in the same directory where the clustering object was 
-    created.  
-    
-    
+    created. 
     Parameters
     -----------
-    
     Pf : float
-        The probability of false detection as modeled by the statistical framework in Harris 2006 Theory (eq 20)
+        The probability of false detection as modeled by the statistical framework in Harris 2006 Theory (eq 20, not yet supported)
         Or by fitting a PDF to an empirical estimation of the null space (similar to Wiechecki-Vergara 2001)
         Thresholds are not set until calling the SVD function of the subspace stream object
     clust: detex.subspace.SSClustering object
@@ -589,20 +737,19 @@ def createSubSpace(Pf=10**-10,clust=None,clustFile='clust.pkl',minEvents=3,dtype
         The Min number of events that must be in a cluster in order for a subspace to be created from that cluster
     dtype : str ('single' or 'double')
         The data type of the numpy arrays used in the calculation options are:
-        single- a np.float32 single precision repressentation. Slightly faster (~30%) than double but at a cost of sig figs
-        double- a np.float64 (default)
-        
+            single- a np.float32 single precision representation. Slightly faster (~30%) than double but at a cost of sig figs
+            double- a np.float64 (default)
     Returns
     -----------
-    
     A detex.subspace.SubSpaceStream object
+
     
     """
     if clust==None: #if no cluster object passed read a pickled one
         cl=cPickle.load(open(clustFile,'rb'))
     else:
         cl=clust
-    print ('Starting Subspace Construction')
+    detex.log(__name__,'Starting Subspace Construction',pri=1)
     #cl.printAtr()
     #CCreq=cl.CCreq
     temkey=cl.temkey
@@ -614,10 +761,9 @@ def createSubSpace(Pf=10**-10,clust=None,clustFile='clust.pkl',minEvents=3,dtype
     TRDF  =_loadEvents(cl.filelist,cl.indir,cl.filt,cl.trim,stakey,cl.templateDir,cl.decimate,temkey,dtype)# TRDF is DF main container for processed data    
     for num,row in TRDF.iterrows(): #Fill in cluster info from cluster object
         if row.Station in cl.stalist: # if station repressented in cluster object
-            TRDF.loc[num,'Link'],TRDF.loc[num,'Clust']=cl[row.Station].link,cl[row.Station].clusts
+            TRDF['Link'][num],TRDF['Clust'][num]=cl[row.Station].link,cl[row.Station].clusts
         else: # If not use first station, which should be the masterstation
-            TRDF.loc[num,'Link'],TRDF.loc[num,'Clust']=cl[0].link,cl[0].clusts
-    
+            TRDF['Link'][num],TRDF['Clust'][num]=cl[0].link,cl[0].clusts    
    
    # Loop through stationkey performing cluster analsis only on stationkey, force all other stations to follow station key clustering       
     
@@ -625,7 +771,9 @@ def createSubSpace(Pf=10**-10,clust=None,clustFile='clust.pkl',minEvents=3,dtype
     subSpaceDict={}
     for num,row in TRDF.iterrows(): #Loop through each cluster
         #eventListCluster=row.Events #all events in current cluster
-        staSS=_makeSSDF(row)
+        staSS=_makeSSDF(row) 
+        if len(staSS)<1: #if no clusters form on current station
+            continue
         staSS=staSS[[len(x)>=minEvents for x in staSS.Events]] #only keep subspaces that meet min req, dont renumber
         staSS.reset_index(drop=True,inplace=True)
         for sa in staSS.iterrows(): 
@@ -654,7 +802,7 @@ def createSubSpace(Pf=10**-10,clust=None,clustFile='clust.pkl',minEvents=3,dtype
             offsets=[staSS['Stats'][sa[0]][x]['offset'] for x in sa[1].Stats.keys()] #offset times
             staSS['Offsets'][sa[0]]=[np.min(offsets),np.median(offsets),np.max(offsets)]
         subSpaceDict[row.Station]=staSS.drop(['MPfd','MPtd','Link','Lags','CCs'],axis=1)
-    singlesDict=_makeSingleEventDict(cl,TRDF) #make a list of sngles (events that dont cluseter) to pass to subspace object
+    singlesDict=_makeSingleEventDict(cl,TRDF,temkey) #make a list of sngles (events that dont cluseter) to pass to subspace object
     substream= SubSpaceStream(singlesDict,subSpaceDict,cl,dtype,Pf,condir)
     return substream
 
@@ -671,56 +819,64 @@ def _updateStartTimes(sa,delayDF,temkey): #update the starttimes to reflect the 
         statsdict[key]['offset']=statsdict[key]['starttime']-statsdict[key]['origintime'] #predict offset time
     return statsdict
 
-def _testLags(eventList,sa):# test lag times
+def _makeDFcclags(eventList,sa,consistentLength=True,subSampleExtrapolate=False):
     DFcc=pd.DataFrame(columns=np.arange(1,len(eventList)),index=np.arange(0,len(eventList)-1))
     DFlag=pd.DataFrame(columns=np.arange(1,len(eventList)),index=np.arange(0,len(eventList)-1))
     for b in DFcc.index.values:
         for c in range(b+1,len(DFcc)+1):
-            mptd1=sa[1].AlignedTD[eventList[b]]
-            mptd2=sa[1].AlignedTD[eventList[c]]
-            rele=2*len(mptd1)
-            reqlen=rele.bit_length()
-            mpfd1=np.fft.fft(mptd1,n=2**reqlen)
-            mpfd2=np.fft.fft(mptd2,n=2**reqlen)
-            Nc1=sa[1].Channels[eventList[b]]
-            Nc2=sa[1].Channels[eventList[b]]
-            maxcc,sampleLag=_CCX2(mpfd1,mpfd2,mptd1,mptd2,Nc1,Nc2)
-            DFcc[c][b]=maxcc
-            DFlag[c][b]=sampleLag
-    return DFcc,DFlag
-
-def _makeDFcclags(eventList,sa,consistentLength=True):
-    DFcc=pd.DataFrame(columns=np.arange(1,len(eventList)),index=np.arange(0,len(eventList)-1))
-    DFlag=pd.DataFrame(columns=np.arange(1,len(eventList)),index=np.arange(0,len(eventList)-1))
-    for b in DFcc.index.values:
-        for c in range(b+1,len(DFcc)+1):
+            rev=1 #if order is switched make sure lags are multiplied by -1
             mptd1=sa[1].MPtd[eventList[b]]
             mptd2=sa[1].MPtd[eventList[c]]
             if consistentLength:
                 mpfd1=sa[1].MPfd[eventList[b]]
                 mpfd2=sa[1].MPfd[eventList[c]]
                 Nc1=sa[1].Channels[eventList[b]]
-                Nc2=sa[1].Channels[eventList[b]]
-                maxcc,sampleLag=_CCX2(mpfd1,mpfd2,mptd1,mptd2,Nc1,Nc2)
-            else:
+                Nc2=sa[1].Channels[eventList[c]]
+                maxcc,sampleLag=_CCX2(mpfd1,mpfd2,mptd1,mptd2,Nc1,Nc2,subSampleExtrapolate=subSampleExtrapolate)
+            else: # if all the templates are not the same length use slower more flexible methods
                 maxlen=np.max([len(mptd1),len(mptd2)])
                 if not len(mptd1)<maxlen:
                     mptd1,mptd2=mptd2,mptd1
+                    rev=-1
+                Nc1=sa[1].Channels[eventList[b]]
+                Nc2=sa[1].Channels[eventList[c]]    
                 mptd2=np.pad(mptd2,(len(mptd1)/2,len(mptd1)/2),'constant',constant_values=(0,0))
                 cc=fast_normcorr(mptd1, mptd2)
+                maxcc=cc.max()
+                if subSampleExtrapolate:
+                    sampleLag=_subsampleExtrapolate(cc)-len(mptd1)/2
+                else:
+                    sampleLag=cc.argmax()-len(mptd1)/2
                 
-                maxcc=cc.max() #TODO fix this sloppy fix
-                sampleLag=0
             DFcc[c][b]=maxcc
             DFlag[c][b]=sampleLag
-    return DFcc,DFlag
-
-def _CCX2(mpfd1,mpfd2,mptd1,mptd2,Nc1,Nc2): #Function find max correlation coeficient and corresponding lag times
+    return DFcc,DFlag*rev
+    
+def _subsampleExtrapolate(Ceval) :
+    """ Method to estimate subsample time delays using cosine-fit interpolation
+    Cespedes, I., Huang, Y., Ophir, J. & Spratt, S. 
+    Methods for estimation of sub-sample time delays of digitized echo signals. 
+    Ultrason. Imaging 17, 142–171 (1995)"""
+    ind=Ceval.argmax()
+    if ind==0 or ind==len(Ceval)-1: # If max occurs at beg or end of CC set as beg or end, no extrapolation
+        tau=float(ind)
+    else:
+        alpha=np.arccos((Ceval[ind-1]+Ceval[ind+1])/(2*Ceval[ind]))
+        tau=-(np.arctan((Ceval[ind-1]-Ceval[ind+1])/(2*Ceval[ind]*np.sin(alpha)))/alpha)+ind
+        if -np.arctan((Ceval[ind-1]-Ceval[ind+1])/(2*Ceval[ind]*np.sin(alpha)))/alpha >1:
+            detex.log(__name__,'Something wrong with extrapolation, more than 1 sample shift predicted',level='Warning')
+            raise Exception('Something wrong with extrapolation, more than 1 sample shift predicted ')
+            
+    return tau
+    
+def _CCX2(mpfd1,mpfd2,mptd1,mptd2,Nc1,Nc2,subSampleExtrapolate=False): #Function find max correlation coeficient and corresponding lag times
 
     if len(Nc1)!=len(Nc2): #make sure there are the same number of channels
+        detex.log(__name__,'Number of Channels not equal')
         raise Exception('Number of Channels not equal') #maybe make channels be the same?
     Nc=len(Nc1) #Number of channels
     if len(mptd1)!=len(mptd2) or len(mpfd2) !=len(mpfd1): #if TD or FD lengths not equal raise exception
+        detex.log(__name__,'lengths not equal on multiplexed data streams',level='warning')
         raise Exception('lengths not equal on multiplexed data streams')
     n=len(mptd1)
     #mptd2=np.lib.pad(mptd2, (n/2,n/2), 'constant', constant_values=(0,0))
@@ -746,9 +902,9 @@ def _CCX2(mpfd1,mpfd2,mptd1,mptd2,Nc1,Nc2): #Function find max correlation coefi
         #deb([mpfd1,mpfd2,mptd1,mptd2,Nc1,Nc2])
     
     #return maxcc,maxind-n +1
+    if subSampleExtrapolate:
+        maxind=_subsampleExtrapolate(result)
     return maxcc,(maxind+1)*Nc-n
-    
-
     
 def _alignTD(delayDF,sa): #loop through delay Df and apply offsets to create alligned arrays dictionary
     aligned={}    
@@ -759,25 +915,35 @@ def _alignTD(delayDF,sa): #loop through delay Df and apply offsets to create all
         orig=orig[:TDlengths]
         aligned[b[1].Events]=orig 
         if len(orig)==0:
-            raise Exception('Alignment of multiplexed stream failing, try raising ccreq of imput cluster object')
+            detex.log('Alignment of multiplexed stream failing, try raising ccreq of input cluster object',level='warning')
+            raise Exception('Alignment of multiplexed stream failing, try raising ccreq of input cluster object')
     return aligned
 
-def _makeSingleEventDict(cl,TRDF): 
+def _makeSingleEventDict(cl,TRDF,temkey): 
     singlesdict={}
     for num,row in TRDF.iterrows():
         singleslist=[0]*len(cl[row.Station].singles)
         DF=pd.DataFrame(index=range(len(singleslist)),columns=[x for x in TRDF.columns if not x in ['Clust','Link','Lags','CCs']])
+        DF['Name']=str
+        DF['Offsets']=list
         #evelist=cl[row.Station].singles
         for a1 in range(len(singleslist)):
-            #DF.Events[a[0]]=evlist
+            #DF.Events[a[0]]=evlist\
             evelist=[cl[row.Station].singles[a1]]
+            temtemkey=temkey[temkey.NAME==evelist[0]].iloc[0]
             DF.Station[a1]=row.Station
             DF.MPtd[a1]=_returnDictWithKeys(row,'MPtd',evelist)
             DF.MPfd[a1]=_returnDictWithKeys(row,'MPfd',evelist)
             DF.Stats[a1]=_returnDictWithKeys(row,'Stats',evelist)
             DF.Channels[a1]=_returnDictWithKeys(row,'Channels',evelist)
+            DF.Stats[a1][evelist[0]]['origintime']=obspy.UTCDateTime(temtemkey.TIME).timestamp
+            DF.Stats[a1][evelist[0]]['offset']=DF.Stats[a1][evelist[0]]['starttime']-DF.Stats[a1][evelist[0]]['origintime']
+            DF.Stats[a1][evelist[0]]['magnitude']=temtemkey.MAG
             DF.Events[a1]=DF.MPtd[a1].keys()
+            DF.Name[a1]='SG%d' % a1
         DF['SampleTrims']=[{} for x in range(len(DF))]
+        DF['FAS']=None
+        DF['Threshold']=None
         singlesdict[row.Station]=DF
     return singlesdict
 
@@ -795,7 +961,10 @@ def _makeSSDF(row): #Recast row of TRDF into a dataframe for subpace creation
     DF['SigDimRep']=object
     DF['FAS']=object
     DF['NumBasis']=int
-    DF['Offsets']=list
+    try:
+        DF['Offsets']=object
+    except:
+        deb([DF,row])
     DF['Station']=row.Station
     for a in DF.iterrows():
         evelist=row.Clust[a[0]]
@@ -814,16 +983,6 @@ def _returnDictWithKeys(row,column,evelist): #function used to get only desired 
     dictout={k: v for k, v in temdict.items() if not v is None}
     return dictout
         
-def _getStartOffset(delaysNP,stakey,clunum,TRDF,a,cltrim):
-    zeroEvent=TRDF.EventFiles[delaysNP.argmax()]
-    filler=glob.glob(os.path.join(zeroEvent,a[1].NETWORK+'.'+a[1].STATION,'*'))[0]
-    trim=np.load(glob.glob(os.path.join(filler,'*.npy'))[0])
-    TR=obspy.core.read(os.path.join(filler,'*.sac'))
-    TR=TR.slice(endtime=obspy.core.UTCDateTime(trim[0])) #trim template to start time
-    sstrim=len(TR[0].data)-cltrim*TR[0].stats.sampling_rate # Get subspace offset, subtracted by the cluster trim
-    stakey['StartOffset'][a[0]][clunum]=sstrim
-
-
 class SubSpaceStream(object):
     """ Class used to hold subspaces for detector
     Holds both subspaces (as defined from the SScluster object) and single event clusters, or singles
@@ -838,6 +997,8 @@ class SubSpaceStream(object):
         self.Pf=Pf
         self.ssStations=self.subspaces.keys()
         self.singStations=self.singles.keys()     
+        self.Stations=list(set(self.ssStations) | set(self.singStations))
+        self.Stations.sort()
         self._stakey2={x:x for x in self.ssStations}
         self._stakey1={x.split('.')[1]:x for x in self.ssStations}
         
@@ -853,8 +1014,10 @@ class SubSpaceStream(object):
         if not Threshold==None: 
             if not isinstance(Threshold,numbers.Number) or Threshold<0:
                 raise Exception ('Unsupported type for Threshold, must be None or float between 0 and 1')
+    
+    
         
-    def SVD(self,selectCriteria=2,selectValue=0.8,conDatNum=100,Threshold=None,normalize=True,**kwargs): 
+    def SVD(self,selectCriteria=2,selectValue=0.9,conDatNum=100,Threshold=None,normalize=False,useSingles=True,**kwargs): 
         """
         Function to perform SVD on the alligned waveforms and select which of the SVD basis are to be used in event detection
         Also assigns a detection threshold to each subspace-station pair 
@@ -900,8 +1063,10 @@ class SubSpaceStream(object):
             effective dimension of representation or distribution of the null space
         normalize : boolean
             If true normalize the amplitude of all the training events before preforming the SVD. Keeps higher amplitude events from dominating
-            the SVD vectors but also gives noisy low-amplitude events (if used) equal weight, which may not be desirable 
-        kwargs are arguments passed to the getFas call, see it's doc string for info
+            the SVD vectors but can over emphasize noise. Haris 2006 recomends the normalization but personal experience has found normalization
+            can increase the detector's propensity to return false detections 
+        useSingles : boolean
+            If true also calculate the thresholds for singles
         """
         
         
@@ -928,10 +1093,10 @@ class SubSpaceStream(object):
                 self.subspaces[station].UsedSVDKeys[row[0]]=self._getUsedBasis(row,svdDict,self.subspaces[station].FracEnergy[row[0]],selectCriteria,selectValue)
                 self.subspaces[station].SVDdefined[row[0]]=True
                 self.subspaces[station].NumBasis[row[0]]=len(self.subspaces[station].UsedSVDKeys[row[0]])
-
-        self._setThresholds(selectCriteria,selectValue,conDatNum,Threshold,basisLength)
-        
-
+        if len(self.ssStations)>0:
+            self._setThresholds(selectCriteria,selectValue,conDatNum,Threshold,basisLength)
+        if len(self.singStations)>0:
+            self.setSinglesThresholds(conDatNum=conDatNum,Threshold=Threshold)
                     
     def _setThresholds(self,selectCriteria,selectValue,conDatNum,Threshold,basisLength):
         if Threshold>0:
@@ -940,10 +1105,11 @@ class SubSpaceStream(object):
                 for row in subspa.iterrows():
                     self.subspaces[station].Threshold[row[0]]=Threshold
         elif selectCriteria == 1:
+            raise Exception('selectCriteria 1 currently not supported')
             for a,station in enumerate(self.ssStations):
                 subspa=self.subspaces[station]
                 basisdims= [len(x) for x in subspa.UsedSVDKeys.values]
-                print 'Estimating effective dimesion of signal space for subspace %d' %a
+                detex.log(__name__,'Estimating effective dimesion of signal space for subspace %d' %a,pri=1)
                 sigdimreps= _estimateDimSpace(subspa,conDatNum,self.clusters,ConDir=self.condir,dtype=self.dtype) #estiamte dimension of signal space
                 Thresholds=[]
                 for badim,sigdim in zip(basisdims,sigdimreps):
@@ -957,11 +1123,11 @@ class SubSpaceStream(object):
                 subspa=self.subspaces[station]
                 for rownum,row in subspa.iterrows():
                     beta_a,beta_b=row.FAS['betadist'][0:2]
-
-                    TH=scipy.stats.beta.isf(self.Pf,beta_a,beta_b) #get threshold
+                    TH=scipy.stats.beta.isf(self.Pf,beta_a,beta_b,0,1) #get threshold
                     if TH>.9:
                         TH,Pftemp=self._approximateThreshold(beta_a,beta_b,self.Pf,1000,3)
-                        print 'Scipy.stats.beta.isf failed with pf=%e, approximated Threshold to %f with a Pf of %e for station %s %s using forward grid search'%(self.Pf,TH,Pftemp,station,row.Name)
+                        
+                        detex.log(__name__,'Scipy.stats.beta.isf failed with pf=%e, approximated Threshold to %f with a Pf of %e for station %s %s using forward grid search'%(self.Pf,TH,Pftemp,station,row.Name))
 
                     self.subspaces[station].Threshold[rownum]=TH
                 
@@ -990,6 +1156,7 @@ class SubSpaceStream(object):
             startVal,stopVal=Xs[minind-1],Xs[minind+1]
             loops+=1
             if minind==0 or minind==numintervals-1:
+                detex.log(__name__,'Grind search failing, set threshold manually',level='warning')
                 raise Exception ('Grind search failing, set threshold manually')
         return bestX,bestPf
             
@@ -997,11 +1164,14 @@ class SubSpaceStream(object):
         if 'Starttime' in row[1].SampleTrims.keys() and 'Endtime' in row[1].SampleTrims.keys():
             stim=row[1].SampleTrims['Starttime']
             etim=row[1].SampleTrims['Endtime']
-            Arr=np.vstack([row[1].AlignedTD[x][stim:etim]-np.mean(row[1].AlignedTD[x][stim:etim]) for x in keys])
+            try:
+                Arr=np.vstack([row[1].AlignedTD[x][stim:etim]-np.mean(row[1].AlignedTD[x][stim:etim]) for x in keys])
+            except:
+                deb([row,keys])
             #basisLength=row[1].SampleTrims['Endtime']-row[1].SampleTrims['Starttime']
             basisLength=Arr.shape[1]
         else:
-            print ('No trim times for %s and station %s, try running pickSubSpaceTimes'%(row[1].Name,station))
+            detex.log(__name__,'No trim times for %s and station %s, try running pickSubSpaceTimes'%(row[1].Name,station),pri=1)
             Arr=np.vstack([row[1].AlignedTD[x]-np.mean(row[1].AlignedTD[x]) for x in keys])
             basisLength=Arr.shape[1]
         return Arr,basisLength               
@@ -1058,14 +1228,14 @@ class SubSpaceStream(object):
 
     def plotThresholds(self,conDatNum,xlim=[-.01,.5],**kwargs):
         """
-        Function sample the continous data and plot the calculated thresholds agaisnt a histogram of detection statistics
+        Function sample the continuous data and plot the calculated thresholds agaisnt a histogram of detection statistics
         created using random samples with no high amplitude signals
         
         Parameters
         ------
         
         conDatNum : int
-            The number of continous data chunks to use in the sampling
+            The number of continuous data chunks to use in the sampling
         xlim : list (number,number)
             The x limits on the plot
         
@@ -1246,14 +1416,16 @@ class SubSpaceStream(object):
             for key in starow[1].Events:
                 tr=obspy.core.Trace(data=starow[1].MPtd[key])
                 tr.stats.channel=key
-                tr.stats.station='Sta'
+                tr.stats.station=starow[1].Station
                 st+=tr
             return st
-            
-    def pickSubSpaceTimes(self,duration=30,traceLimit=15):
+                    
+    def pickTimes(self,duration=30,traceLimit=15,repick=False,subspace=True,singles=True):
         """
-        Calls a modified version of obspyck to generate GUI so user can manually select start times of events groups,
-        triming down each waveform group will significantly decreate the runtime.
+        Calls a modified version of obspyck (https://github.com/megies/obspyck), a GUI for picking phases,
+        so user can manually select start times (trim) of unclustered and clustered events.
+        triming down each waveform group will significantly decrease the runtime on subspaces, and is required
+        for single events (or else they will not be used as detectors). 
         
         Parameters
         
@@ -1265,30 +1437,19 @@ class SubSpaceStream(object):
         traceLimit : int
             Limits the number of traces that will show up to be manually picked to the first in traceLimit. Avoids killing the GUI with too
             many events. 
-            
-        Notes
-        -------------
-        If the waveforms looked to be aligned poorly it will result in a higher order of repressentation required to capture all the energy in
-        the event vectors and significantly increased runtime. The required correlation coeficient may have been set too high in the 
-        initial clustering.
-        """
-    
-        self._pickTimes(self.subspaces,duration,traceLimit)
+        repick : boolean
+            If true repick times that already have sample trim times.
+        subspace : boolean
+            If true pick subspaces
+        singles : boolean
+            If true pick singletons
+        """     
+        if subspace:
+            self._pickTimes(self.subspaces,duration,traceLimit,repick=repick)
+        if singles:
+            self._pickTimes(self.singles,duration,traceLimit,issubspace=False,repick=repick)
         
-
-    def pickSinglesTimes(self,duration=30,traceLimit=15):
-        """
-        Calls a modified version of obspyck to generate GUI so user can manually select start times of events,triming down
-        each single to only waveforms  will significantly decreate the runtime.
-        
-        kwargs include:
-        
-        duration- the time after the first pick (in seconds) to trim waveforms for SVD. The fact the stream is multiplexed is taken into account.
-        If None is passed then the last pick will be used as the end time for truncating waveforms
-        """
-        self._pickTimes(self.singles,duration)
-        
-    def _pickTimes(self,trdfDict,duration,traceLimit):
+    def _pickTimes(self,trdfDict,duration,traceLimit,issubspace=True,repick=False):
         
         """
         method to call modified obpyck to pick start and optionally stop times for aligned templates.
@@ -1300,7 +1461,7 @@ class SubSpaceStream(object):
         """
         for station in trdfDict.keys():
             for starow in trdfDict[station].iterrows():
-                if not starow[1].SampleTrims: # If the sample trim dictionary is empty
+                if not starow[1].SampleTrims or repick: # If the sample trim dictionary is empty
                     TR=self._makeOpStream(starow,traceLimit) #Make an obspy stream
                     Pks=None #This is needed or it crashes OS X versions
                     Pks=detex.streamPick.streamPick(TR)
@@ -1324,48 +1485,205 @@ class SubSpaceStream(object):
                             trdfDict[station].Stats[starow[0]][event]['starttime']=stime+d1['Starttime']/(Nc*sr) 
                             trdfDict[station].Stats[starow[0]][event]['offset']=trdfDict[station].Stats[starow[0]][event]['starttime']-trdfDict[station].Stats[starow[0]][event]['origintime']
                     if not Pks.KeepGoing:
-                        print 'aborting picking, progress saved'
+                        detex.log(__name__, 'aborting picking, progress saved',pri=1)
                         return None
+            self._updateOffsets()
+    
+    def attachPickTimes(self,pksFile='EventPicks.pkl',ssMode='Average',defaultDuration=30):
+        """
+        Rather than picking times manually attach a file (either csv or pkl of pandas dataframe) with pick times.
+        Pick time file must have the following fields:  TimeStamp,Station,Event,Phase (as created by detex.util.pickPhases)
+        Parameters. For each event finds the start time and endtime 
+        ----------
+        pksFile : str
+            Path to the input file (either csv or pickle)
+        ssMode : str; 'Average','Max', or 'Min'
+            Describes how to handle selecting a common pick time for subspace group (each event in a subspace cannot be treated 
+            independently as the entire group is aligned to maximize similarity)
+            Average-Trims the stack to the sample corresponding to the average of the first arriving phase
+            Median- Trims the stack to the sample corresponding to the median of the first arriving phase
+        defaultDuration : int or None
+            if Int, the default duration (in seconds) to trim the signal to starting from the first arrival in pksFile for each event
+            or subspace stack. If None, then durations are defined by first arriving phase and last arriving phase for each event
+        """
+        try: #read pksFile
+            pks=pd.read_pickle(pksFile)
+        except:
+            try:
+                pks=pd.read_csv(pksFile)
+            except:
+                detex.log(__name__,'%s does not exist, or it is not a pkl or csv file' % pksFile,level='warning')
+                raise Exception('%s does not exist, or it is not a pkl or csv file' % pksFile )
         
-        self._updateOffsets(trdfDict)
+        #get appropriate function according to ssmode
+        if ssMode=='Average':
+            fun=np.average
+        elif ssMode=='Max':
+            fun=np.max
+        elif ssMode=='Min':
+            fun=np.min
+        elif ssMode=='Median':
+            fun=np.median
+        else:
+            detex.log(__name__,'ssMode %s not supported, options are: Average,Max,Min,Median'%ssMode,level='warning')
+            raise Exception('ssMode %s not supported, options are: Average,Max,Min,Median'%ssMode)                
+                
+        for cl in self.clusters: #loop through each station in cluster object, get singles and subspaces
+            sta=cl.station #current station
+            
+            ### Attach singles
+            if sta in self.singles.keys():
+                for num,row in self.singles[sta].iterrows():
+                    if len(row.SampleTrims.keys())>0: #skip if sampletrims already defined
+                        continue
+                    pk=pks[(pks.Event.isin(row.Events))&(pks.Station==sta)] #phases that apply to current event and station
+                    eves,starttimes,Nc,Sr=self._getStats(row)
+                    if len(pk)>0:
+                        trims=self._getSampleTrims(eves,starttimes,Nc,Sr,pk,ssMode,defaultDuration,fun,num,self.singles[sta])
+                        if isinstance(trims,dict):
+                            self.singles[sta].SampleTrims[num]=trims
+                self._updateOffsets()
+            ### Attach Subspaces
+            if sta in self.subspaces.keys():
+                for num,row in self.subspaces[sta].iterrows():
+                    if len(row.SampleTrims.keys())>0: #skip if sampletrims already defined
+                        continue
+                    pk=pks[(pks.Event.isin(row.Events))&(pks.Station==sta)] #phases that apply to current event and station
+                    eves,starttimes,Nc,Sr=self._getStats(row)
+                    if len(pk)>0:
+                        trims=self._getSampleTrims(eves,starttimes,Nc,Sr,pk,ssMode,defaultDuration,fun,num,self.subspaces[sta])
+                        if isinstance(trims,dict):
+                            self.subspaces[sta].SampleTrims[num]=trims
+                self._updateOffsets()
+                
+    def _getSampleTrims(self,eves,starttimes,Nc,Sr,pk,ssMode,defaultDuration,fun,num,DF):
+        """
+        Determine sample trims for each single or subspace
+        """
+        #stdict={}#intialize sample trim dict
+        startsamps=[]
+        stopsamps=[]
+        secduration=[]
+            
+        for ev in eves: #loop through each event
+            p=pk[pk.Event==ev]
+            if len(p)<1: #if event is not recorded skip
+                continue
+            start=p.TimeStamp.min()
+            if defaultDuration:
+                stop=start+defaultDuration
+                secduration.append(defaultDuration)
+            else:
+                stop=p.TimeStamp.max()
+                secduration.append(stop-start)
+            try:
+                assert stop>start #Make sure stop is greater than start
+            except:
+                deb([ev,start,stop,p])
+            startsamps.append((start-starttimes[ev])*(Nc*Sr))
+            stopsamps.append((stop-starttimes[ev])*(Nc*Sr))
+            #update stats attached to each event to reflect new start time
+            DF.Stats[num][ev]['Starttime']=start
+            DF.Stats[num][ev]['offset']=start-DF.Stats[num][ev]['origintime']   
+        if len(startsamps)>0:
+            return {'Starttime':int(fun(startsamps))-int(fun(startsamps))%Nc,'Endtime':int(fun(stopsamps))-int(fun(stopsamps))%Nc,'DurationSeconds':int(fun(secduration))}
+        else:
+            return
+    def _getStats(self,row):
+        """
+        Get the sampling rate, starttime, and number of channels for each event group
+        """
+        eves=row.Events
+        sr=[np.round(row.Stats[x]['sampling_rate']) for x in eves]
+        if len(set(sr))!=1:
+            detex.log(__name__,'Events %s on Staion %s have different sampling rates or no sampling rates'%(row.Station,row.events),level='warning')
+            raise Exception('Events %s on Staion %s have different sampling rates or no sampling rates'%(row.Station,row.events))
         
-    def _updateOffsets(self,trdfDict):
+        Nc=[row.Stats[x]['Nc'] for x in eves]
+        if len(set(Nc))!=1:
+            detex.log(__name__,'Events %s on Staion %s have different numbers of channels or no channels'%(row.Station,row.events),level='warning')
+            raise Exception('Events %s on Staion %s have different numbers of channels or no channels'%(row.Station,row.events))
+        starttimes={x:row.Stats[x]['starttime'] for x in eves}
+        return eves,starttimes,list(set(Nc))[0],list(set(sr))[0]
+
+        
+    def _updateOffsets(self):
         """
         Calculate offset (predicted origin times), throw out extreme outliers using median and median scaling
         """
-        for station in trdfDict.keys():
-            for num,row in self.subspaces[station].iterrows():
+        for sta in self.subspaces.keys():
+            for num,row in self.subspaces[sta].iterrows():
                 keys=row.Stats.keys()
                 offsets=[row.Stats[x]['offset'] for x in keys]
-                trdfDict[station].Offsets[num]=self._getOffsets(np.array(offsets))
+                self.subspaces[sta].Offsets[num]=self._getOffsets(np.array(offsets))
+        for sta in self.singles.keys():
+            for num,row in self.singles[sta].iterrows():
+                keys=row.Stats.keys()
+                offsets=[row.Stats[x]['offset'] for x in keys]
+                self.singles[sta].Offsets[num]=self._getOffsets(np.array(offsets))
     
     def _getOffsets(self,offsets, m = 25.):
         """
         Get offsets, reject outliers bassed on median values (accounts for possible missmatch in events and origin times)
         """
+        if len(offsets)==1:
+            return offsets[0],offsets[0],offsets[0]
         d = np.abs(offsets - np.median(offsets))
         mdev = np.median(d)
         s = d/mdev if mdev else 0.
         offs=offsets[s<m]
         return [np.min(offs),np.median(offs),np.max(offs)]
+
         
-    def getFAS(self,conDatNum,ConDir='ContinousWaveForms',LTATime=5,STATime=0.5,staltalimit=8.0,useSubSpaces=True,useSingles=False,numBins=401,recalc=False):
+    def setSinglesThresholds(self,conDatNum=50,recalc=False,Threshold=None):
+        """
+        Set thresholds for the singletons (unclustered events) by fitting a beta distribution to noise
+        
+        Parameters
+        ----------
+        condatNum : int
+            The number of continuous data chunks to use to fit PDF
+        recalc : boolean
+            If true recalculate the the False Alarm Statistics
+        Threshold : None or float between 0 and 1
+            If not None, do not calculate empircal values simply use given threshold
+        """
+        for sta in self.singStations:
+            self.singles[sta]=self.singles[sta][[len(x.keys())>0 for x in self.singles[sta].SampleTrims]] #delete any singles that do not have pick times
+            self.singles[sta].reset_index(inplace=True,drop=True)
+            self.singles[sta].Name=['SG%d' %x for x in range(len(self.singles[sta]))]
+        if not Threshold: self.getFAS(conDatNum,useSingles=True,useSubSpaces=False) #get empirical dist unless manual threshold is passed
+        for sta in self.singStations:
+            for num,row in self.singles[sta].iterrows():
+                if len(row.SampleTrims)<1: #skip singles with no pick times
+                    continue
+                if Threshold:
+                    TH=Threshold
+                else:
+                    beta_a,beta_b=row.FAS[0]['betadist'][0:2]
+                    TH=scipy.stats.beta.isf(self.Pf,beta_a,beta_b,0,1) #get threshold
+                    if TH>.9:
+                        TH,Pftemp=self._approximateThreshold(beta_a,beta_b,self.Pf,1000,3)
+                        #print 'Scipy.stats.beta.isf failed with pf=%e, approximated Threshold to %f with a Pf of %e for station %s %s using forward grid search'%(self.Pf,TH,Pftemp,row.Station,row.Name)
+                self.singles[sta]['Threshold'][num]=TH
+                #print TH
+        
+    def getFAS(self,conDatNum,ConDir='ContinuousWaveForms',LTATime=5,STATime=0.5,staltalimit=8.0,useSubSpaces=True,useSingles=False,numBins=401,recalc=False):
         
         """ 
-        Function to initialize a FAS class object, used primarily for smapling the detection distribution of the different subspaces and singles
+        Function to initialize a FAS instance, used primarily for smapling the detection distribution of the different subspaces and singles
         
-        
-        conDatNum is the number of continous data files (by default in hour chunks) to use
+        conDatNum is the number of continuous data files (by default in hour chunks) to use
         
         ConDir is the directory in the detex.getdata format where contious waveforms are located
         
-        LTATime is the long term average time window in seconds used for checking continous data
+        LTATime is the long term average time window in seconds used for checking continuous data
         
-        STATime is the short term average time window in seconds for checking continous data
+        STATime is the short term average time window in seconds for checking continuous data
         
-        staltalimit is the value at which continous data gets rejected as too noisey (IE transient signals are present)
+        staltalimit is the value at which continuous data gets rejected as too noisey (IE transient signals are present)
         
-        ContinousDataLength is the length, in seconds, of the longest continous data chunk, by defualt 1 hour 2 minutes is used to avoid skipping any data
+        continuousDataLength is the length, in seconds, of the longest continuous data chunk, by defualt 1 hour 2 minutes is used to avoid skipping any data
         
         useSubspace and useSingles are both booleans to indicate if the action should be preformed for subspaces, singles, or both
         
@@ -1374,7 +1692,7 @@ class SubSpaceStream(object):
         """
         
         if useSubSpaces:
-            self._updateOffsets(self.subspaces) #make sure offset times are up to date
+            self._updateOffsets() #make sure offset times are up to date
             for station in self.subspaces.keys():
                 if isinstance(self.subspaces[station]['FAS'][0],dict) and not recalc:
                     print('FAS for station %s already calculated, to recalculate pass True to the parameter recalc' % station)
@@ -1382,20 +1700,22 @@ class SubSpaceStream(object):
                     self.subspaces[station]['FAS']=_initFAS(self.subspaces[station],conDatNum,self.clusters,ConDir=ConDir,
                     LTATime=LTATime,STATime=STATime,staltalimit=staltalimit,numBins=numBins,dtype=self.dtype)
         if useSingles:
-            raise Exception('Singles not yet implemented')
-            for a in range(len(self.singles)):
-                if isinstance(self.singles[a]['FAS'][0],dict) and not recalc:
-                    print('FAS for single event %d already calculated, to recalculate pass True to the parameter recalc' % a)
-                else:
-                    self.singles[a]['FAS']=_initFAS(self.subspaces[a],conDatNum,self.clusters,ConDir=ConDir,
-                    LTATime=LTATime,STATime=STATime,staltalimit=staltalimit,numBins=numBins,dtype=self.dtype)
-    
-
+            #raise Exception('Singles not yet implemented')
+            for station in self.singles.keys():
+                for a in range(len(self.singles[station])):
+                    if isinstance(self.singles[station]['FAS'][a],dict) and not recalc:
+                        print('FAS for single event %d already calculated, to recalculate pass True to the parameter recalc' % a)
+                    elif len(self.singles[station]['SampleTrims'][a].keys())<1: #skip any events that have not been trimmed
+                        continue
+                    else:
+                        self.singles[station]['FAS'][a]=_initFAS(self.singles[station][a:a+1],conDatNum,self.clusters,ConDir=ConDir,
+                        LTATime=LTATime,STATime=STATime,staltalimit=staltalimit,numBins=numBins,dtype=self.dtype,issubspace=False)
+                        
     def detex(self,UTCstart=None,UTCend=None,subspaceDB='SubSpace.db',trigCon=0,triggerLTATime=5,triggerSTATime=0,
         multiprocess=False,delOldCorrs=True,extrapolateTimes=True, calcHist=True,useSubSpaces=True,useSingles=False,
         estimateMags=True,pks=None,eventDir=None,eventCorFile='EventCors.pkl',UTCSaves=None,fillZeros=False):
         """
-        function to run subspace detection over continous data and store results in SQL database subspaceDB
+        function to run subspace detection over continuous data and store results in SQL database subspaceDB
         
         Parameters
         ------------
@@ -1424,73 +1744,132 @@ class SubSpaceStream(object):
             If True calculates the histagram for every point of the detection statistic vectors (all hours, stations and subspaces). Only slows the 
             detections down slightly. The histograms are then returned to the subspace stream object as the attribute histSubSpaces
         useSubspace : boolean
-            If True the subspaces will be used as detectors to scan continous data
+            If True the subspaces will be used as detectors to scan continuous data
         useSingles : boolean
-            If True the singles (events that did not cluster) will be used as detectors to scan continous data (DOESNT WORK YET)
+            If True the singles (events that did not cluster) will be used as detectors to scan continuous data (DOESNT WORK YET)
         estimateMags : boolean
-            If True magnitudes will be estimated for each detection by projecting the continous data where the detection occured into the subspace,
+            If True magnitudes will be estimated for each detection by projecting the continuous data where the detection occured into the subspace,
             as well as all the template waveforms that went into the subspace's creation, then applying the iterative magnitude scaling method 
-            in Gibbons and Ringdal 2006. Because a representation of the singal is used (IE the projection of the continous data into the subspace)
+            in Gibbons and Ringdal 2006. Because a representation of the singal is used (IE the projection of the continuous data into the subspace)
             this method is less vulnerable to noise distortions when estimating lower magnitudes.
         pks : None or str
             A path to the pks file of the same form as the once created by detex.util.trimTemplates that will be used for estimating P and S arrival times
             for each detection. If False, or the path is not readable with the pandas.read_pickle method no arrivial time estiamtes will be used
         eventDir : None or str
             If a path to an event directory is passed (IE EventWaveForms) the subspace detector will be run on all the events in the eventwaveform
-            file rather than on the continous data directory
+            file rather than on the continuous data directory
         eventCorFile : str
             A path to a new pickled data frame created when the eventDir option is used. Records the highest detection statistic in the file for each 
             event, station, and subspace. Useful when trying to characterize events. 
         UTCSaves : None or list of obspy.core.DateTime readable objects
-            Either none (no effect) or an iterrable  of obspy.core.UTCDateTime readable objects. For continous data chunk being scanned if a time in the 
-            UTCdate falls within the start time and end time of the continous data the vector of SD, along with cotninous data, thresholds, etc. is save to
+            Either none (no effect) or an iterrable  of obspy.core.UTCDateTime readable objects. For continuous data chunk being scanned if a time in the 
+            UTCdate falls within the start time and end time of the continuous data the vector of DS, along with cotninous data, thresholds, etc. is save to
             a pickled dataframe of the name "UTCsaves.pkl"
         fillZeros : boolean
-            If true fill the gaps in continous data with 0s. If True STA/LTA of detection statistic cannot be calculated in order to avoid dividing by 0            
+            If true fill the gaps in continuous data with 0s. If True STA/LTA of detection statistic cannot be calculated in order to avoid dividing by 0            
         """
     
-        if multiprocess or trigCon!=0 or useSingles: #make sure no parameters that dont work yet are selected
-            raise Exception ('multiprocessing, trigcon other than 0, and useSingles not yet supported')
+        if multiprocess or trigCon!=0: #make sure no parameters that dont work yet are selected
+            detex.log(__name__,'multiprocessing and trigcon other than 0 not yet supported',level='warning')
+            raise Exception ('multiprocessing and trigcon other than 0 not yet supported')
+        
+        if os.path.exists(subspaceDB) and not delOldCorrs: #If old database is around delete it
+            user_input=raw_input('%s already exists, delete it? ("y" or "yes" else do not delete)\n'%subspaceDB)
+            if user_input=='yes' or user_input=='y':
+                detex.util.DoldDB(subspaceDB)    
+                
+        elif delOldCorrs and os.path.exists(subspaceDB):
+            detex.util.DoldDB(subspaceDB)
+            
         if useSubSpaces:
             TRDF=self.subspaces
             if not all([y['SVDdefined'] for x in TRDF.keys() for num,y in self.subspaces[x].iterrows()]): #make sure SVD has been performed
                 raise Exception('subspace not yet defined, call SVD before attempting to run subspace detectors')
             Det=SSDetex(TRDF,UTCstart,UTCend,self.condir,self.clusters.indir,subspaceDB,trigCon,triggerLTATime,triggerSTATime,
-            multiprocess,self.clusters.filt,self.clusters.decimate,delOldCorrs,extrapolateTimes,calcHist,self.dtype,estimateMags,
+            multiprocess,self.clusters.filt,self.clusters.decimate,extrapolateTimes,calcHist,self.dtype,estimateMags,
             pks,eventDir,eventCorFile,UTCSaves,fillZeros)
-            
             self.histSubSpaces=Det.hist
-#            if any([x is not None for x in Det.hists]): #see if histograms were returned
-#                self.subspaces[a]['Hist']=Det.hists
+            
         if useSingles:
             TRDF=self.singles
-            Det=SSDetex(TRDF,self.Pf,UTCstart,UTCend,self.ConDir,self.clusters.indir,subspaceDB,trigCon,triggerLTATime,triggerSTATime,
-            multiprocess,self.clusters.filt,self.clusters.decimate,delOldCorrs,extrapolateTimes,calcHist,self.dtype)
+            Det=SSDetex(TRDF,UTCstart,UTCend,self.condir,self.clusters.indir,subspaceDB,trigCon,triggerLTATime,triggerSTATime,
+            multiprocess,self.clusters.filt,self.clusters.decimate,extrapolateTimes,calcHist,self.dtype,estimateMags,
+            pks,eventDir,eventCorFile,UTCSaves,fillZeros,issubspace=False)
             self.histSingles=Det.hist
-#            if any([x is not None for x in Det.hists]): #see if histograms were returned
-#                self.singles[a]['Hist']=Det.hists
+            
         if useSubSpaces or useSingles: # save addational info to sql database
-            dffilt=pd.DataFrame([self.clusters.filt],columns=['FREQMIN','FREQMAX','CORNERS','ZEROPHASE'],index=[0])
+        
+            dffilt=pd.DataFrame([self.clusters.filt],columns=['FREQMIN','FREQMAX','CORNERS','ZEROPHASE'],index=[0]) #save filter info
             detex.util.saveSQLite(dffilt,subspaceDB,'filt_params')
-            sslist=[] #empty list to put DFs for each subspace/station pair
-            sshists=[pd.DataFrame([['Bins','Bins',json.dumps(Det.hist['Bins'].tolist())]],columns=['Name','Sta','Value'])]
-            for sta in self.ssStations:
-                for num, ss in self.subspaces[sta].iterrows():
-                    name=ss.Name
-                    station=ss.Station
-                    events=','.join(ss.Events)
-                    numbasis=ss.NumBasis
-                    thresh=ss.Threshold
-                    sslist.append(pd.DataFrame([[name,station,events,thresh,numbasis]],columns=['Name','Sta','Events','Treshold','NumBasisUsed']))
-                for skey in Det.hist[sta]:
-                    sshists.append(pd.DataFrame([[skey,sta,json.dumps(Det.hist[sta][skey].tolist())]],columns=['Name','Sta','Value']))
-            detex.util.saveSQLite(pd.concat(sslist,ignore_index=True),subspaceDB,'ss_info')
-            detex.util.saveSQLite(pd.concat(sshists,ignore_index=True),subspaceDB,'ss_hist')
-            #deb(Det)
-            #dfsingkey=pd.DataFrame() #create singles info to save to sql database
-            #dfsingkey['Single']=','.join([x.Events.values[0][0] for x in self.singles]) # make list of subspaces
-            #dfsskey['Stations']=','.join([x.Station.values[0] for x in self.singles]) # get all stations in each subspace
-            #detex.util.saveSQLite(dfsskey,subspaceDB,'single_info')
+            
+            ssinfo,sginfo=self._getInfoDF() #get general info on each single/subspace
+            sshists,sghists=self._getHistograms(useSubSpaces,useSingles)
+            
+            if useSubSpaces and len(ssinfo)>0: detex.util.saveSQLite(ssinfo,subspaceDB,'ss_info') #save subspace info
+            if useSingles and len(sginfo>0): detex.util.saveSQLite(sginfo,subspaceDB,'sg_info') #save singles info
+            if useSubSpaces and len(sshists>0): detex.util.saveSQLite(sshists,subspaceDB,'ss_hist') #save subspace histograms
+            if useSingles and len(sghists>0): detex.util.saveSQLite(sghists,subspaceDB,'sg_hist') #save singles histograms
+            
+    def _getInfoDF(self):
+        """
+        get dataframes that have info about each subspace and single
+        """
+        sslist=[] #empty list in which to put DFs for each subspace/station pair
+        sglist=[] #empty listin which  to put DFs for each single/station pair
+        for sta in self.Stations:
+            if not sta in self.ssStations:
+                continue
+            for num, ss in self.subspaces[sta].iterrows(): #write the subspace info
+                name=ss.Name
+                station=ss.Station
+                events=','.join(ss.Events)
+                numbasis=ss.NumBasis
+                thresh=ss.Threshold
+                if len(ss.FAS.keys())>1:
+                    beta1,beta2=ss.FAS['betadist'][0],ss.FAS['betadist'][1]
+                else:
+                    beta1,beta2=np.Nan,np.Nan
+                sslist.append(pd.DataFrame([[name,station,events,thresh,numbasis,beta1,beta2]],columns=['Name','Sta','Events','Threshold','NumBasisUsed','beta1','beta2']))
+            if not sta in self.singStations:
+                continue
+            for num, ss in self.singles[sta].iterrows(): #write the singles info
+                name=ss.Name
+                station=ss.Station
+                events=','.join(ss.Events)
+                thresh=ss.Threshold
+                if len(ss.FAS[0].keys())>1:
+                    beta1,beta2=ss.FAS[0]['betadist'][0],ss.FAS[0]['betadist'][1]
+                else:
+                    beta1,beta2=np.Nan,np.Nan
+                sglist.append(pd.DataFrame([[name,station,events,thresh,beta1,beta2]],columns=['Name','Sta','Events','Threshold','beta1','beta2']))
+        ssinfo=pd.concat(sslist,ignore_index=True)
+        sginfo=pd.concat(sglist,ignore_index=True)
+        return ssinfo,sginfo
+        
+    def _getHistograms(self,useSubSpaces,useSingles):
+        """
+        Pull out the histogram info for each station-subspace or single pair
+        """
+        if useSubSpaces:
+            sshists=[pd.DataFrame([['Bins','Bins',json.dumps(self.histSubSpaces['Bins'].tolist())]],columns=['Name','Sta','Value'])]
+            for sta in self.Stations:
+                if sta in self.histSubSpaces.keys():
+                    for skey in self.histSubSpaces[sta]:
+                        sshists.append(pd.DataFrame([[skey,sta,json.dumps(self.histSubSpaces[sta][skey].tolist())]],columns=['Name','Sta','Value']))
+
+            sshist=pd.concat(sshists,ignore_index=True)
+        else:
+            sshist=None
+        if useSingles:
+            sghists=[pd.DataFrame([['Bins','Bins',json.dumps(self.histSingles['Bins'].tolist())]],columns=['Name','Sta','Value'])]
+            for sta in self.Stations:
+                if sta in self.histSingles.keys():
+                    for skey in self.histSingles[sta]:
+                        sghists.append(pd.DataFrame([[skey,sta,json.dumps(self.histSingles[sta][skey].tolist())]],columns=['Name','Sta','Value']))
+            sghist=pd.concat(sghists,ignore_index=True)
+        else:
+            sghist=None
+        return sshist,sghist
       
     def __getitem__(self,key): #make object indexable
         if isinstance(key,int):
@@ -1501,9 +1880,11 @@ class SubSpaceStream(object):
             elif len(key.split('.'))==1:
                 return self.subspaces[self._stakey1[key]]
             else:
+                detex.log(__name__,'%s is not a station in this cluster object' % key,level='warning')
                 raise Exception('%s is not a station in this cluster object' % key)
         else:
-            raise Exception ('%s must either be a int or str of station name')
+            detex.log(__name__,'%s must either be a int or str of station name' % key,level='warning')
+            raise Exception ('%s must either be a int or str of station name'%key)
             
     def __len__(self): 
         return len(self.subspaces) 
@@ -1511,25 +1892,28 @@ class SubSpaceStream(object):
         
 ########################## Shared Subspace and Cluster Functions ###########################################
         
-def _loadEvents(filelist,indir,filt,trim,stakey,templateDir,decimate,temkey,dtype):# Load file list and apply filters, trims
+def _loadEvents(filelist,indir,filt,trim,stakey,templateDir,decimate,temkey,dtype,enforceOrigin=False):# Load file list and apply filters, trims
     #Initialize TRDF, a container for a great many things including event templates, multiplexed data, obspy traces etc.     
     TRDF=pd.DataFrame()
     if not isinstance(filelist,list) and not filelist==None:
+        detex.log(__name__,'filelist must be set to either a list or None',level='warning')
         raise Exception ('filelist must be set to either a list or None')
-    stakey=stakey[[isinstance(x,str) for x in stakey.STATION]]
+    stakey=stakey[[isinstance(x,str) for x in stakey.STATION]] #convert numberic station codes to strings
     TRDF['Station']=[str(x)+'.'+str(y) for x,y in zip(stakey.NETWORK.values,stakey.STATION.values)]
     if not isinstance(filelist,list):
         eventFiles=np.array([os.path.join(indir,x) for x in temkey.NAME])
         tempsExist=np.array([os.path.exists(x) for x in eventFiles]) # see if each tempalte is found where expected
-        print('%s does not exist, check templatekey'%x for x in eventFiles[~tempsExist])
+        
+        detex.log(__name__,('%s does not exist, check templatekey'%x for x in eventFiles[~tempsExist]),pri=1)
         existingEventFiles=eventFiles[tempsExist]
     else:
         eventFiles=np.array([os.path.join(indir,x) for x in filelist])
         tempsExist=np.array([os.path.exists(x) for x in eventFiles])
-        print('%s does not exist, check templatekey'%x for x in eventFiles[~tempsExist])
+        detex.log(__name__,('%s does not exist, check templatekey'%x for x in eventFiles[~tempsExist]),pri=1)
         existingEventFiles=eventFiles[tempsExist]
     if len(existingEventFiles)<1: #make sure there are some files to work with
-        raise Exception('No file paths in eveFiles, %s is probably empty'%indir)
+        detex.log(__name__,'No file paths in eveFiles, %s may be empty'%indir,warning='warning')
+        raise Exception('No file paths in eveFiles, %s may be empty'%indir)
 
     TRDF['Events']=list
     TRDF['MPtd']=object
@@ -1540,19 +1924,25 @@ def _loadEvents(filelist,indir,filt,trim,stakey,templateDir,decimate,temkey,dtyp
     TRDF['Clust']=list
     TRDF['Lags']=object
     TRDF['CCs']=object
+    TRDF['Keep']=True
     TRDF=TRDF[[isinstance(x,str) for x in TRDF.Station]] #get rid of any possible NaN stations
     #Make list in data frame that shows which stations are in each event
     # Load streams into dataframe to call later
     for a in TRDF.iterrows():
         TRDF.MPtd[a[0]]={}
         TRDF.MPfd[a[0]]={}  
-        Streams,TRDF['Events'][a[0]],TRDF['Channels'][a[0]],TRDF['Stats'][a[0]]=_loadStream(eventFiles,templateDir,filt,trim,decimate,a[1].Station,dtype)
+        Streams,TRDF['Events'][a[0]],TRDF['Channels'][a[0]],TRDF['Stats'][a[0]]=_loadStream(eventFiles,templateDir,filt,trim,decimate,a[1].Station,dtype,temkey,enforceOrigin=enforceOrigin)
+        if not isinstance(TRDF['Events'][a[0]],list):
+            TRDF.loc[a[0],'Keep']=False
+            continue
+        TRDF.loc[a[0],'numEvents']=len(TRDF['Events'][a[0]])
         for key in TRDF['Events'][a[0]]:      
             Nc=len(TRDF['Channels'][a[0]][key])
             TRDF.MPtd[a[0]][key],TR=multiplex(Streams[key],Nc,retTR=True) # multiplex channs
             TRDF['Stats'][a[0]]['starttime']=TR[0].stats.starttime.timestamp #update starttime
             reqlen=2*len(TRDF.MPtd[a[0]][key]) #required length with 0 padding
             TRDF.MPfd[a[0]][key]=scipy.fftpack.fft(TRDF.MPtd[a[0]][key],n=2**reqlen.bit_length())
+    TRDF=TRDF[TRDF.Keep]
     TRDF.reset_index(inplace=True,drop=True) 
     return TRDF
     
@@ -1568,23 +1958,7 @@ def _testStreamLengths(TRDF):
             TRDF.MPtd[a[0]].pop(key,None)
             TRDF.MPfd[a[0]].pop(key,None)
     return TRDF
-    
-    
-def _alignTraces(traces,delayNP): #function that takes obspy streams with 1 length and delay values in samples and allignes traces, then return np arrays
-    if any([len(x)!=1 for x in traces]): #Make sure each trace has a length less than 2
-        raise Exception('Only one trace should be in each stream, debug code')
-    nptraces=[x[0].data for x in traces]
-     #make all shifts negative so begining of traces can be truncated for allignment
-    for a in range(len(nptraces)):
-        nptraces[a]=nptraces[a][np.abs(delayNP[a]):]
-    minlen=np.min([len(x) for x in nptraces])
-    for a in range(len(nptraces)): #trim to make all traces same size
-        nptraces[a]=nptraces[a][:minlen]
-        
-    return nptraces
-
-
-    
+      
 def _getDelays(link,CCtoLag,cx,lags,sa,cxdf):
     N=len(link)
     linkup=np.append(link,np.arange(N+1,2*N+1).reshape(N,1),1) #append cluster numbers to link array
@@ -1599,11 +1973,11 @@ def _getDelays(link,CCtoLag,cx,lags,sa,cxdf):
         dflink['II'][a[0]]=clustDict[int(a[1].i1)].tolist()+clustDict[int(a[1].i2)].tolist()
         tempdf=cxdf[cxdf==a[1].cc].dropna(how='all').dropna(axis=1) #get a dataframe with only index as ev1 and column as ev2, not efficient consider revising
         dflink.ev1[a[0]],dflink.ev2[a[0]]=tempdf.index[0],tempdf.columns[0]   
-    lags=_downTheLagHole(dflink,cx,lags,CCtoLag,clustDict,clustDict.iloc[-1])
+    lags=_traceEventDendro(dflink,cx,lags,CCtoLag,clustDict,clustDict.iloc[-1])
     return lags
     #return clusts,lagByClust   
         
-def _downTheLagHole(dflink,x,lags,CCtoLag,clustDict,clus): #Function to follow ind1 through clustering linkage in linkup and return total offset time
+def _traceEventDendro(dflink,x,lags,CCtoLag,clustDict,clus): #Function to follow ind1 through clustering linkage in linkup and return total offset time
     if len(dflink)<1: #if event falls in its own cluster return simply the event with a zero
         lagSeries=pd.Series([0],index=clus)
     else:       
@@ -1618,11 +1992,6 @@ def _downTheLagHole(dflink,x,lags,CCtoLag,clustDict,clus): #Function to follow i
                 cl22=clustDict[int(a[1].i2)]
             else:
                 cl22=clustDict[int(a[1].i1)]
-#            if np.min(clustDict[a[1].i2]) < np.min(clustDict[a[1].i1]):
-#                cl22=clustDict[a[1].i1]
-#            else:
-#                cl22=clustDict[a[1].i2]
-            #print cl22
             currentLag=CCtoLag[a[1].cc]
             for b in cl22: #record and update lags (or offsets) for second cluster                
                 lagSeries[b]+=currentLag # 
@@ -1671,12 +2040,13 @@ def _ensureUnique(cx,cxdf): #make sure each coeficient is unique so it can be us
     dups=se[se.duplicated()]
     count=0
     while len(dups)>0:
-        print 'Duplicates found in correlation coefficients, perturbing slightly to get unique values'
+        detex.log(__name__,'Duplicates found in correlation coefficients, perturbing slightly to get unique values')
         for a in dups.iteritems():
             se[a[0]]=a[1]-abs(.00001*np.random.rand())
         count+=1
         dups=se[se.duplicated()]
         if count>10:
+            detex.log(__name__,'cannot make Coeficients unique, killing program',level='warning')
             raise Exception('cannot make Coeficients unique, killing program')
     if count>1: # if the cx has been perturbed update cxdf
         for a in range(len(cxdf)):
@@ -1686,9 +2056,9 @@ def _ensureUnique(cx,cxdf): #make sure each coeficient is unique so it can be us
     
 def _makeLagSeries(x,lags):
     LS=pd.Series(lags,index=x)
-    return LS    
+    return LS        
     
-def _loadStream (eventFiles,templateDir,filt,trim,decimate,station,dtype): #loads all traces into stream object and applies filters and trims
+def _loadStream (eventFiles,templateDir,filt,trim,decimate,station,dtype,temkey,enforceOrigin=False): #loads all traces into stream object and applies filters and trims
     StreamDict={} # Initialize dictionary for stream objects
     channelDict={}
     stats={}
@@ -1705,7 +2075,7 @@ def _loadStream (eventFiles,templateDir,filt,trim,decimate,station,dtype): #load
             try:
                 ST=_applyFilter(obspy.core.read(os.path.join(eve,station+'*')),filt,decimate,dtype)
             except:
-               # print('could not read %s or preprocessing failed' %os.path.join(eve,station+'*') )
+                detex.log(__name__,'could not read %s or preprocessing failed' %os.path.join(eve,station+'*') )
                 continue
         #ST=_applyFilter(ST,filt,decimate,dtype)
         Nc=len(list(set([x.stats.channel for x in ST]))) #get number of channels
@@ -1716,6 +2086,15 @@ def _loadStream (eventFiles,templateDir,filt,trim,decimate,station,dtype): #load
                 continue
         if Nc != len(ST): #if length is not at least num of channels (IE if not all channels present) skip trace
             continue
+        if enforceOrigin: #if the waveforms should start at the reported origin
+            evname=os.path.basename(eve)
+            tem=temkey[temkey.NAME==evname]
+            if len(tem)<1:
+                detex.log(__name__,'%s not found in template key' %evname, pri=1)
+            else:
+                otime=obspy.UTCDateTime(tem.iloc[0].TIME)
+                ST.trim(starttime=otime,pad=True,fill_value=0.0)
+                
         evename=os.path.basename(eve)
         StreamDict[evename]=ST
         channelDict[evename]=[x.stats.channel for x in ST]
@@ -1728,18 +2107,19 @@ def _loadStream (eventFiles,templateDir,filt,trim,decimate,station,dtype): #load
     mlen=np.median(trLen)
     keysToRemove=[x for x in StreamDict.keys() if STlens[x] < mlen*.2]
     for key in keysToRemove: # delete keys of events who have less than 80% of the median data points 
-        print '%s is fractured or much shorter than the other events, deleting' %key
+        detex.log(__name__, '%s is fractured or much shorter than the other events, deleting' %key,level='warning')
         StreamDict.pop(key,None)
         channelDict.pop(key,None)
         stats.pop(key,None)
     for key in set(allzeros):
         #deb([StreamDict,allzeros])
-        print '%s has at least one channel that is all zeros, deleting' % key
+        detex.log(__name__,'%s has at least one channel that is all zeros, deleting' %key,level='warning')
         StreamDict.pop(key,None)
         channelDict.pop(key,None)
         stats.pop(key,None)
     if len(StreamDict.keys())<2:
-        raise Exception('Less than 2 events survived preprocessing for station %s. Check input parameters, especially trim' % station)
+        detex.log(__name__,'Less than 2 events survived preprocessing for station %s. Check input parameters, especially trim' % station, level='warning')        
+        return None,None,None,None
     evlist= StreamDict.keys()
     evlist.sort()
     return StreamDict, evlist, channelDict, stats
@@ -1753,9 +2133,10 @@ def multiplex(TR,Nc,trimTolerance=15,Template=False,returnlist=False,retTR=False
         minlen=np.array([len(x) for x in chans])  
         if max(minlen)-min(minlen) > 15:
             if Template:
+                detex.log(__name__,'timTolerance exceeded, examin Template: \n%s' % TR[0],level='warning')
                 raise Exception('timTolerance exceeded, examin Template: \n%s' % TR[0])
             else:
-                print('timTolerance exceeded, examin data, Trimming anyway: \n%s' % TR[0])
+                detex.log(__name__,'timTolerance exceeded, examin Template: \n%s' % TR[0],level='warning')
                 trimDim=min(minlen)
                 chansTrimed=[x[:trimDim] for x in chans]
         elif max(minlen)-min(minlen)>0 : #trim a few samples off the end if necesary
@@ -1776,7 +2157,7 @@ def multiplex(TR,Nc,trimTolerance=15,Template=False,returnlist=False,retTR=False
         return out
  
         
-def _mergeChannels(TR): #function to find longest continous data chucnk and discard the rest
+def _mergeChannels(TR): #function to find longest continuous data chucnk and discard the rest
     channels=list(set([x.stats.channel for x in TR]))
     temTR=TR.select(channel=channels[0])
     lengths=np.array([len(x.data) for x in temTR])
@@ -1790,42 +2171,38 @@ def _mergeChannelsFill(TR):
 
 ############################## Subspace Detex and FAS ###################################################
 
-def _initFAS(TRDF,conDatNum,cluster,ConDir='ContinousWaveForms',LTATime=5,STATime=0.5,numBins=401,dtype='double',staltalimit=6.5):
-    """ Function to randomly scan through continous data and fit statistical distributions to histograms in order to get a suggested value
+def _initFAS(TRDF,conDatNum,cluster,ConDir='ContinuousWaveForms',LTATime=5,STATime=0.5,numBins=401,dtype='double',staltalimit=6.5,issubspace=True):
+    """ Function to randomly scan through continuous data and fit statistical distributions to histograms in order to get a suggested value
     for various trigger conditions"""
-    #TO DO- write function to test length of continous data rather than making user define it
+    #TO DO- write function to test length of continuous data rather than making user define it
     results=[0]*len(TRDF)
     histBins=np.linspace(-.01,1,num=numBins) #create bins for histograms
-    ContinousDataLength=detex.util.getContinousDataLength(Condir=ConDir)
-    for a in TRDF.iterrows(): #Loop through each station on the subspace or singles data frame   
-        try:     
-            results[a[0]]={'bins':histBins}
-        except:
-            deb([a,TRDF,results])
-        chans=list(set(np.concatenate([x for x in a[1].Channels.values()])))
-        chans.sort()
-        Nc=len(chans)
-        
-        ssArrayTD,ssArrayFD,reqlen,Nc=_loadMPSubSpace(a,ContinousDataLength) #load subspace rep for given station/event
-        if len(ssArrayTD)<1:
-            deb([a,ContinousDataLength,ssArrayTD,ssArrayFD,reqlen,Nc])
-        #hist=[0.0]*(len(histBins)-1)
-        #histRev=[0.0]*(len(histBins)-1)
+    continuousDataLength=detex.util.getcontinuousDataLength(Condir=ConDir)
+    TRDF.reset_index(drop=True,inplace=True)
+    for a in TRDF.iterrows(): #Loop through each station on the subspace or singles data frame    
+        results[a[0]]={'bins':histBins}
+#        chans=list(set(np.concatenate([x for x in a[1].Channels.values()])))
+#        chans.sort()
+#        Nc=len(chans)
+        if issubspace:
+            ssArrayTD,ssArrayFD,reqlen,Nc=_loadMPSubSpace(a,continuousDataLength) #load subspace rep for given station/event
+        else:
+            ssArrayTD,ssArrayFD,reqlen,Nc=_loadMPSingles(a,continuousDataLength) 
         jdays=_mapjdays(a,ConDir)
-        if conDatNum>len(jdays)*(3600/ContinousDataLength)*4: #make sure there are at least conDatNum samples avaliable
-            print 'Not enough continous data for conDatNum=%d, decreasing to %d' %(conDatNum,len(jdays)*(3600/ContinousDataLength)*4)
-            conDatNum=int(len(jdays)*(3600/ContinousDataLength)*4)
+        if conDatNum>len(jdays)*(3600/continuousDataLength)*4: #make sure there are at least conDatNum samples avaliable
+            detex.log(__name__,'Not enough continuous data for conDatNum=%d, decreasing to %d' %(conDatNum,len(jdays)*(3600/continuousDataLength)*4))
+            conDatNum=int(len(jdays)*(3600/continuousDataLength)*4)
         
         CCmat=[0]*conDatNum
         #ccmatRev=[0]*conDatNum #reversed ccmat
         #MPtemFD,sum_nt=self.FFTemplate(MPtem,reqlen) #multplexed template in frequency domain
         usedJdayHours=[] #initialize blank list that will be used to make sure repeated chunks of data are not used
         for c in range(conDatNum):
-            condat,usedJdayHours=_loadRandomContinousData(a,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit)
-            if c<10 and condat[0].stats.endtime-condat[0].stats.starttime > ContinousDataLength: #test first 10 random samples for length requirement
-                deb([c,condat,ContinousDataLength,a,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit])
-                raise Exception('Continous data read in is %d, which is longer than %d seconds, redefine ContinousDataLength when calling getFAS' 
-                % (int(condat[0].stats.endtime-condat[0].stats.starttime),ContinousDataLength))
+            condat,usedJdayHours=_loadRandomcontinuousData(a,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit)
+            if c<10 and condat[0].stats.endtime-condat[0].stats.starttime > continuousDataLength: #test first 10 random samples for length requirement
+                deb([c,condat,continuousDataLength,a,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit])
+                raise Exception('continuous data read in is %d, which is longer than %d seconds, redefine continuousDataLength when calling getFAS' 
+                % (int(condat[0].stats.endtime-condat[0].stats.starttime),continuousDataLength))
             MPcon=multiplex(condat,Nc)
             CCmat[c]=_MPXSSCorr(MPcon,reqlen,ssArrayTD,ssArrayFD,Nc)
             #ccmatRev[c]=_MPXSSCorrTR(MPcon,reqlen,ssArrayTD,ssArrayFD,Nc)
@@ -1833,11 +2210,11 @@ def _initFAS(TRDF,conDatNum,cluster,ConDir='ContinousWaveForms',LTATime=5,STATim
             CCs=np.fromiter(itertools.chain.from_iterable(CCmat), dtype=np.float64)
             #CCsrev=np.fromiter(itertools.chain.from_iterable(ccmatRev), dtype=np.float64)
         elif dtype=='single':
-            CCs=np.fromiter(itertools.chain.from_iterable(CCmat), dtype=np.float32)
-       # deb(CCs)
-            #CCsrev=np.fromiter(itertools.chain.from_iterable(ccmatRev), dtype=np.float32)        
+            CCsrev=np.fromiter(itertools.chain.from_iterable(ccmatRev), dtype=np.float32)        
         #CCs=np.array(CCmat).flatten()
         #deb(CCs)
+#        if not issubspace: #take sqrt to avoid letthig
+#            CCs=np.sqrt(CCs)
         results[a[0]]['bins']=histBins
         results[a[0]]['hist']=np.histogram(CCs,bins=histBins)[0]
         #results[a[0]]['normdist']=scipy.stats.norm.fit(CCs)
@@ -1850,30 +2227,30 @@ def _initFAS(TRDF,conDatNum,cluster,ConDir='ContinousWaveForms',LTATime=5,STATim
     return results
     
     
-def _estimateDimSpace(TRDF,conDatNum,cluster,ConDir='ContinousWaveForms',LTATime=5,STATime=0.5,numBins=401,dtype='double',staltalimit=6.5):#estimate the dimesnion of the signal space, see Harris 2006 Theory Equation 17-19
-    """ Function to randomly scan through continous data and fit statistical distributions to histograms in order to get a suggested value
+def _estimateDimSpace(TRDF,conDatNum,cluster,ConDir='ContinuousWaveForms',LTATime=5,STATime=0.5,numBins=401,dtype='double',staltalimit=6.5):#estimate the dimesnion of the signal space, see Harris 2006 Theory Equation 17-19
+    """ Function to randomly scan through continuous data and fit statistical distributions to histograms in order to get a suggested value
     for various trigger conditions"""
-    #TO DO- write function to test length of continous data rather than making user define it
+    #TO DO- write function to test length of continuous data rather than making user define it
     results=[0]*len(TRDF)
-    ContinousDataLength=detex.util.getContinousDataLength(Condir=ConDir)
+    continuousDataLength=detex.util.getcontinuousDataLength(Condir=ConDir)
     for a in TRDF.iterrows(): #Loop through each station on the subspace or singles data frame
         chans=list(set(np.concatenate([x for x in a[1].Channels.values()])))
         chans.sort()
         Nc=len(chans)
         
-        ssArrayTD,ssArrayFD,reqlen,Nc=_loadMPSubSpace(a,ContinousDataLength) #load suspace rep for given station/event
+        ssArrayTD,ssArrayFD,reqlen,Nc=_loadMPSubSpace(a,continuousDataLength) #load suspace rep for given station/event
         temlen=ssArrayTD.shape[1] if len(ssArrayTD.shape) >1 else len(ssArrayTD) #get template length
         jdays=_mapjdays(a,ConDir)
-        if conDatNum>len(jdays)*(3600/ContinousDataLength)*4: #make sure there are at least conDatNum samples avaliable
-            print 'Not enough continous data for conDatNum=%d, decreasing to %d' %(conDatNum,len(jdays)*(3600/ContinousDataLength)*4)
-            conDatNum=int(len(jdays)*(3600/ContinousDataLength)*4)
+        if conDatNum>len(jdays)*(3600/continuousDataLength)*4: #make sure there are at least conDatNum samples avaliable
+            detex.log(__name__,'Not enough continuous data for conDatNum=%d, decreasing to %d' %(conDatNum,len(jdays)*(3600/continuousDataLength)*4),level='warning')
+            conDatNum=int(len(jdays)*(3600/continuousDataLength)*4)
         
         CCmat=[0]*conDatNum
         #MPtemFD,sum_nt=self.FFTemplate(MPtem,reqlen) #multplexed template in frequency domain
         usedJdayHours=[] #initialize blank list that will be used to make sure repeated chunks of data are not used
         for c in range(conDatNum):
-            condat1,usedJdayHours=_loadRandomContinousData(a,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit)
-            condat2,usedJdayHours=_loadRandomContinousData(a,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit)
+            condat1,usedJdayHours=_loadRandomcontinuousData(a,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit)
+            condat2,usedJdayHours=_loadRandomcontinuousData(a,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit)
             MPcon1=multiplex(condat1,Nc)
             MPcon2=multiplex(condat2,Nc)
             temind1,temind2=int(np.random.rand()*(len(MPcon2)-temlen)),int(np.random.rand()*(len(MPcon2)-temlen))
@@ -1887,6 +2264,7 @@ def _estimateDimSpace(TRDF,conDatNum,cluster,ConDir='ContinousWaveForms',LTATime
         #CCs=np.array(CCmat).flatten()
         dimrep=1+1/np.var(CCs)
         if dimrep>temlen:
+            detex.log(__name__,'calculated effective dimesion greater than length of template, this is bad',level='warning')
             raise Exception ('calculated effective dimesion greater than length of template, this is bad')
         results[a[0]]=dimrep
         #deb([CCs,template]) #start here, figure out distribution
@@ -1896,16 +2274,15 @@ def _estimateDimSpace(TRDF,conDatNum,cluster,ConDir='ContinousWaveForms',LTATime
 def _MPXSSCorr(MPcon,reqlen,ssArrayTD,ssArrayFD,Nc): # multiplex subspace detection statistic function
     MPconFD=scipy.fftpack.fft(MPcon,n=2**reqlen.bit_length())
     n = np.int32(np.shape(ssArrayTD)[1]) #length of each basis vector
-    a = pd.rolling_mean(MPcon, n)[n-1:] #rolling mean of continous data
-    b1 = pd.rolling_var(MPcon, n)[n-1:]
-    b1 *= np.sqrt((n-1.0) / n)
-    b = pd.rolling_var(MPcon, n)[n-1:]  # rolling var of continous data
+    a = pd.rolling_mean(MPcon, n)[n-1:] #rolling mean of continuous data
+    b = pd.rolling_var(MPcon, n)[n-1:]  # rolling var of continuous data
     b *= n #rolling power in vector
     sum_ss=np.sum(ssArrayTD,axis=1) #the sume of all the subspace basis vectors
     av_norm=np.multiply(a.reshape(1,len(a)),sum_ss.reshape(len(sum_ss),1)) #term to account for non-averaged vectors
     m1=np.multiply(ssArrayFD,MPconFD)    
     if1=scipy.real(scipy.fftpack.ifft(m1))[:,n-1:len(MPcon)]-av_norm
     result1=np.sum(np.square(if1),axis=0)/b
+    #deb([MPcon,reqlen,ssArrayTD,ssArrayFD,Nc])
     return result1[::Nc]
     
 def _MPDimCorr(t,s): #simple correlation for estimation of embeded dimension 
@@ -1919,32 +2296,26 @@ def _MPDimCorr(t,s): #simple correlation for estimation of embeded dimension
     result = (c - sum_nt * a) / b    
     return result
     
-def _MPXSSCorrTR(MPcon,reqlen,ssArrayTD,ssArrayFD,Nc): #time reversed multiplex cross correlation
-    MPcon=MPcon[::-1]
-    MPconFD=scipy.fftpack.fft(MPcon,n=2**reqlen.bit_length())
-    n = int(np.shape(ssArrayTD)[1]) #length of each basis vector
-    ns= int(np.shape(ssArrayTD)[0]) #number of subspaces
-    a = pd.rolling_mean(MPcon, n)[n-1:]
-    b = pd.rolling_std(MPcon, n)[n-1:]
-    b *= np.sqrt((n-1.0) / n)
-    nt=[scipy.sum(ssArrayTD[x,:]-scipy.mean(ssArrayTD[x,:])) for x in range(ns)] 
-    #TODO explore other ways of calculating this, could probably be more efficient
-    result=np.sum(np.square(np.array([(np.real(scipy.fftpack.ifft(np.multiply(ssArrayFD[x,:],MPconFD)))[n-1:len(MPcon)] - nt[x] * a) for x in range(ns)])),axis=0)/np.square(b*np.sqrt(n))
-    
-    #result = np.linalg.norm(np.array([(np.real(scipy.fftpack.ifft(np.multiply(ssArrayFD[x,:],MPconFD)))[n-1:len(MPcon)] - nt[x] * a) for x in range(ns)]),axis=0)/(b*np.sqrt(n))
-    
-    return result[Nc-1::Nc]
+def _loadMPSingles(a,continuousDataLength):
+    Nc=a[1].Stats.values()[0]['Nc'] #num of channels
+    ssArrayTDp=np.array([a[1].MPtd[x][a[1].SampleTrims['Starttime']:a[1].SampleTrims['Endtime']] for x in a[1].MPtd.keys()])
+    ssArrayTD=np.array([x/np.linalg.norm(x) for x in ssArrayTDp]) #normalize
+    rele=int(continuousDataLength*a[1].Stats.values()[0]['sampling_rate']*Nc+np.max(np.shape(ssArrayTD)))
+    ssArrayFD=np.array([scipy.fftpack.fft(x[::-1],n=2**rele.bit_length()) for x in ssArrayTD])
+    return ssArrayTD,ssArrayFD,rele,Nc
+        
 
-def _loadMPSubSpace(a,ContinousDataLength): # function to load subspace representations
+def _loadMPSubSpace(a,continuousDataLength): # function to load subspace representations
     if 'UsedSVDKeys' in a[1].index: #test if input TRDF row is subspace
         if not isinstance(a[1].UsedSVDKeys,list):
             raise Exception ('SVD not defined, run SVD on subspace stream class before calling false alarm statistic class')
         if not all(x==a[1].Channels.values()[0] for x in a[1].Channels.values()):
+            detex.log(__name__,'all stations in subspace do not have the same channels',level='warning')
             raise Exception ('all stations in subspace do not have the same channels')
         Nc=len(a[1].Channels.values()[0]) #num of channels
         #ssArrayTD=np.array([a[1].SVD[x][trimdex[0]:trimdex[1]] for x in a[1].UsedSVDKeys])
         ssArrayTD=np.array([a[1].SVD[x] for x in a[1].UsedSVDKeys])
-        rele=int(ContinousDataLength*a[1].Stats.values()[0]['sampling_rate']*Nc+np.max(np.shape(ssArrayTD)))
+        rele=int(continuousDataLength*a[1].Stats.values()[0]['sampling_rate']*Nc+np.max(np.shape(ssArrayTD)))
         ssArrayFD=np.array([scipy.fftpack.fft(x[::-1],n=2**rele.bit_length()) for x in ssArrayTD])
     #=np.array([a[1].SVD[x] for x in a[1].UsedSVDKeys]) #time domain subspace array
     #ssArrayFD=np.array([scipy.fftpack.fft(a[1].SVD[x],n=reqlen) for x in a[1].UsedSVDKeys]) #fequency domain subspace array
@@ -1963,7 +2334,7 @@ def _getStaLtaArray(self,C,LTA,STA): # Get STA/LTA
     return out
 
             
-def _loadRandomContinousData(station,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit): #loads random chunks of data from total availible data
+def _loadRandomcontinuousData(station,jdays,cluster,usedJdayHours,dtype,LTATime,STATime,staltalimit): #loads random chunks of data from total availible data
     filt=cluster.filt
     failcount=0
     while failcount<50:
@@ -1983,15 +2354,16 @@ def _loadRandomContinousData(station,jdays,cluster,usedJdayHours,dtype,LTATime,S
                     TR[num].data=tr.data.astype(np.float32)
             if cft.max()>staltalimit:
                 failcount+=1
-                #print 'rejecting continous data'
+                detex.log(__name__,'rejecting continuous data %s' %WFs[int(rand2)])
             else:
                 usedJdayHours.append([rand1,rand2])
                 break
         except: #allow a certain number of failures to account for various possible data problems
             failcount+=1
         if failcount>49: 
-            print 'Not enough traces found with no high amplitude signals, try adjusting the number of continous data files used or changing stalta parameters of\
+            print 'Not enough traces found with no high amplitude signals, try adjusting the number of continuous data files used or changing stalta parameters of\
             the getFAS function'
+            detex.log(__name__,'fail count exceeded on loading continuous data',level='warning')
             deb([rand1,WFs,rand2,ST,TR,TRz,cft,staltalimit,STATime,LTATime])
             raise Exception('something is broked')
     return TR,usedJdayHours
@@ -2069,7 +2441,6 @@ def _calcAlpha(MPtem,MPcon):
         if (abs(alpha-alphaPrevious))/(alphaPrevious)<0.01: #If change is less than 1% break, else go 10 iterations
             break
         alphaPrevious=alpha
-    #print (X.argmax(),Y.argmax(),alpha)    
     return abs(alpha)   
 
 ##subspace Detex
@@ -2079,26 +2450,22 @@ class SSDetex(object):
     ConDir
     """
     def __init__(self,TRDF,UTCstart,UTCend,ConDir,EveDir,subspaceDB,trigCon,triggerLTATime,triggerSTATime,multiprocess,filt,
-                 decimate,delOldCorrs,extrapolateTimes,calcHist,dtype,estimateMags,pks,eventDir,eventCorFile,UTCSaves,fillZeros):
+                 decimate,extrapolateTimes,calcHist,dtype,estimateMags,pks,eventDir,eventCorFile,UTCSaves,fillZeros,issubspace=True):
         self.__dict__.update(locals()) # Instantiate all input variables
         if not os.path.exists(ConDir):
-            raise Exception('%s does not exist, make sure you are in the correct directory'%ConDir)
+            detex.log(__name__,'%s does not exist'%ConDir)
+            raise Exception('%s does not exist, make sure cwd is correct'%ConDir)
         if not eventDir:
-            self.ContinousDataLength=detex.util.getContinousDataLength(Condir=ConDir) #get continous data length, will throw error if not all stations have the same length
+            self.continuousDataLength=detex.util.getcontinuousDataLength(Condir=ConDir) #get continuous data length, will throw error if not all stations have the same length
         else:
-            self.ContinousDataLength=detex.util.getEveDataLength(EveDir=eventDir)
-        if os.path.exists(subspaceDB) and not delOldCorrs:
-            user_input=raw_input('%s already exists, delete it? ("y" or "yes" else do not delete)\n'%subspaceDB)
-            if user_input=='yes' or user_input=='y':
-                detex.util.DoldDB(subspaceDB)    
-        elif delOldCorrs and os.path.exists(subspaceDB):
-            detex.util.DoldDB(subspaceDB)
+            self.continuousDataLength=detex.util.getEveDataLength(EveDir=eventDir)
+
         
         if pks: #Try to read in picks
             try:
                 self.pks_df=pd.read_pickle(pks)
             except:
-                print 'reading %s failed' % pks
+                detex.log(__name__,'reading %s failed' % pks,level='warning')
                 self.pks=None
         if self.eventDir: #if this is an event directory correlation 
             self.eventCorList=[] #initilialize blank list to store all dataframes in
@@ -2110,27 +2477,28 @@ class SSDetex(object):
         self.hist={} 
         self.hist['Bins']=np.linspace(0,1,num=401)
         for sta in stations: #loop through each station in all subspaces/singles
-            DFsta=TRDF[sta] #make data frame from all subspaces/singles that share a station. This is done to reduce IO costs in reading continous data
-            DFsta.reset_index(inplace=True,drop=True)                    
-            self.hist[sta]=[None]*len(TRDF)
-            if multiprocess==True: #TODO fix this, multiprocessing is broken
-                p = multiprocessing.Process(target=self._CorStations(DFsta,sta))
-                jobs.append(p)
-                p.start()
-            else:
-                self.hist[sta]=self._CorStations(DFsta,sta)
-        if self.eventDir:
-            try:
-                DFeve=pd.concat(self.eventCorList,ignore_index=True)
-                DFeve.to_pickle(self.eventCorFile)
-            except ValueError:
-                print ('No events in Df concatenated')
+            DFsta=TRDF[sta] #make data frame from all subspaces/singles that share a station. This is done to reduce IO costs in reading continuous data
+            DFsta.reset_index(inplace=True,drop=True)
+            if len(DFsta)>0 and not self.eventDir:
+                self.hist[sta]=[None]*len(TRDF)
+                if multiprocess==True: #TODO fix this, multiprocessing is broken
+                    p = multiprocessing.Process(target=self._CorStations(DFsta,sta))
+                    jobs.append(p)
+                    p.start()
+                else:
+                    self.hist[sta]=self._CorStations(DFsta,sta)
+            elif self.eventDir:
+                try:
+                    DFeve=pd.concat(self.eventCorList,ignore_index=True)
+                    DFeve.to_pickle(self.eventCorFile)
+                except ValueError:
+                    detex.log(__name__,'No events in Df concatenated',level='warn')
         if isinstance(UTCSaves,collections.Iterable):
             try:
                 DFutc=pd.concat(self.UTCSaveList,ignore_index=True)
                 DFutc.to_pickle('UTCsaves.pkl')
             except ValueError:
-                print 'DFutc empty, not saving'
+                detex.log(__name__,'DFutc empty, not saving',level='warning')
                 
     def _CorStations(self,DFsta,sta): 
         channels=list(set([z for x in DFsta.Channels for y in x.values() for z in y]))
@@ -2141,11 +2509,19 @@ class SSDetex(object):
         Names.sort()
         histdic={na:[0.0]*(len(self.hist['Bins'])-1) for na in Names}
         if len(samplingRate)>1:  # Make sure there is only one sampling rate for all subspaces using current station station
+            detex.log(__name__,'More than one sampling rate found for station %s in subspace detection, aborting' % DFsta.Station[0],level='warning')
             raise Exception('More than one sampling rate found for station %s in subspace detection, aborting' % DFsta.Station[0])
         else:
-            samplingRate=samplingRate[0]
-        contrim={x[1].Name:-(self.ContinousDataLength % 3600)+np.shape(np.array(DFsta.SVD[x[0]].values()))[1]/(samplingRate*len(channels)) for x in DFsta.iterrows()}
-        
+            try:
+                samplingRate=samplingRate[0]
+            except:
+                return
+                #deb([DFsta,sta])
+        # get the ammount that each continuous data sample needs to be trimmed before performing ss detections
+        try:
+            contrim={x[1].Name:-(self.continuousDataLength % 3600)+(x[1].SampleTrims['Endtime']-x[1].SampleTrims['Starttime'])/(samplingRate*len(channels)) for x in DFsta.iterrows()}
+        except:
+            deb([DFsta,sta,self])
         staPksDf=None        
         if self.pks:
             staPksDf=self.pks_df[self.pks_df.Station==sta]
@@ -2155,6 +2531,7 @@ class SSDetex(object):
             if os.path.exists(self.eventDir):
                 histdict=self._CorEventDat(threshold,histdic,sta,channels,contrim,Names,DFsta,samplingRate,staPksDf)
             else:
+                detex.log(__name__,'%s does not exist' % self.eventDir)
                 raise Exception('%s does not exist' % self.eventDir)
         return histdict
     
@@ -2170,28 +2547,28 @@ class SSDetex(object):
             for staEvent in glob.glob(os.path.join(event,sta+'*')): 
                 tempFiles.append(staEvent)
         if len(tempFiles)<1:
-            print 'No events found for %s'%sta
+            detex.log(__name__, 'No events found for %s'%sta,level='warning')
         else:
-            ssArrayTD,ssArrayFD,reqlen,offsets,mags,eventWaveForms,events,WFU,UtU,pwave,swave=self._loadMPSubSpace(DFsta,self.ContinousDataLength,sta,channels,samplingRate,returnFull=True,PKS=staPksDf)
-            for fileToCorr in tempFiles: #loop through each chunk of continous data
+            ssArrayTD,ssArrayFD,reqlen,offsets,mags,eventWaveForms,events,WFU,UtU=self._loadMPSubSpace(DFsta,self.continuousDataLength,sta,channels,samplingRate,returnFull=True,PKS=staPksDf)
+            for fileToCorr in tempFiles: #loop through each chunk of continuous data
                 CorDF,MPcon,ConDat=self._getRA(ssArrayTD,ssArrayFD,fileToCorr,len(channels),reqlen,contrim,Names)
                 if not isinstance(CorDF,pd.DataFrame): #if something is broken skip hour
-                    print '%s failed' % fileToCorr 
+                    detex.log(__name__,'%s failed' % fileToCorr ,level='warning')
                     
                     continue
                 for name,row in CorDF.iterrows(): # iterate through each subspace/single
-                    self.eventCorList.append(pd.DataFrame([[sta,name,row.File,row.MaxSD,row.MaxSTALTA]],columns=['Station','Subspace','File','SD','SD_STALTA']))
+                    self.eventCorList.append(pd.DataFrame([[sta,name,row.File,row.MaxDS,row.MaxSTALTA]],columns=['Station','Subspace','File','DS','DS_STALTA']))
                     if self.calcHist and len(CorDF)>0: #If calculating histogram of Statistic of detection 
                         try:
                             histdic[name]=histdic[name]+np.histogram(row.SSdetect,bins=self.hist['Bins'])[0]
                         except:
-                            print 'binning failed'
+                            detex.log(__name__,'binning failed for %s'%row.Name,level='warning')
                     if isinstance(self.UTCSaves,collections.Iterable):
                        self._makeUTCSaveDF(row,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD)
                     if self._evalTriggerCondition(row,name,threshold): # Trigger Condition
-                        Sar=self._CreateCoeffArray(row,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD,WFU,UtU,staPksDf,pwave,swave)
+                        Sar=self._CreateCoeffArray(row,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD,WFU,UtU,staPksDf)
                         if len(Sar)>300:
-                            print 'over 300 events found in single continous data chunk, perphaps minCoef is too low?' 
+                            detex.log(__name__,'over 300 events found in single continuous data chunk, perphaps minCoef is too low?',level='warning')
                         if len(Sar)>0:
                             DF=DF.append(Sar,ignore_index=True)
                         if len(DF)>500:
@@ -2200,51 +2577,54 @@ class SSDetex(object):
                             DF=pd.DataFrame()
             if len(DF)>0:
                 detex.util.saveSQLite(DF,self.subspaceDB,'ss_df')
-            print ('%s completed, %d potential detection(s) recorded' %(sta,len(DF)+numdets))
+            detType='Subspaces' if self.issubspace else 'Singletons'
+            detex.log(__name__,'%s detections on %s completed, %d potential detection(s) recorded' %(detType,sta,len(DF)+numdets),pri=True)
         return histdic
 
         
             
     def _CorConDat(self,threshold,histdic,sta,channels,contrim,Names,DFsta,samplingRate,staPksDf):
         """
-        Function to use when subspace is to be run over continous data
+        Function to use when subspace is to be run over continuous data
         """
-        conrangejulday,conrangeyear=self._getContinousRanges(self.ConDir,sta,self.UTCstart,self.UTCend) 
+        conrangejulday,conrangeyear=self._getcontinuousRanges(self.ConDir,sta,self.UTCstart,self.UTCend) 
         numdets=0
         if len(conrangeyear)==0:
-            print ('No data for %s, check Continous data directory' %(sta))
+            detex.log(__name__,'No data for %s, check continuous data directory' %(sta),level='warning')
+        tableName='ss_df' if self.issubspace else 'sg_df'
         DF=pd.DataFrame() # Initialize emptry data frame, will later be dumped to SQL database
-        ssArrayTD,ssArrayFD,reqlen,offsets,mags,eventWaveForms,events,WFU,UtU,pwave,swave=self._loadMPSubSpace(DFsta,self.ContinousDataLength,sta,channels,samplingRate,returnFull=True,PKS=staPksDf)
+        ssArrayTD,ssArrayFD,reqlen,offsets,mags,eventWaveForms,events,WFU,UtU=self._loadMPSubSpace(DFsta,self.continuousDataLength,sta,channels,samplingRate,returnFull=True,PKS=staPksDf)
         for a in range(len(conrangeyear)): # for each year
             for b in conrangejulday[a]: # for each julian day   
                 FilesToCorr=glob.glob(os.path.join(self.ConDir,sta,str(conrangeyear[a]),str(b),sta+'*'))
-                for fileToCorr in FilesToCorr: #loop through each chunk of continous data
+                for fileToCorr in FilesToCorr: #loop through each chunk of continuous data
                     CorDF,MPcon,ConDat=self._getRA(ssArrayTD,ssArrayFD,fileToCorr,len(channels),reqlen,contrim,Names)
                     if not isinstance(CorDF,pd.DataFrame): #if something is broken skip hour                        
-                        print '%s failed' % fileToCorr 
+                        detex.log(__name__,'%s failed' % fileToCorr,level='warning') 
                         continue
                     for name,row in CorDF.iterrows(): # iterate through each subspace/single
                         if self.calcHist and len(CorDF)>0: 
                             try:
                                 histdic[name]=histdic[name]+np.histogram(row.SSdetect,bins=self.hist['Bins'])[0]
                             except:
-                                print 'binning failed'
+                                detex.log(__name__,'binning failed',level='warning')
                         if isinstance(self.UTCSaves,collections.Iterable):
                             self._makeUTCSaveDF(row,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD)
                         if self._evalTriggerCondition(row,name,threshold): # Trigger Condition
                             #deb(row)
-                            Sar=self._CreateCoeffArray(row,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD,WFU,UtU,staPksDf,pwave,swave)
+                            Sar=self._CreateCoeffArray(row,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD,WFU,UtU,staPksDf)
                             if len(Sar)>300:
-                                print 'over 300 events found in single continous data chunk, perphaps minCoef is too low?' 
+                                detex.log(__name__,'over 300 events found in single continuous data chunk, perphaps minCoef is too low?',level='warning')
                             if len(Sar)>0:
                                 DF=DF.append(Sar,ignore_index=True)
                             if len(DF)>500:
-                                detex.util.saveSQLite(DF,self.subspaceDB,'ss_df')
+                                detex.util.saveSQLite(DF,self.subspaceDB,tableName)
                                 DF=pd.DataFrame()
                                 numdets+=500
         if len(DF)>0:
-            detex.util.saveSQLite(DF,self.subspaceDB,'ss_df')
-        print ('%s completed, %d potential detection(s) recorded' %(sta,len(DF)+numdets))
+            detex.util.saveSQLite(DF,self.subspaceDB,tableName)
+        detType='Subspaces' if self.issubspace else 'Singletons'
+        detex.log(__name__,'%s on %s completed, %d potential detection(s) recorded' %(detType,sta,len(DF)+numdets),pri=1)
         if self.calcHist:
             return histdic
             
@@ -2262,12 +2642,13 @@ class SSDetex(object):
             self.UTCSaveList.append(df)
         return
         
-    def _loadMPSubSpace(self,DFsta,ContinousDataLength,sta,channels,samplingRate,returnFull=False,PKS=None): # function to load subspace representations
-        if 'UsedSVDKeys' in DFsta.columns: #test if input TRDF row is subspace
+    def _loadMPSubSpace(self,DFsta,continuousDataLength,sta,channels,samplingRate,returnFull=False,PKS=None): # function to load subspace representations
+        if 'UsedSVDKeys' in DFsta.columns and self.issubspace: #test if input TRDF row is subspace
             ssArrayTD,rele,ssArrayFD,offsets,mags,eventWaveforms,eves,WFU,UtUdict,pwave,swave={},{},{},{},{},{},{},{},{},{},{} # intitialize empty dicts
             if not all ([isinstance(x.UsedSVDKeys,list) for num,x in DFsta.iterrows()]):
                 raise Exception ('SVD not defined, run SVD on subspace stream class before calling detex')
             if not all([set(y)==set(DFsta.Channels[0].values()[0]) for x in DFsta.Channels for y in x.values()]): #make sure are channels are the same for all events
+                detex.log(__name__,'all stations in subspace do not have the same channels',level='warning')
                 raise Exception ('all stations in subspace do not have the same channels')
             Nc=len(channels) #num of channels
             for a in DFsta.iterrows():
@@ -2275,7 +2656,7 @@ class SSDetex(object):
                 U=np.array([a[1].SVD[x] for x in a[1].UsedSVDKeys]) #used SVD basis
                 ssArrayTD[a[1].Name]=U 
                 UtU=np.dot(np.transpose(U),U)
-                rele[a[1].Name]=int(ContinousDataLength*samplingRate*Nc+np.max(np.shape(ssArrayTD[a[1].Name])))
+                rele[a[1].Name]=int(continuousDataLength*samplingRate*Nc+np.max(np.shape(ssArrayTD[a[1].Name])))
                 ssArrayFD[a[1].Name]=np.array([scipy.fftpack.fft(x[::-1],n=2**rele[a[1].Name].bit_length()) for x in ssArrayTD[a[1].Name]])
                 offsets[a[1].Name]=a[1].Offsets
                 mag=np.array([a[1].Stats[x]['magnitude'] for x in events])
@@ -2288,15 +2669,43 @@ class SSDetex(object):
 #                    mag=np.delete(mag,delvals)
 #                    WFs=np.delete(WFs,delvals,axis=0)
 #                    events=np.delete(events,delvals)
-                pwave[a[1].Name],swave[a[1].Name]=self._getPandSWaves(PKS,a,events)
+                #pwave[a[1].Name],swave[a[1].Name]=self._getPandSWaves(PKS,a,events)
                 mags[a[1].Name]=mag
                 eves[a[1].Name]=events
                 eventWaveforms[a[1].Name]=WFs
                 WFU[a[1].Name]=np.dot(WFs,UtU) # events projected into subspace
                 UtUdict[a[1].Name]=UtU
+                
+        elif not self.issubspace: #if singles not subspaces
+            ssArrayTD,rele,ssArrayFD,offsets,mags,eventWaveforms,eves,WFU,UtUdict,pwave,swave={},{},{},{},{},{},{},{},{},{},{} # intitialize empty dicts
+            Nc=len(channels)
+            for a in DFsta.iterrows():
+                if len(a[1].SampleTrims.keys())<1: #skip hours where no trim times are defined
+                    continue
+                events=a[1].Events
+                Upre=[np.array(a[1].MPtd.values()[0][a[1].SampleTrims['Starttime']:a[1].SampleTrims['Endtime']])]
+                U=np.array([x/np.linalg.norm(x) for x in Upre])
+                ssArrayTD[a[1].Name]=U 
+                UtU=np.dot(np.transpose(U),U)
+                rele[a[1].Name]=int(continuousDataLength*samplingRate*Nc+np.max(np.shape(ssArrayTD[a[1].Name])))
+                ssArrayFD[a[1].Name]=np.array([scipy.fftpack.fft(x[::-1],n=2**rele[a[1].Name].bit_length()) for x in ssArrayTD[a[1].Name]])
+                offsets[a[1].Name]=a[1].Offsets
+                mag=np.array([a[1].Stats[x]['magnitude'] for x in events])
+                WFs=Upre
+#                delvals=np.where(mag<-100)[0] # find magnitudes that are not defined, IE -999
+#                if len(delvals)>0:
+#                    mag=np.delete(mag,delvals)
+#                    WFs=np.delete(WFs,delvals,axis=0)
+#                    events=np.delete(events,delvals)
+                #pwave[a[1].Name],swave[a[1].Name]=self._getPandSWaves(PKS,a,events)
+                mags[a[1].Name]=mag
+                eves[a[1].Name]=events
+                eventWaveforms[a[1].Name]=WFs
+                WFU[a[1].Name]=np.dot(WFs,UtU) # events projected into subspace
+                UtUdict[a[1].Name]=UtU         
         
         if returnFull:
-            return ssArrayTD,ssArrayFD,rele,offsets,mags,eventWaveforms,eves,WFU,UtUdict,pwave,swave
+            return ssArrayTD,ssArrayFD,rele,offsets,mags,eventWaveforms,eves,WFU,UtUdict
         else:
             return ssArrayTD,ssArrayFD,rele
             
@@ -2330,14 +2739,14 @@ class SSDetex(object):
         else:
             return None,None
         #deb([PKS,a])                             
-    def _CreateCoeffArray(self,CorSeries,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD,WFU,UtU,staPKsDf,pwave,swave):  
+    def _CreateCoeffArray(self,CorSeries,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD,WFU,UtU,staPKsDf):  
         #WFlen=np.shape(WFU[name])[1] #get length of window in samples
         dpv=0
         if self.trigCon==0:
             Ceval=CorSeries.SSdetect.copy()
         elif self.trigCon==1:
             Ceval=CorSeries.STALTA.copy()
-        Sar=pd.DataFrame(columns=['SD','SD_STALTA','STMP','Name','Sta','MSTAMPmin','MSTAMPmax','Mag','SNR','ProEnMag'])
+        Sar=pd.DataFrame(columns=['DS','DS_STALTA','STMP','Name','Sta','MSTAMPmin','MSTAMPmax','Mag','SNR','ProEnMag'])
         count=0
         while Ceval.max()>=threshold[name]: 
             trigIndex=Ceval.argmax()
@@ -2347,6 +2756,7 @@ class SSDetex(object):
                 times=self._subsampleExtrapolate(Ceval,trigIndex,CorSeries.SampRate,CorSeries.TimeStamp)
                 times1=float(trigIndex)/CorSeries.SampRate+CorSeries.TimeStamp
                 if abs(times1-(times))>1.0/CorSeries.SampRate:
+                    detex.log(__name__,'subsample extrapolation shifts time more than one sample',level='warning')
                     raise Exception('subsample extrapolation shifts time more than one sample') #make sure subsample extrapolation doesnt shift more than 1  sample
             else:
                 times=[float(trigIndex)/CorSeries.SampRate+CorSeries.TimeStamp]
@@ -2362,21 +2772,14 @@ class SSDetex(object):
             if self.estimateMags: #estimate magnitudes
                 ProEnmag,stdMag,SNR=self._estimateMagnitude(trigIndex,CorSeries,MPcon,mags[name],events[name],WFU[name],UtU[name],eventWaveForms[name],coef)
             else:
-                mag,SNR=np.NaN,np.NaN
+                ProEnmag,stdMag,SNR=np.NaN,np.NaN,np.NaN
             
-            if self.pks: #If useing picks
-                pass
-                #P,S=self._estimateArrivals(trigIndex,CorSeries,events[name],MPcon,pwave[name],swave[name],WFU[name])
-            else:
-                P,S=np.NaN,np.NaN
             if count>4000: #kill switch to prevent infinite loop (just in case)
-                raise Exception (' _CreatCoeffArray loop exceeds limit of 4000 events in one continous data chunk')
+                detex.log(__name__,' _CreatCoeffArray loop exceeds limit of 4000 events in one continuous data chunk',level='warning')
+                raise Exception (' _CreatCoeffArray loop exceeds limit of 4000 events in one continuous data chunk')
             MSTAMPmax,MSTAMPmin=times-np.min(offsets[name]),times-np.max(offsets[name])
-            if not MSTAMPmin>0:
-                deb([CorSeries,name,threshold,sta,offsets,mags,eventWaveForms,MPcon,events,ssArrayTD,WFU,UtU,staPKsDf,pwave,swave])
             Sar.loc[count]=[coef,SLValue,times,name,sta,MSTAMPmin,MSTAMPmax,stdMag,SNR,ProEnmag]
             count+=1
-        #deb(Sar)
         return Sar
     
     def _estimateArrivals(self,trigIndex,CorSeries,events,MPcon,pwave,swave,WFU):
@@ -2389,7 +2792,6 @@ class SSDetex(object):
                 CCs=fast_normcorr(eve,ConDat)
                 CCses.append(CCs)
                 ind=CCs.argmax()
-                print CCs.max(),ind
                 stmp=self._getArrivalStartTimes(ind,CorSeries,trigIndex,WFlen)
                 Pccs[evenum,0]=CCs.max()
                 Pccs[evenum,1]=stmp
@@ -2412,26 +2814,40 @@ class SSDetex(object):
         #TODO Clean this up
         #deb([trigIndex,CorSeries,MPcon,mags,events,WFU,UtU])
 
-        
         WFlen=np.shape(WFU)[1] # event waveform length
-        ConDat=MPcon[trigIndex*CorSeries.Nc:trigIndex*CorSeries.Nc+WFlen] #Continous data chunk that triggered  subspace
-        ssCon=np.dot(UtU,ConDat) # Continous data chunk projected into subspace
-        proEn=np.var(ssCon)/np.var(WFU,axis=1)
-       # alphas=[_calcAlpha(x,ssCon) for x in WFU]
+        ConDat=MPcon[trigIndex*CorSeries.Nc:trigIndex*CorSeries.Nc+WFlen] #continuous data chunk that triggered  subspace
+        if self.issubspace:
+            ssCon=np.dot(UtU,ConDat) # continuous data chunk projected into subspace
+            proEn=np.var(ssCon)/np.var(WFU,axis=1)
+    
         
+        #calculate noise level before event (std) in order to estimate SNR
         if trigIndex*CorSeries.Nc>5*WFlen:
             rollingstd=pd.rolling_std(MPcon[trigIndex*CorSeries.Nc-5*WFlen:trigIndex*CorSeries.Nc],WFlen)[WFlen-1:]
         else:
             rollingstd=pd.rolling_std(MPcon[trigIndex*CorSeries.Nc:trigIndex*CorSeries.Nc+WFlen+6*WFlen],WFlen)[WFlen-1:]
-        baseNoise=np.median(rollingstd)
-        touse=mags>-10
-        eventCors=np.array([fast_normcorr(x,ConDat)[0] for num,x in enumerate(eventWaveForms)]) #correlation coefs between each event and continous data
+        baseNoise=np.median(rollingstd) #take median of std for noise level
+        SNR=np.std(ConDat)/baseNoise #estiamte SNR
+        
+        # Calc magnitudes, use projected energy estimates (similar to waveform scaling) and 
+        touse=mags>-15 #only use magnitude if it is greater than -15 (-999 is often default if magnitude was not calculated)
+        if self.issubspace:
+            if not any(touse): #if no defined magnitudes avaliable
+                projectedEnergyMags,stdMags=np.NaN,np.Nan
+            else:
+                eventCors=np.array([fast_normcorr(x,ConDat)[0] for num,x in enumerate(eventWaveForms)]) #correlation coefs between each event and continuous data
+                projectedEnergyMags=np.sum([(mags[x]+np.log10(np.sqrt(proEn[x])))*np.square(eventCors[x]) for x in range(len(proEn)) if mags[x]>-10])/np.sum(np.square(eventCors[touse]))    
+                stdMags=np.sum([(mags[x]+np.log10(np.std(ConDat)/np.std(eventWaveForms[x])))*np.square(eventCors[x]) for x in range(len(proEn)) if mags[x]>-10])/np.sum(np.square(eventCors[touse]))    
+        else:
+            assert len(mags)==1 #make sure if single is being used only one magnitude is recorded
+            if np.isnan(mags[0]) or mags[0]<-15:
+                projectedEnergyMags=np.NaN
+                stdMags=np.NaN
+            else:
+                projectedEnergyMags=mags[0]+np.log10(np.dot(ConDat,WFU[0])/np.dot(WFU[0],WFU[0])) #use simple waveform scaling if single
+                stdMags=mags[0]+np.log10(np.std(ConDat)/np.std(WFU[0]))
+    
 
-#        estMags=np.array([mags[x]+np.log10(alphas[x]) for x in range(len(mags))]) 
-        projectedEnergyMags=np.sum([(mags[x]+np.log10(np.sqrt(proEn[x])))*np.square(eventCors[x]) for x in range(len(proEn)) if mags[x]>-10])/np.sum(np.square(eventCors[touse]))    
-        stdMags=np.sum([(mags[x]+np.log10(np.std(ConDat)/np.std(eventWaveForms[x])))*np.square(eventCors[x]) for x in range(len(proEn)) if mags[x]>-10])/np.sum(np.square(eventCors[touse]))    
-        SNR=np.std(ConDat)/baseNoise
-#        mag=np.log10(alpha)+mags[bc]
         return projectedEnergyMags,stdMags,SNR
         
     def _subsampleExtrapolate(self,Ceval,trigIndex,sr,starttime) :
@@ -2441,6 +2857,7 @@ class SSDetex(object):
         Ultrason. Imaging 17, 142–171 (1995)"""
         ind=Ceval.argmax()
         if trigIndex != ind:
+            detex.log(__name__,'something is messed up, trigIndex and CC.argmax no equal',level='warning')
             raise Exception('something is messed up, trigIndex and CC.argmax no equal')
         if ind==0 or ind==len(Ceval)-1: # If max occurs at beg or end of CC set as beg or end, no extrapolation
             tau=float(ind)/sr + starttime
@@ -2448,6 +2865,7 @@ class SSDetex(object):
             alpha=np.arccos((Ceval[ind-1]+Ceval[ind+1])/(2*Ceval[ind]))
             tau=-(np.arctan((Ceval[ind-1]-Ceval[ind+1])/(2*Ceval[ind]*np.sin(alpha)))/alpha)*1.0/sr+ind*1.0/sr+starttime
             if -np.arctan((Ceval[ind-1]-Ceval[ind+1])/(2*Ceval[ind]*np.sin(alpha)))/alpha >1:
+                detex.log(__name__,'Something wrong with extrapolation, more than 1 sample shift predicted ',level='warning')
                 raise Exception('Something wrong with extrapolation, more than 1 sample shift predicted ')
         return tau
         
@@ -2475,7 +2893,7 @@ class SSDetex(object):
         """
         Out=False
         if self.trigCon==0:
-            trig= Corrow.MaxSD
+            trig= Corrow.MaxDS
             if trig>threshold[name]:
                 Out=True
         elif self.trigCon==1:
@@ -2536,8 +2954,8 @@ class SSDetex(object):
         global debug
         return chans, tem
     
-    def _getContinousRanges(self,ConDir,sta,UTCstart,UTCend):
-        # get lists of all hours and days for which continous data is avaliable
+    def _getcontinuousRanges(self,ConDir,sta,UTCstart,UTCend):
+        # get lists of all hours and days for which continuous data is avaliable
         conrangeyear=[os.path.basename(x) for x in glob.glob(os.path.join(ConDir,sta,'*'))]
         conrangejulday=[0]*len(conrangeyear)
         for a in range(len(conrangeyear)):
@@ -2574,6 +2992,7 @@ class SSDetex(object):
         for a in range(len(TR)):
             Tn=abs(TR[a].stats.starttime.timestamp)
             if Tn>2*sr+T0 or Tn<-sr*2+T0:
+                detex.log(__name__,'Time stamps not equal for all channels of ' +TR[0].stats.station,level='warning')
                 raise Exception('Time stamps not equal for all channels of ' +TR[0].stats.station)
 
     def _getFilesToCorr(self,sta,jday,year,chans,ConDir):
@@ -2586,16 +3005,17 @@ class SSDetex(object):
         for a2 in range(len(chans)):
             FilesToCorr[a2]=[0]*len(sharedHours)
             for a3 in range(len(sharedHours)):
-                #FilesToCorr is now a len(chans) by len(sharedHours) matrix populated with paths to continous waveforms
+                #FilesToCorr is now a len(chans) by len(sharedHours) matrix populated with paths to continuous waveforms
                 FilesToCorr[a2][a3]=glob.glob(os.path.join(ConDir,sta,year,jday,chans[a2],'*'+'T'+sharedHours[a3]+'.sac'))
         return FilesToCorr, sharedHours
     
     def _getRA(self,ssArrayTD,ssArrayFD,fileToCorr,Nc,reqlen,contrim,Names):     
-        CorDF=pd.DataFrame(index=Names,columns=['SSdetect','STALTA','TimeStamp','SampRate','MaxSD','MaxSTALTA','Nc','File'])
+        CorDF=pd.DataFrame(index=Names,columns=['SSdetect','STALTA','TimeStamp','SampRate','MaxDS','MaxSTALTA','Nc','File'])
         CorDF['File']=os.path.basename(fileToCorr)
         try:
             conStream=_applyFilter(obspy.core.read(fileToCorr),self.filt,self.decimate,self.dtype,fillZeros=self.fillZeros)
-        except ValueError:
+        except:
+            detex.log(__name__,'failed to filter %s, skipping' % fileToCorr,level='warning')
             return None,None,None
         
         CorDF.SampRate=conStream[0].stats.sampling_rate
@@ -2605,7 +3025,7 @@ class SSDetex(object):
             ctrim=np.median(contrim.values())
         else:
             ctrim=contrim
-        if ctrim<0: #Trim continous data to avoid overlap
+        if ctrim<0: #Trim continuous data to avoid overlap
             MPconcur=MPcon[:int(ctrim*CorDF.SampRate[0]*Nc)]
         else:
             MPconcur=MPcon
@@ -2613,10 +3033,10 @@ class SSDetex(object):
  
         
         for name,row in CorDF.iterrows(): #loop through each hour in this Jday and calculate statistic
-            if len(MPcon)<=np.max(np.shape(ssArrayTD[name])): # make sure the template is shorter than continous data else skip
-                MPcon=None            
+            if len(MPcon)<=np.max(np.shape(ssArrayTD[name])): # make sure the template is shorter than continuous data else skip
+                MPcon=None  
             if isinstance(MPcon,np.ndarray): #If channels not equal in length and multiplexing fails delete hour, else continue with CCs                  
-                ssd=self._MPXSD(MPconcur,reqlen[name],ssArrayTD[name],ssArrayFD[name],Nc,MPconFD)
+                ssd=self._MPXDS(MPconcur,reqlen[name],ssArrayTD[name],ssArrayFD[name],Nc,MPconFD)
 #                try:                
 #                    maxind=ssd.argmax()
 #                except ValueError:
@@ -2624,11 +3044,11 @@ class SSDetex(object):
                 CorDF.SSdetect[name]=ssd
                 if len(ssd)<10:
                     return None,None,None
-                CorDF.MaxSD[name]=ssd.max()
-                if CorDF.MaxSD[name]>1.1: # If an infinity value occurs, zero it. 
+                CorDF.MaxDS[name]=ssd.max()
+                if CorDF.MaxDS[name]>1.1: # If an infinity value occurs, zero it. 
                     ssd[np.isinf(ssd)] = 0
                     CorDF.SSdetect[name]=ssd
-                    CorDF.MaxSD[name]=ssd.max()
+                    CorDF.MaxDS[name]=ssd.max()
                 if not self.fillZeros: #dont calculate sta/lta if zerofill is used
                     try:
                         CorDF.STALTA[name]=self._getStaLtaArray(CorDF.SSdetect[name],self.triggerLTATime*CorDF.SampRate[0],self.triggerSTATime*CorDF.SampRate[0])
@@ -2648,11 +3068,11 @@ class SSDetex(object):
         MPtemFD=scipy.fftpack.fft(nt,n=2**reqlen.bit_length())
         return MPtemFD,sum_nt   
 
-    def _MPXSD(self,MPcon,reqlen,ssArrayTD,ssArrayFD,Nc,MPconFD): # multiplex subspace detection statistic function
+    def _MPXDS(self,MPcon,reqlen,ssArrayTD,ssArrayFD,Nc,MPconFD): # multiplex subspace detection statistic function
 #        MPconFD=scipy.fftpack.fft(MPcon,n=2**reqlen.bit_length())
         n = np.int32(np.shape(ssArrayTD)[1]) #length of each basis vector
-        a = pd.rolling_mean(MPcon, n)[n-1:] #rolling mean of continous data
-        b = pd.rolling_var(MPcon, n)[n-1:]  # rolling var of continous data
+        a = pd.rolling_mean(MPcon, n)[n-1:] #rolling mean of continuous data
+        b = pd.rolling_var(MPcon, n)[n-1:]  # rolling var of continuous data
         b *= n #rolling power in vector
         sum_ss=np.sum(ssArrayTD,axis=1) #the sume of all the subspace basis vectors
         av_norm=np.multiply(a.reshape(1,len(a)),sum_ss.reshape(len(sum_ss),1)) #term to account for non-averaged vectors

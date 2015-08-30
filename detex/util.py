@@ -9,7 +9,7 @@ import pandas.io.sql as psql, simplekml, pandas as pd ,matplotlib.pyplot as plt
 
 class AllTemplates(object): #class to load all templates
     """Class for visualization purposes"""
-    def __init__(self,CorDB='Corrs.db',templatePath='EventWaveForms',condir='ContinousWaveForms',templateKey='TemplateKey.csv',ArcDB='Arc.db'):
+    def __init__(self,CorDB='Corrs.db',templatePath='EventWaveForms',condir='ContinuousWaveForms',templateKey='TemplateKey.csv',ArcDB='Arc.db'):
         self.__dict__.update(locals())
         self.templateKey=pd.read_csv(templateKey)
         self.temps=[0]*len(templateKey)
@@ -84,7 +84,31 @@ def writeKMLFromDF(DF,outname='map.kml'):
         pnt.coords=[(a[1].Lon,a[1].Lat)]
     kml.save(outname)
     
-def writeKMLFromTempalteKey(df='TemplateKey.csv',outname='map.kml'):
+def writeKMLFromTemplateKey(df='TemplateKey.csv',outname='templates.kml'):
+    """ 
+    Write a KML file from a templateKey
+
+    Parameters
+    -------------
+    DF : str or pandas Dataframe
+        If str then the path to the Templatekey. If dataframe the loaded tempalte key
+    outname : str
+        name of the kml file
+    """
+    if isinstance(df,str):
+        df=pd.read_csv(df)
+    elif isinstance(df,pd.DataFrame):
+        pass
+    else:
+        raise Exception('DF must be the Path to the TempalteKey or the loaded template key, unaccpetable type passed')
+    kml = simplekml.Kml(open=1)
+    for a in df.iterrows():             
+        pnt=kml.newpoint()
+        pnt.name=str(a[1].NAME)
+        pnt.coords=[(a[1].LON,a[1].LAT)]
+    kml.save(outname)
+    
+def writeKMLFromStationKey(df='StationKey.csv',outname='stations.kml'):
     """ 
     Write a KML file from a tempalteKey
 
@@ -104,9 +128,10 @@ def writeKMLFromTempalteKey(df='TemplateKey.csv',outname='map.kml'):
     kml = simplekml.Kml(open=1)
     for a in df.iterrows():             
         pnt=kml.newpoint()
-        pnt.name=a[1].NAME
+        pnt.name=str(a[1].STATION)
         pnt.coords=[(a[1].LON,a[1].LAT)]
-    kml.save(outname)    
+        #print(a[1].STATION,a[1].LON,a[1].LAT)
+    kml.save(outname)       
 
            
 def writeKMLFromHypInv(hypout='sum2000',outname='hypoInv.kml'):
@@ -288,9 +313,9 @@ def hypoinverseSumtoPhase(hypsum='sum2000'):
 """
         
         
-def loadContinousData(starttime,endtime,station,Condir='ContinousWaveForms'):
+def loadContinuousData(starttime,endtime,station,Condir='ContinuousWaveForms'):
     """
-    Function to load continous data from the detex directory structure
+    Function to load continuous data from the detex directory structure
     
     Parameters
     ------
@@ -329,12 +354,12 @@ def loadContinousData(starttime,endtime,station,Condir='ContinousWaveForms'):
     ST.trim(starttime=t1,endtime=t2)
     return ST
     
-def getContinousDataLength(Condir='ContinousWaveForms',numToRead=10):
+def getcontinuousDataLength(Condir='ContinuousWaveForms',numToRead=10):
     """
     Function to randomly read  in several hours from different stations and estimate the duration is seconds
-    of each continous data block
+    of each continuous data block
     
-    numToRead is the number of traces to read for each station in determining continous data length
+    numToRead is the number of traces to read for each station in determining continuous data length
     """
     stations=glob.glob(os.path.join(Condir,'*'))
     ledict={}
@@ -353,13 +378,13 @@ def getContinousDataLength(Condir='ContinousWaveForms',numToRead=10):
     lenlist=ledict.values()
     if not all([abs(x-lenlist[0])<1 for x in lenlist]): #if difference in median lengths are greater than 1 second accross all stations abort
         deb(lenlist)
-        raise Exception('Not all the channels have the same length for continous data, aborting opperation')
+        raise Exception('Not all the channels have the same length for continuous data, aborting opperation')
     else:
         return lenlist[0]
         
 def getEveDataLength(EveDir='EventWaveForms',numToRead=10):
     """
-    Same as getContinousDataLength but with template events
+    Same as getcontinuousDataLength but with template events
     """
     eves=glob.glob(os.path.join(EveDir,'*'))
     eves=list(set(eves))
@@ -376,7 +401,7 @@ def getEveDataLength(EveDir='EventWaveForms',numToRead=10):
     lenlist=ledict.values()
     if not all([abs(x-lenlist[0])<1 for x in lenlist]): #if difference in median lengths are greater than 1 second accross all stations abort
         deb(lenlist)
-        raise Exception('Not all the channels have the same length for continous data, aborting opperation')
+        raise Exception('Not all the channels have the same length for continuous data, aborting opperation')
     else:
         return lenlist[0]    
     
@@ -410,23 +435,38 @@ def DoldDB(CorDB): # Check if CorDB exists, if so delete
         os.remove(CorDB)
         
         
-def loadSQLite(corDB,tableName,sql=None):     
+def loadSQLite(corDB,tableName,sql=None,readExcpetion=False,silent=True):     
     """
-    Load contents of a SQLite database as a dataframe
+    Function to load sqlite database created by detex
     
-    corDB is a string of the name of the database
+    Parameters
+    ----------
     
-    tablename is the table which should be loaded
+    corDB : str
+        Path to the database
+    
+    tablename : str
+        table which should be loaded from sqlite database
     
     sql allows user to pass sql arguments to filter results
-    """              
-    if sql==None:
-        sql='SELECT %s FROM %s' % ('*', tableName)
-    #sys.exit(1)
-    with sqlite3.connect(corDB, detect_types=sqlite3.PARSE_DECLTYPES) as con:
-        #df=pd.read_sql(sql, con)
-        df=psql.read_sql(sql,con)
-        df=df.convert_objects(convert_dates=False,convert_numeric=True) #convert unicode to flaot where possible
+    
+    Returns
+    -------
+    A pandas dataframe with loaded table or None if table does not exist in database
+    """
+    try:              
+        if sql==None:
+            sql='SELECT %s FROM %s' % ('*', tableName)
+        with sqlite3.connect(corDB, detect_types=sqlite3.PARSE_DECLTYPES) as con:
+            #df=pd.read_sql(sql, con)
+            df=psql.read_sql(sql,con)
+            df=df.convert_objects(convert_dates=False,convert_numeric=True) #convert unicode to flaot where possible
+    except:
+        if not silent:
+            print 'failed to load %s in %s with sql=%s'%(corDB,tableName,sql)
+        df=None
+        if readExcpetion:
+            raise Exception
     return df
         
 def parseEvents(EveDir='EventWaveForms'):
@@ -668,11 +708,70 @@ def _tryDownloadData(net,sta,chan,loc, utcStart,utcEnd,client): # get data, retu
         print ('Download failed for %s.%s %s from %s to %s' % (net,sta,chan,str(utcStart),str(utcEnd)))
         return False    
             
-def trimTemplates(EveDir='EventWaveForms',templatekey='TemplateKey.csv', pickDF='EventPicks.pkl'):
+#def trimTemplates(EveDir='EventWaveForms',templatekey='TemplateKey.csv', pickDF='EventPicks.pkl'):
+#    """
+#    Uses streamPicks to parse the templates and allow user to manually pick starttimes for events.
+#    Currently seperate P and S picks are not supported and only the first pick (whichever phase it may be)
+#    is recorded as the event starttime
+#    
+#    Parameters
+#    -------------
+#    EveDir : str
+#        Event Directory with the structure created by detex.getevents.getAllEvents
+#    templatekey : str
+#        Path to the template key
+#    pickDF : str 
+#        Name for picks to be saved as. If the file already exists it will be read and all picks already
+#        made will be skipped
+#    """
+# 
+#    temkey=pd.read_csv(templatekey)
+#    evefiles=glob.glob(os.path.join(EveDir,'*'))
+#    ef=set(temkey.NAME.values).intersection(set([os.path.basename(x) for x in evefiles])) #get events that both exist and are in template key
+#    if os.path.exists(pickDF): #if a pickDF already exists then load it
+#        DF=pd.read_pickle(pickDF)
+#        if len(DF)<1: #if empty then delete
+#            os.remove(pickDF)
+#            DF=pd.DataFrame()
+#            Eves=[os.path.join(EveDir,x) for x in list(ef)]
+#        else:
+#            wfs=ef-set(DF['Name'])
+#            Eves=[os.path.join(EveDir,x) for x in list(wfs)]
+#    else:
+#        DF=pd.DataFrame(columns=['Starttime','Endtime','Station','Path','Name'])
+#        Eves=[os.path.join(EveDir,x) for x in list(ef)]
+#    for a in Eves:
+#        waveforms=glob.glob(os.path.join(a,'*'))
+#        for wf in waveforms:
+#            TR=obspy.core.read(wf)
+#            Pks=None #needed so OS X doesn't crash
+#            Pks=detex.streamPick.streamPick(TR)
+#            tdict={}
+#            saveit=0
+#            for b in Pks._picks:
+#                if b:
+#                    tdict[b.phase_hint]=b.time.timestamp
+#                    saveit=1
+#            if saveit:
+#                st,et=[min(tdict.values()),max(tdict.values())]
+#                print [min(tdict.values()),max(tdict.values())]
+#                sta=str(TR[0].stats.network+'.'+TR[0].stats.station)
+#
+#                name=str(os.path.basename(a))
+#                DF=DF.append({'Starttime':st,'Endtime':et,'Station':sta,'Path':path,'Name':name},ignore_index=True)
+#            else:
+#                print ('no picks passed, cant trim stream object')
+#            if not Pks.KeepGoing:
+#                print 'aborting picking, progress saved'
+#                DF.to_pickle(pickDF)
+#                return None
+#    DF.to_pickle(pickDF)
+    
+def pickPhases(EveDir='EventWaveForms',templatekey='TemplateKey.csv', stationkey='StationKey.csv',pickDF='EventPicks.pkl'):
     """
-    Uses streamPicks to parse the templates and allow user to manually pick starttimes for events.
-    Currently seperate P and S picks are not supported and only the first pick (whichever phase it may be)
-    is recorded as the event starttime
+    Uses streamPicks to parse the templates and allow user to manually pick phases for events.
+    Only P,S, Pend, and Send are supported phases under the current GUI, but other phases can be manually
+    input
     
     Parameters
     -------------
@@ -680,51 +779,60 @@ def trimTemplates(EveDir='EventWaveForms',templatekey='TemplateKey.csv', pickDF=
         Event Directory with the structure created by detex.getevents.getAllEvents
     templatekey : str
         Path to the template key
+    stationkey : str
+        Path to the station key
     pickDF : str 
         Name for picks to be saved as. If the file already exists it will be read and all picks already
         made will be skipped
     """
- 
     temkey=pd.read_csv(templatekey)
+    stakey=pd.read_csv(stationkey)
     evefiles=glob.glob(os.path.join(EveDir,'*'))
     ef=set(temkey.NAME.values).intersection(set([os.path.basename(x) for x in evefiles])) #get events that both exist and are in template key
+       
     if os.path.exists(pickDF): #if a pickDF already exists then load it
         DF=pd.read_pickle(pickDF)
         if len(DF)<1: #if empty then delete
             os.remove(pickDF)
-            DF=pd.DataFrame()
+            DF=pd.DataFrame(columns=['TimeStamp','Station','Event','Phase'])
             Eves=[os.path.join(EveDir,x) for x in list(ef)]
         else:
-            wfs=ef-set(DF['Name'])
+            wfs=ef-set(DF['Event'])
             Eves=[os.path.join(EveDir,x) for x in list(wfs)]
     else:
-        DF=pd.DataFrame(columns=['Starttime','Endtime','Station','Path','Name'])
+        DF=pd.DataFrame(columns=['TimeStamp','Station','Event','Phase'])
         Eves=[os.path.join(EveDir,x) for x in list(ef)]
     for a in Eves:
-        waveforms=glob.glob(os.path.join(a,'*'))
-        for wf in waveforms:
-            TR=obspy.core.read(wf)
-            Pks=None #needed so OS X doesn't crash
-            Pks=detex.streamPick.streamPick(TR)
-            tdict={}
-            saveit=0
-            for b in Pks._picks:
-                if b:
-                    tdict[b.phase_hint]=b.time.timestamp
-                    saveit=1
-            if saveit:
-                st,et=[min(tdict.values()),max(tdict.values())]
-                print [min(tdict.values()),max(tdict.values())]
-                sta=str(TR[0].stats.network+'.'+TR[0].stats.station)
-                path=str(wf)
-                name=str(os.path.basename(a))
-                DF=DF.append({'Starttime':st,'Endtime':et,'Station':sta,'Path':path,'Name':name},ignore_index=True)
-            else:
-                print ('no picks passed, cant trim stream object')
+        for stanum,starow in stakey.iterrows(): #loop through each station
+            sta=starow.NETWORK+'.'+starow.STATION #get station in network.station format
+            waveforms=glob.glob(os.path.join(a,sta+'*'))
+            if len(waveforms)>1: 
+                raise Exception('Event %s has multiple entries on station %s' %(a,sta))
+            for wf in waveforms:
+                TR=obspy.core.read(wf)
+                Pks=None #needed so OS X doesn't crash
+                Pks=detex.streamPick.streamPick(TR)
+                tdict={}
+                saveit=0 #saveflag
+                for b in Pks._picks:
+                    if b:
+                        tdict[b.phase_hint]=b.time.timestamp
+                        saveit=1
+                if saveit:
+                    for key in tdict.keys():
+                        stmp=tdict[key]
+                        sta=str(TR[0].stats.network+'.'+TR[0].stats.station)
+        
+                        name=str(os.path.basename(a))
+                        DF=DF.append({'TimeStamp':stmp,'Station':sta,'Event':name,'Phase':key},ignore_index=True)
             if not Pks.KeepGoing:
-                print 'aborting picking, progress saved'
+                print 'Exiting picking GUI, progress saved'
+                DF.sort(columns=['Station','Event'],inplace=True)
+                DF.reset_index(drop=True,inplace=True)
                 DF.to_pickle(pickDF)
-                return None
+                return
+    DF.sort(columns=['Station','Event'],inplace=True)
+    DF.reset_index(drop=True,inplace=True)
     DF.to_pickle(pickDF)
     
 def makePKS(inputFile,pickDF='EventPicks.pkl',EveDir='EventWaveForms'):
@@ -818,10 +926,10 @@ def makeHypStationFile(DF,outname='TAall.sta'):
             line= '%s  %s  ENZ  %02d %07.4f %03d %07.4f %04d .0  P  0.00  0.00  0.00  0.00 0 0.00 01\n' % linefill
             stafil.write(line)
             
-def convertOldDtexDirs(condir='ContinousWaveForms',chans=['BHZ','BHN','BHE']):
+def convertOldDtexDirs(condir='ContinuousWaveForms',chans=['BHZ','BHN','BHE']):
     os.rename(condir,condir+'tmp')
     hourange=['%02d'%x for x in range(24)]
-    # work on continous waveforms first
+    # work on continuous waveforms first
     stations=glob.glob(os.path.join(condir+'tmp','*'))
     for sta in stations:
         orderedlist=[]

@@ -100,4 +100,11 @@ Version 0.0.8
 _____________
 Small bug fixes
 
-Added option to subspace detection to allow continous data to be filled with 0s, facilitates the use of gappy data
+Added option to subspace detection to allow continuous data to be filled with 0s, facilitates the use of gappy data
+
+Version 0.1.0
+_____________
+
+Deleted xcorr module, added support for singles (or singletons) from the subspace module. This represents a shift from the previous subspace and cross correlation paradigm to an only subspace paradigm where one-dimensional subspaces can be run (equivalent to cross correlation). Also added some features and cleaned up the code a bit.
+
+
