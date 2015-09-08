@@ -3,7 +3,7 @@
 #   Author: Derrick Chambers
 #------------------------------------------------------------------------------
 """
-deTex: A Python Toolbox for running cross correlation normalized detections.
+deTex: A Python Toolbox for running subspace detections.
 ==================================================================
 """
 #imports
