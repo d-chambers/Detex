@@ -1489,7 +1489,7 @@ class SubSpaceStream(object):
                         return None
             self._updateOffsets()
     
-    def attachPickTimes(self,pksFile='EventPicks.pkl',ssMode='Average',defaultDuration=30):
+    def attachPickTimes(self,pksFile='EventPicks.csv',ssMode='Average',defaultDuration=30):
         """
         Rather than picking times manually attach a file (either csv or pkl of pandas dataframe) with pick times.
         Pick time file must have the following fields:  TimeStamp,Station,Event,Phase (as created by detex.util.pickPhases)
@@ -1507,10 +1507,10 @@ class SubSpaceStream(object):
             or subspace stack. If None, then durations are defined by first arriving phase and last arriving phase for each event
         """
         try: #read pksFile
-            pks=pd.read_pickle(pksFile)
+            pks=pd.read_csv(pksFile)
         except:
             try:
-                pks=pd.read_csv(pksFile)
+                pks=pd.read_pickle(pksFile)
             except:
                 detex.log(__name__,'%s does not exist, or it is not a pkl or csv file' % pksFile,level='warning')
                 raise Exception('%s does not exist, or it is not a pkl or csv file' % pksFile )

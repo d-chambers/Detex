@@ -767,7 +767,7 @@ def _tryDownloadData(net,sta,chan,loc, utcStart,utcEnd,client): # get data, retu
 #                return None
 #    DF.to_pickle(pickDF)
     
-def pickPhases(EveDir='EventWaveForms',templatekey='TemplateKey.csv', stationkey='StationKey.csv',pickDF='EventPicks.pkl'):
+def pickPhases(EveDir='EventWaveForms',templatekey='TemplateKey.csv', stationkey='StationKey.csv',pickDF='EventPicks.csv'):
     """
     Uses streamPicks to parse the templates and allow user to manually pick phases for events.
     Only P,S, Pend, and Send are supported phases under the current GUI, but other phases can be manually
@@ -833,7 +833,7 @@ def pickPhases(EveDir='EventWaveForms',templatekey='TemplateKey.csv', stationkey
                 return
     DF.sort(columns=['Station','Event'],inplace=True)
     DF.reset_index(drop=True,inplace=True)
-    DF.to_pickle(pickDF)
+    DF.to_csv(pickDF)
     
 def makePKS(inputFile,pickDF='EventPicks.pkl',EveDir='EventWaveForms'):
     """

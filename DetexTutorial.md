@@ -1,20 +1,20 @@
 
 #  Detex Tutorial
 
-Detex is a python package for performing waveform similarity clustering and subspace detection. It is written in python and relies heavily on Obspy, Numpy, Scipy, Matplotlib, and Pandas. If you are not familiar with python I recommend you install the [anaconda distribution](http://continuum.io/downloads) for your platform  and spend a few hours learning the basics of the language before attempting to use Detex. Here are some great tutorials:
+Detex is a python package for performing waveform similarity clustering and [subspace detection](https://e-reports-ext.llnl.gov/pdf/335299.pdf). It is written in python and relies heavily on Obspy, Numpy, Scipy, Matplotlib, and Pandas. If you are not familiar with python I recommend you install the [anaconda distribution](http://continuum.io/downloads) for your platform and spend a few hours learning the basics of the language before attempting to use Detex. Here are some great tutorials:
 
 http://www.stavros.io/tutorials/python/
 http://www.tutorialspoint.com/python/python_quick_guide.htm
 
-Also, any time spent learning [obspy](http://docs.obspy.org/tutorial/) is a great investment as it is a very powerful tool for geophysical processing.
+Also, any time spent learning [obspy](http://docs.obspy.org/tutorial/) is a good investment as it is a very powerful tool for processing geophysical data.
 
-Some knowledge of [pandas](http://pandas.pydata.org/pandas-docs/stable/tutorials.html) will also be useful, as the pandas DataFrame is used extensively in detex .
+Some knowledge of [pandas](http://pandas.pydata.org/pandas-docs/stable/tutorials.html) will also be useful, as the pandas DataFrame is used extensively in detex.
 
 Special thanks to Tex Kubacki (whose work inspired Detex), Jared Stein, Lisa Linvile, Shawn Blotz, and Chase Batchelor.
 
 ## Installation 
 
-Detex can be installed by running the setup.py script in the distribution directory form the command line.
+Detex can be installed by running the setup.py script in the distribution directory.
 
 ## Workflow
 
@@ -35,11 +35,11 @@ The station key is generally saved as StationKey.csv. The following is an exampl
 
 
 | NEWTORK | STATION | STARTTIME | ENDTIME | LAT | LON | ELEVATION | CHANNELS |
-|:----------:|:-----------:|:------------:| :-: | :-: | :-: | :-: | :-: |
+|:----------:|:-----------:|:------------:| :-: | :-: | :-: | :-: |
 | TA | M18A	| 2009-04-01T00:00:00 | 2009-04-04T00:00:00	| 41.4272 | -110.0674 | 2103 | BHE-BHN-BHZ |
 | TA | M17A	| 2009-04-01T00:00:00 | 2009-04-04T00:00:00	| 41.4729 | - 110.6664 | 2101 | BHE-BHN-BHZ |
 
-The STARTTIME and ENDTIME fields indicated the time range of the continuous data and can be in any format readable by the obspy.UTCDateTime class (including a time stamp). See the [obspy UTCDateTime docs](http://docs.obspy.org/packages/autogen/obspy.core.utcdatetime.UTCDateTime.html) for more info 
+The STARTTIME and ENDTIME fields indicated the time range of the continuous data and can be in any format readable by the obspy.UTCDateTime class (including a time stamp). See the [obspy.UTCDateTime docs](http://docs.obspy.org/packages/autogen/obspy.core.utcdatetime.UTCDateTime.html) for more info 
 
 The CHANNELS field should list the channels that will be used for each station separated by a dash (-). Additionally, any extra fields can be added without affecting Detex's ability to read the file.
 
@@ -91,7 +91,7 @@ In order to do this a clusterStream object is created, which is essentially a co
 
     cl=detex.subspace.createCluster() # Create a clusters stream object
 
-    <generator object <genexpr> at 0x0000000021D79FC0>
+    <generator object <genexpr> at 0x0000000003F1CE10>
     getting CCs and lags on TA.M17A
     getting CCs and lags on TA.M18A
     CCreq for station TA.M17A updated to CCreq=0.500
@@ -153,17 +153,17 @@ Now if we wanted to form strictly 4 groups on each station we can modify the req
 ![png](output_11_1.png)
 
 
-There are several other functions of the ClusterStream class. Notably, input for (hypoDD)[http://www.ldeo.columbia.edu/~felixw/hypoDD.html] can be created using the writeHypoDDEventInput, writeHypoDDStationInput, and writeSimpleHypoDDInput class methods; although as of version 0.1.0 they have not been tested. I also hope to develop other methods for locating detected events in the future. 
+There are several other functions of the ClusterStream class. Notably, input for [hypoDD](http://www.ldeo.columbia.edu/~felixw/hypoDD.html]) (a well-established double difference relocation program) can be created using the writeHypoDDEventInput, writeHypoDDStationInput, and writeSimpleHypoDDInput class methods; although as of version 0.1.0 they have not been fully tested. I hope to develop other methods for locating detected events in the future. 
 
 ## 4. Subspace detection
-The subspace creation process is applied to each waveform similarity group. The process involves 1) aligning the waveforms to optimize similarity, 2) performing a singular value decomposition, 3) determining a required dimension of representation, and 4) setting a detection statistic threshold. As a final step 5) the subspace detectors are run on each station and saved to an SQLite database.
+The subspace creation process is applied to each waveform similarity group. The process involves 1) aligning the waveforms to optimize similarity, 2) performing a singular value decomposition, 3) determining a required dimension of representation, and 4) setting a significant detection statistic threshold. As a final step 5) the subspace detectors are run on each station and saved to an SQLite database.
 
 
     # First, the creation of the SubSpaceStream
     ss= detex.subspace.createSubSpace() 
 
     Starting Subspace Construction
-    <generator object <genexpr> at 0x000000003040DCA8>
+    <generator object <genexpr> at 0x000000001902E1F8>
     
 
 ### 4.1 Trim waveforms
@@ -179,7 +179,7 @@ Detex will then find the first arriving phase for each waveform (event-station p
     ss.attachPickTimes()
 
 ### 4.2, 4.3, 4.4 Perform SVD, set dimension of representation, and set threshold
-Next a singular value decomposition is performed on the  waveform groups that have been aligned and trimmed. A dimension of representation (IE the number of left singular vectors used to describe the waveform family) is calculated based on the fractional energy capture of 90% (by default). A detection statistic (DS) threshold for each subspace and singleton is then determined by calculated the detection statistic of the subspace with random continuous data that contain no high amplitude signals, fitting a beta PDF to the distribution, and finding the DS corresponding to the selected probability of false detection $10^{-12}$ by default). In the future I hope to add other distribution options, such as log-normal. 
+Next a singular value decomposition is performed on the  waveform groups that have been aligned and trimmed. A dimension of representation (IE the number of left singular vectors used to describe the waveform family) is calculated based on the fractional energy capture of 90% (by default). A detection statistic (DS) threshold for each subspace and singleton is then determined by calculating the detection statistic of the subspace with random continuous data that contains no high amplitude signals, fitting a beta PDF to the distribution, and finding the DS corresponding to the selected probability of false detection $10^{-12}$ by default). 
 
 
     ss.SVD()
@@ -190,10 +190,10 @@ Detex will scan the continuous data for each station-subspace pair and declare a
 
     ss.detex(useSingles=True) # run subspace detections and also run unclustered events as 1D subspaces (IE waveform correlation)
 
-    Subspaces on TA.M17A completed, 22 potential detection(s) recorded
-    Subspaces on TA.M18A completed, 43 potential detection(s) recorded
-    Singletons on TA.M17A completed, 116 potential detection(s) recorded
-    Singletons on TA.M18A completed, 20 potential detection(s) recorded
+    Subspaces on TA.M17A completed, 23 potential detection(s) recorded
+    Subspaces on TA.M18A completed, 55 potential detection(s) recorded
+    Singletons on TA.M17A completed, 181 potential detection(s) recorded
+    Singletons on TA.M18A completed, 12 potential detection(s) recorded
     
 
 The results are saved to an sqlite database. The following tables are saved in the database (named SubSpace.db by default):
@@ -243,7 +243,7 @@ Any of these tables can be loaded into a dataframe using the detex.util.loadSQLi
 
 ## 5 Associate detections
 
-The detex module "results" is used to associate detections (DS that exceeded the determined threshold) on various stations together into coherent events. The association requirement is an overlap in predicted origin times. If a verification data set (IE event ground-truth) is available it can be used to assess detector performance. 
+The detex module "results" is used to associate all of the detections (DS that exceeded the determined threshold) on various stations together into coherent events. The association requirement is an overlap in predicted origin times. If a verification data set (IE event ground-truth) is available it can be used to assess detector performance. 
 
 Note: If possible, it is very important to use at least 2 stations separated in space in order to reduce false detections.
 
@@ -263,7 +263,7 @@ The verified detections, new detections, and auto detections (detection of train
 
 
 
-<div>
+<div style="max-height:1000px;max-width:1500px;overflow:auto;">
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -283,55 +283,55 @@ The verified detections, new detections, and auto detections (detection of train
   <tbody>
     <tr>
       <th>0</th>
-      <td>2009-04-01T20-25-39</td>
-      <td>0.677973</td>
-      <td>0.809456</td>
-      <td>4.455041</td>
-      <td>1.238618e+09</td>
-      <td>1.238618e+09</td>
-      <td>2.265639</td>
-      <td>2.194206</td>
-      <td>True</td>
-      <td>DS  DS_STALTA          STMP Name    ...</td>
+      <td> 2009-04-01T20-25-40</td>
+      <td> 0.678077</td>
+      <td> 0.809730</td>
+      <td> 4.453540</td>
+      <td> 1.238618e+09</td>
+      <td> 1.238618e+09</td>
+      <td> 2.265334</td>
+      <td> 2.193913</td>
+      <td> True</td>
+      <td>           DS  DS_STALTA          STMP Name    ...</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>2009-04-02T16-26-59</td>
-      <td>0.783895</td>
-      <td>0.842479</td>
-      <td>5.276088</td>
-      <td>1.238690e+09</td>
-      <td>1.238690e+09</td>
-      <td>2.251904</td>
-      <td>2.215143</td>
-      <td>True</td>
-      <td>DS  DS_STALTA          STMP Name    ...</td>
+      <td> 2009-04-02T16-27-00</td>
+      <td> 0.782322</td>
+      <td> 0.839309</td>
+      <td> 5.275199</td>
+      <td> 1.238690e+09</td>
+      <td> 1.238690e+09</td>
+      <td> 2.252170</td>
+      <td> 2.214971</td>
+      <td> True</td>
+      <td>            DS  DS_STALTA          STMP Name   ...</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>2009-04-02T19-16-47</td>
-      <td>0.235882</td>
-      <td>0.379169</td>
-      <td>6.614627</td>
-      <td>1.238700e+09</td>
-      <td>1.238700e+09</td>
-      <td>2.093516</td>
-      <td>1.737536</td>
-      <td>True</td>
-      <td>DS  DS_STALTA          STMP Name    ...</td>
+      <td> 2009-04-02T19-16-51</td>
+      <td> 0.505218</td>
+      <td> 0.632107</td>
+      <td> 5.026575</td>
+      <td> 1.238700e+09</td>
+      <td> 1.238700e+09</td>
+      <td> 2.061220</td>
+      <td> 1.922427</td>
+      <td> True</td>
+      <td>            DS  DS_STALTA          STMP Name   ...</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>2009-04-03T17-34-23</td>
-      <td>0.132521</td>
-      <td>0.188679</td>
-      <td>7.752745</td>
-      <td>1.238780e+09</td>
-      <td>1.238780e+09</td>
-      <td>2.006925</td>
-      <td>1.453166</td>
-      <td>True</td>
-      <td>DS  DS_STALTA          STMP Name   ...</td>
+      <td> 2009-04-03T17-34-27</td>
+      <td> 0.467678</td>
+      <td> 0.530095</td>
+      <td> 5.594161</td>
+      <td> 1.238780e+09</td>
+      <td> 1.238780e+09</td>
+      <td> 1.902727</td>
+      <td> 1.752857</td>
+      <td> True</td>
+      <td>            DS  DS_STALTA          STMP Name   ...</td>
     </tr>
   </tbody>
 </table>
@@ -345,7 +345,7 @@ The verified detections, new detections, and auto detections (detection of train
 
 
 
-<div>
+<div style="max-height:1000px;max-width:1500px;overflow:auto;">
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -365,29 +365,29 @@ The verified detections, new detections, and auto detections (detection of train
   <tbody>
     <tr>
       <th>0</th>
-      <td>2009-04-01T17-36-58</td>
-      <td>0.568807</td>
-      <td>0.999011</td>
-      <td>9.578240</td>
-      <td>1.238607e+09</td>
-      <td>1.238607e+09</td>
-      <td>2.547789</td>
-      <td>2.532312</td>
-      <td>True</td>
-      <td>DS  DS_STALTA          STMP Name     ...</td>
+      <td> 2009-04-01T17-36-58</td>
+      <td> 0.997868</td>
+      <td> 0.999010</td>
+      <td> 9.732202</td>
+      <td> 1.238607e+09</td>
+      <td> 1.238607e+09</td>
+      <td> 2.513489</td>
+      <td> 2.528214</td>
+      <td> True</td>
+      <td>          DS  DS_STALTA          STMP Name     ...</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>2009-04-03T15-39-27</td>
-      <td>0.912658</td>
-      <td>0.931933</td>
-      <td>6.159785</td>
-      <td>1.238773e+09</td>
-      <td>1.238773e+09</td>
-      <td>2.323646</td>
-      <td>2.320587</td>
-      <td>True</td>
-      <td>DS  DS_STALTA          STMP Name   ...</td>
+      <td> 2009-04-03T15-39-27</td>
+      <td> 0.912501</td>
+      <td> 0.931663</td>
+      <td> 6.155092</td>
+      <td> 1.238773e+09</td>
+      <td> 1.238773e+09</td>
+      <td> 2.323294</td>
+      <td> 2.320163</td>
+      <td> True</td>
+      <td>            DS  DS_STALTA          STMP Name   ...</td>
     </tr>
   </tbody>
 </table>
@@ -401,7 +401,7 @@ The verified detections, new detections, and auto detections (detection of train
 
 
 
-<div>
+<div style="max-height:1000px;max-width:1500px;overflow:auto;">
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -427,117 +427,117 @@ The verified detections, new detections, and auto detections (detection of train
   <tbody>
     <tr>
       <th>0</th>
-      <td>2009-04-01T17-36-58</td>
-      <td>0.568807</td>
-      <td>0.999011</td>
-      <td>9.578240</td>
-      <td>1.238607e+09</td>
-      <td>1.238607e+09</td>
-      <td>2.547789</td>
-      <td>2.532312</td>
-      <td>DS  DS_STALTA          STMP Name     ...</td>
-      <td>2009-04-01T17:35:00.000000Z</td>
-      <td>2943</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>9107</td>
+      <td> 2009-04-01T17-36-58</td>
+      <td> 0.997868</td>
+      <td> 0.999010</td>
+      <td> 9.732202</td>
+      <td> 1.238607e+09</td>
+      <td> 1.238607e+09</td>
+      <td> 2.513489</td>
+      <td> 2.528214</td>
+      <td>          DS  DS_STALTA          STMP Name     ...</td>
+      <td> 2009-04-01T17:35:00.000000Z</td>
+      <td> 2943</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td> 9107</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>2009-04-01T20-25-39</td>
-      <td>0.677973</td>
-      <td>0.809456</td>
-      <td>4.455041</td>
-      <td>1.238618e+09</td>
-      <td>1.238618e+09</td>
-      <td>2.265639</td>
-      <td>2.194206</td>
-      <td>DS  DS_STALTA          STMP Name    ...</td>
-      <td>2009-04-01T20:22:00.000000Z</td>
-      <td>1713</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>9108</td>
+      <td> 2009-04-01T20-25-40</td>
+      <td> 0.678077</td>
+      <td> 0.809730</td>
+      <td> 4.453540</td>
+      <td> 1.238618e+09</td>
+      <td> 1.238618e+09</td>
+      <td> 2.265334</td>
+      <td> 2.193913</td>
+      <td>           DS  DS_STALTA          STMP Name    ...</td>
+      <td> 2009-04-01T20:22:00.000000Z</td>
+      <td> 1713</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td> 9108</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>2009-04-02T16-26-59</td>
-      <td>0.783895</td>
-      <td>0.842479</td>
-      <td>5.276088</td>
-      <td>1.238690e+09</td>
-      <td>1.238690e+09</td>
-      <td>2.251904</td>
-      <td>2.215143</td>
-      <td>DS  DS_STALTA          STMP Name    ...</td>
-      <td>2009-04-02T16:24:00.000000Z</td>
-      <td>1542</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>9109</td>
+      <td> 2009-04-02T16-27-00</td>
+      <td> 0.782322</td>
+      <td> 0.839309</td>
+      <td> 5.275199</td>
+      <td> 1.238690e+09</td>
+      <td> 1.238690e+09</td>
+      <td> 2.252170</td>
+      <td> 2.214971</td>
+      <td>            DS  DS_STALTA          STMP Name   ...</td>
+      <td> 2009-04-02T16:24:00.000000Z</td>
+      <td> 1542</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td> 9109</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>2009-04-02T19-16-47</td>
-      <td>0.235882</td>
-      <td>0.379169</td>
-      <td>6.614627</td>
-      <td>1.238700e+09</td>
-      <td>1.238700e+09</td>
-      <td>2.093516</td>
-      <td>1.737536</td>
-      <td>DS  DS_STALTA          STMP Name    ...</td>
-      <td>2009-04-02T19:20:00.000000Z</td>
-      <td>812</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>9110</td>
+      <td> 2009-04-02T19-16-51</td>
+      <td> 0.505218</td>
+      <td> 0.632107</td>
+      <td> 5.026575</td>
+      <td> 1.238700e+09</td>
+      <td> 1.238700e+09</td>
+      <td> 2.061220</td>
+      <td> 1.922427</td>
+      <td>            DS  DS_STALTA          STMP Name   ...</td>
+      <td> 2009-04-02T19:20:00.000000Z</td>
+      <td>  812</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td> 9110</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>2009-04-03T15-39-27</td>
-      <td>0.912658</td>
-      <td>0.931933</td>
-      <td>6.159785</td>
-      <td>1.238773e+09</td>
-      <td>1.238773e+09</td>
-      <td>2.323646</td>
-      <td>2.320587</td>
-      <td>DS  DS_STALTA          STMP Name   ...</td>
-      <td>2009-04-03T15:36:00.000000Z</td>
-      <td>2233</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>9111</td>
+      <td> 2009-04-03T15-39-27</td>
+      <td> 0.912501</td>
+      <td> 0.931663</td>
+      <td> 6.155092</td>
+      <td> 1.238773e+09</td>
+      <td> 1.238773e+09</td>
+      <td> 2.323294</td>
+      <td> 2.320163</td>
+      <td>            DS  DS_STALTA          STMP Name   ...</td>
+      <td> 2009-04-03T15:36:00.000000Z</td>
+      <td> 2233</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td> 9111</td>
     </tr>
     <tr>
       <th>5</th>
-      <td>2009-04-03T17-34-23</td>
-      <td>0.132521</td>
-      <td>0.188679</td>
-      <td>7.752745</td>
-      <td>1.238780e+09</td>
-      <td>1.238780e+09</td>
-      <td>2.006925</td>
-      <td>1.453166</td>
-      <td>DS  DS_STALTA          STMP Name   ...</td>
-      <td>2009-04-03T17:30:00.000000Z</td>
-      <td>1022</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>9112</td>
+      <td> 2009-04-03T17-34-27</td>
+      <td> 0.467678</td>
+      <td> 0.530095</td>
+      <td> 5.594161</td>
+      <td> 1.238780e+09</td>
+      <td> 1.238780e+09</td>
+      <td> 1.902727</td>
+      <td> 1.752857</td>
+      <td>            DS  DS_STALTA          STMP Name   ...</td>
+      <td> 2009-04-03T17:30:00.000000Z</td>
+      <td> 1022</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td> 9112</td>
     </tr>
   </tbody>
 </table>
@@ -545,7 +545,7 @@ The verified detections, new detections, and auto detections (detection of train
 
 
 
-Loading the mine's blast log we can see that all six blasts over the four days were successfully detected with no false detections. Note: the magnitude, latitude, longitude, and depth are not known so I simply use dummy values here.
+Loading the mine's blast log we can see that all six blasts over the four days were successfully detected with no false detections. Note: the magnitude, latitude, longitude, and depth were not known so I simply use dummy values here.
 
 
     import pandas as pd
@@ -555,7 +555,7 @@ Loading the mine's blast log we can see that all six blasts over the four days w
 
 
 
-<div>
+<div style="max-height:1000px;max-width:1500px;overflow:auto;">
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -572,63 +572,63 @@ Loading the mine's blast log we can see that all six blasts over the four days w
   <tbody>
     <tr>
       <th>0</th>
-      <td>9107</td>
-      <td>2009-04-01T17-35-00</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>2943</td>
+      <td> 9107</td>
+      <td> 2009-04-01T17-35-00</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td> 2943</td>
     </tr>
     <tr>
       <th>1</th>
-      <td>9108</td>
-      <td>2009-04-01T20-22-00</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>1713</td>
+      <td> 9108</td>
+      <td> 2009-04-01T20-22-00</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td> 1713</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>9109</td>
-      <td>2009-04-02T16-24-00</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>1542</td>
+      <td> 9109</td>
+      <td> 2009-04-02T16-24-00</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td> 1542</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>9110</td>
-      <td>2009-04-02T19-20-00</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>812</td>
+      <td> 9110</td>
+      <td> 2009-04-02T19-20-00</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td>  812</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>9111</td>
-      <td>2009-04-03T15-36-00</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>2233</td>
+      <td> 9111</td>
+      <td> 2009-04-03T15-36-00</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td> 2233</td>
     </tr>
     <tr>
       <th>5</th>
-      <td>9112</td>
-      <td>2009-04-03T17-30-00</td>
-      <td>2</td>
-      <td>n/a</td>
-      <td>n/a</td>
-      <td>0</td>
-      <td>1022</td>
+      <td> 9112</td>
+      <td> 2009-04-03T17-30-00</td>
+      <td> 2</td>
+      <td> n/a</td>
+      <td> n/a</td>
+      <td> 0</td>
+      <td> 1022</td>
     </tr>
   </tbody>
 </table>
@@ -646,16 +646,16 @@ If we only required the detections to occur on one station, however, (even with 
 
 
 
-    SSResults instance with 3 autodections and 116 new detections, 6 are verified
+    SSResults instance with 2 autodections and 180 new detections, 6 are verified
 
 
 
-Once we have detected new events we can instruct detex to extract the waveforms of the new detections. With the extracted waveforms phase picks can be made in order to located the newly-found events, cross correlation lag times can be calculated with the clustering object and the detected events can be used to create a new detector to potentially find even more events.
+Once we have detected new events we can instruct detex to extract the waveforms of the new detections. With the extracted waveforms phase picks can be made in order to located the newly-found events, cross correlation lag times can be calculated with the clustering and the detected events can be used to create a new detector to potentially find more events.
 
 
     res.writeDetections(eventDir='DetectedEvents',updateTemKey=False)
 
-Now the waveforms of the newly detected events have been stored with the same directory structure as the TemplateWaveForms directory in a directory named DetectedEvents (because this is the argument we assigned to it). A new template key of the detected events can also be created, or by default the current template key csv will be updated with the newly detected events. The naming convention is the same but detected events will have a lowercase "d," for detected, at the start of the name string.
+Now the waveforms of the newly detected events have been stored with the same directory structure as the TemplateWaveForms directory in a directory named DetectedEvents (because this is the argument we assigned to it). A new template key of the detected events can also be created, or by default the current template key csv will be updated with the newly detected events. The naming convention is the same but detected events will have a lowercase "d," for detected, at the start of the name string. The entire process can then be repeated to try and detect even more events, but in this case we know we have found all that there is to find. 
 
 Note that detex has created a log (detex_log.log) that can be useful in debugging. 
 
@@ -663,9 +663,7 @@ Note that detex has created a log (detex_log.log) that can be useful in debuggin
 There are several useful utilites in the detex.util module. Here I will highlight a few of them.
 
 ### KML generation
-Using the simple [kml module](https://pypi.python.org/pypi/simplekml/1.2.8) several detex files can be converted to kml for easy viewing in google earth. They include the stations in the station key (detex.util.writeKMLFromStationKey), the template key (detex.util.writeKMLFromTemplateKey), outputs from hypoDD or hypoInverse, etc. 
+Using the [simple kml module](https://pypi.python.org/pypi/simplekml/1.2.8) several detex files can be converted to kml for easy viewing in google earth. They include the stations in the station key (detex.util.writeKMLFromStationKey), the template key (detex.util.writeKMLFromTemplateKey), outputs from hypoDD or hypoInverse, etc. 
 
 ### Loading arbitrary continuous data
 The loadContinuousData function of detex.util can be used to load any data contained in the ContinuousWaveForms directory, trimmed to a user's specifications.
-
-Thanks for checking out detex. It is a large code that is very much still in development so if you want to contribute please don't hesitate. 
