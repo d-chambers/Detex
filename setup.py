@@ -47,5 +47,5 @@ setup(
     # What does your project relate to?
     keywords='seismology signal detection',
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
-    install_requires=['peppercorn','obspy','basemap','numpy','pandas','scipy','matplotlib','glob','joblib','multiprocessing'],
+    install_requires=['peppercorn','obspy','basemap','numpy','pandas','scipy','matplotlib','joblib','multiprocessing'],
 )
