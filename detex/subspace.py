@@ -165,7 +165,7 @@ def loadClusters(filename='clust.pkl'): #load a cluster with filename as input a
     
     filename is the name of the saved SSclustering instance
     """
-    from detex.subspace import SSClusterStream
+    from detex.subspace import ClusterStream
     with open(filename,'rb') as fp:
         outob=cPickle.load(fp)
     return outob
@@ -1082,7 +1082,10 @@ class SubSpaceStream(object):
                     ArrNorm=np.array([x/np.linalg.norm(x) for x in Arr])
                     U, s, Vh = scipy.linalg.svd(np.transpose(ArrNorm), full_matrices=False) #perform SVD
                 else:
-                    U, s, Vh = scipy.linalg.svd(np.transpose(Arr), full_matrices=False)                 
+                    try:
+                        U, s, Vh = scipy.linalg.svd(np.transpose(Arr), full_matrices=False)     
+                    except:
+                        deb([station,row,Arr,keys])
                 for eival in range(len(s)): #make dictionary of SVD with singular value as key and basis vector as value
                     svdDict[s[eival]]=U[:,eival]
                     
@@ -1164,11 +1167,9 @@ class SubSpaceStream(object):
         if 'Starttime' in row[1].SampleTrims.keys() and 'Endtime' in row[1].SampleTrims.keys():
             stim=row[1].SampleTrims['Starttime']
             etim=row[1].SampleTrims['Endtime']
-            try:
-                Arr=np.vstack([row[1].AlignedTD[x][stim:etim]-np.mean(row[1].AlignedTD[x][stim:etim]) for x in keys])
-            except:
-                deb([row,keys])
-            #basisLength=row[1].SampleTrims['Endtime']-row[1].SampleTrims['Starttime']
+            if stim < 0: #make sure stim is not less than 0 #TODO impliment more robust fix
+                stim = 0 
+            Arr=np.vstack([row[1].AlignedTD[x][stim:etim]-np.mean(row[1].AlignedTD[x][stim:etim]) for x in keys])
             basisLength=Arr.shape[1]
         else:
             detex.log(__name__,'No trim times for %s and station %s, try running pickSubSpaceTimes'%(row[1].Name,station),pri=1)
@@ -1209,7 +1210,10 @@ class SubSpaceStream(object):
                 aliwf=row[1].AlignedTD[key][row[1].SampleTrims['Starttime']:row[1].SampleTrims['Endtime']]
             else:
                 aliwf=row[1].AlignedTD[key]
-            repvect=np.insert(np.square(scipy.dot(np.transpose(U),aliwf)/scipy.linalg.norm(aliwf)),0,0)
+            try:
+                repvect=np.insert(np.square(scipy.dot(np.transpose(U),aliwf)/scipy.linalg.norm(aliwf)),0,0)
+            except:
+                deb([U,aliwf,key,row,svdDict])
             cumrepvect=[np.sum(repvect[:x+1]) for x in range(len(repvect))]
             fracDict[key]=cumrepvect
         fracDict['Average']=np.average([fracDict[x] for x in keys],axis=0)
@@ -1570,23 +1574,32 @@ class SubSpaceStream(object):
             if len(p)<1: #if event is not recorded skip
                 continue
             start=p.TimeStamp.min()
+            startsampsEve = (start-starttimes[ev])*(Nc*Sr) 
+            if startsampsEve < 0: #make sure starting time is not less than 0 else set to zero
+                startsampsEve = 0
+                start = starttimes[ev]
+                msg = 'Start time (from phase file) is less than 0 for event %s' % ev
+                detex.log(__name__, msg, level='warning', pri=False)
             if defaultDuration:
                 stop=start+defaultDuration
                 secduration.append(defaultDuration)
             else:
                 stop=p.TimeStamp.max()
                 secduration.append(stop-start)
-            try:
-                assert stop>start #Make sure stop is greater than start
-            except:
-                deb([ev,start,stop,p])
-            startsamps.append((start-starttimes[ev])*(Nc*Sr))
-            stopsamps.append((stop-starttimes[ev])*(Nc*Sr))
+            assert stop>start #Make sure stop is greater than start
+            assert stop>starttimes[ev]
+            if stop < starttimes[ev]:
+                deb([start, duration])
+            endsampsEve = (stop-starttimes[ev])*(Nc*Sr)
+            startsamps.append(startsampsEve)
+            stopsamps.append(endsampsEve)
             #update stats attached to each event to reflect new start time
+        
             DF.Stats[num][ev]['Starttime']=start
             DF.Stats[num][ev]['offset']=start-DF.Stats[num][ev]['origintime']   
         if len(startsamps)>0:
-            return {'Starttime':int(fun(startsamps))-int(fun(startsamps))%Nc,'Endtime':int(fun(stopsamps))-int(fun(stopsamps))%Nc,'DurationSeconds':int(fun(secduration))}
+            outdict={'Starttime':int(fun(startsamps))-int(fun(startsamps))%Nc,'Endtime':int(fun(stopsamps))-int(fun(stopsamps))%Nc,'DurationSeconds':int(fun(secduration))}
+            return outdict
         else:
             return
     def _getStats(self,row):
@@ -1912,7 +1925,7 @@ def _loadEvents(filelist,indir,filt,trim,stakey,templateDir,decimate,temkey,dtyp
         detex.log(__name__,('%s does not exist, check templatekey'%x for x in eventFiles[~tempsExist]),pri=1)
         existingEventFiles=eventFiles[tempsExist]
     if len(existingEventFiles)<1: #make sure there are some files to work with
-        detex.log(__name__,'No file paths in eveFiles, %s may be empty'%indir,warning='warning')
+        detex.log(__name__,'No file paths in eveFiles, %s may be empty'%indir,level='warning')
         raise Exception('No file paths in eveFiles, %s may be empty'%indir)
 
     TRDF['Events']=list

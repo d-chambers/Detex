@@ -110,3 +110,8 @@ Deleted xcorr module, added support for singles (or singletons) from the subspac
 Changed event phases to use csv format by default rather than pkl
 
 
+Version 0.1.1 
+_____________
+Changed default phase pick file format to csv
+changed detex to set any phase picks made before waveform data is available to earliest point when data are available and emit a warning
+Fixed a bug in detex.subspace.loadclusters
