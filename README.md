@@ -668,5 +668,5 @@ Using the [simple kml module](https://pypi.python.org/pypi/simplekml/1.2.8) seve
 ### Loading arbitrary continuous data
 The loadContinuousData function of detex.util can be used to load any data contained in the ContinuousWaveForms directory, trimmed to a user's specifications.
 
-## [Contributing to detex](ReadMe/ContributeToDetex/contributing)
+## [Contributing to detex](ReadMe/ContributeToDetex/contributing.md)
 
