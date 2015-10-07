@@ -3,13 +3,13 @@
 [Detex](http://github.com/d-chambers/detex) is a python code for performing waveform similarity clustering and subspace detection. Anyone is welcome to contribute by following the steps listed below. As of version 0.2.0 [pep8](https://www.python.org/dev/peps/pep-0008/) is the governing style guide. 
 
 ## Get git
-The first thing you need to do is download the version control software git. It is an incredibly useful tool that will enable you to contribute to group software.
+The first thing you need to do is download the version control software git. It is an incredibly useful tool that will enable you to contribute to group software. You also need to create a github account.  This is easy to do and can be done on [github's home page](https://github.com/).
 
 ### Linux
 In Ubuntu and other Debian flavored Linux systems you can simply use apt-get to install git. In the command line type: 
 
 ```bash
-sudo apt-get install git`
+sudo apt-get install git
 ```
 or for most other flavors of Linux yum is the tool you need
 ```bash
@@ -35,7 +35,7 @@ cd Gits
 ```
 Now from within gits we can manage our all of our repositories. Let's start by cloning detex. 
 ```bash
-git clone http://github.com/d-chambers
+git clone http://github.com/d-chambers/detex
 ```
 Now you will notice a new directory has appeared. Inside we can see a new directory called detex. We can install detex on our local machine by running the setup.py file. 
 ```bash
@@ -44,7 +44,7 @@ python setup.py install
 ```
 
 ## Reporting bugs and requesting features
-After using detex it is likely that you will find a bug. When this happens the first thing to do is to navigate to the (detex page)[http://github.com/d-chambers/detex]. In the upper right corner you will see a tab  that says issues. It looks like this (I have highlighted it):
+After using detex it is likely that you will find a bug. When this happens the first thing to do is log into your github account and navigate to the (detex page)[http://github.com/d-chambers/detex]. In the upper right corner you will see a tab  that says issues. It looks like this (I have highlighted it):
 
 
 ![png](detexIssues.png)
@@ -77,7 +77,7 @@ You can also attach files or screen shots to issues, in fact, **It is very impor
 
 
 ## Fixing a bug or adding a feature
-Now suppose after filling out an issue request you have come up with a brilliant fix. The first thing you need to do is create a github account, or sign in if you already have one. This can be done on [github's home page](https://github.com/).
+Now suppose after filling out an issue request you have come up with a brilliant fix. Log into your github account and get ready to contribute. 
 
 Next fork detex to your account (this is like making a copy you can access). To do this click on the fork button right above the issues tab in detex's main page. Now clone detex again (in fact you can delete the old one) but this time from your account. So for example, if your github account name is RL-Stein you would type:
 
