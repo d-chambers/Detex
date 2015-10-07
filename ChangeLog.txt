@@ -115,3 +115,7 @@ _____________
 Changed default phase pick file format to csv
 changed detex to set any phase picks made before waveform data is available to earliest point when data are available and emit a warning
 Fixed a bug in detex.subspace.loadclusters
+
+Version 0.1.2
+_____________
+Changed behavior of the trim input to the create clusters function to now reference time before origin in element 0 and time after origin in element 1. 

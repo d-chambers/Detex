@@ -25,7 +25,7 @@ from struct import pack
 
 
 def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2,True],StationKey='StationKey.csv',
-                  TemplateKey='TemplateKey.csv',trim=[100,200],filelist=None,allram=True,masterStation=None,saveclust=True,
+                  TemplateKey='TemplateKey.csv',trim=[30,150],filelist=None,allram=True,masterStation=None,saveclust=True,
                   clustname='clust.pkl',decimate=None, dtype='double',consistentLength=True,eventsOnAllStations=False,
                   subSampleExtrapolate=True,enforceOrigin=False):
                       
@@ -46,9 +46,13 @@ def createCluster(CCreq=0.5,indir='EventWaveForms',templateDir=True,filt=[1,10,2
         Path to the station key used by the events 
     TemplateKey : boolean
         Path to the template key 
-    trim : list 
-        A list with seconds to trim from start of each stream in [0] and the total duration in seconds to keep from trim point in [1], the second
-        parameter greatly influences the runtime and if the first parameter is incorrectly selected the waveform may be missed entirely
+    trim : list or tuple
+        A list of times to trim the events before performing similarity clustering. Element 0 of the list
+        is the time before the reported origin (as found in the template key) and element 1 is the time after
+        the origin to trim the waveforms. For example, an event with an origin at time 60 and trim = [10, 50]
+        [10,50] would trim the waveform from time 50 to time 100. If the total durations of the waveform (IE the 
+        sum of element 0 with element 1) is too large the correlation will take a long time, if it is too low some
+        of the seismic energy may go uncaptured by the subspace. 
     filelist : list of str or None
         A list of paths to obspy readable seismic records. If none use indir
     allram : boolean 
@@ -2090,23 +2094,22 @@ def _loadStream (eventFiles,templateDir,filt,trim,decimate,station,dtype,temkey,
             except:
                 detex.log(__name__,'could not read %s or preprocessing failed' %os.path.join(eve,station+'*') )
                 continue
+        evname=os.path.basename(eve)
+        tem=temkey[temkey.NAME==evname]
+        if len(tem)<1:
+            detex.log(__name__,'%s not found in template key' %evname, pri=1)
+        originTime = obspy.UTCDateTime(tem.iloc[0].TIME)
         #ST=_applyFilter(ST,filt,decimate,dtype)
         Nc=len(list(set([x.stats.channel for x in ST]))) #get number of channels
         if isinstance(trim,list) or isinstance(trim,tuple):
             try: #if trim doesnt work (meaning event waveform incomplete) then skip
-                ST.trim(starttime=ST[0].stats.starttime+trim[0],endtime=ST[0].stats.starttime+trim[0]+trim[1])
+                ST.trim(starttime=originTime-trim[0],endtime=originTime+trim[1])
             except ValueError:
                 continue
         if Nc != len(ST): #if length is not at least num of channels (IE if not all channels present) skip trace
             continue
         if enforceOrigin: #if the waveforms should start at the reported origin
-            evname=os.path.basename(eve)
-            tem=temkey[temkey.NAME==evname]
-            if len(tem)<1:
-                detex.log(__name__,'%s not found in template key' %evname, pri=1)
-            else:
-                otime=obspy.UTCDateTime(tem.iloc[0].TIME)
-                ST.trim(starttime=otime,pad=True,fill_value=0.0)
+            ST.trim(starttime=originTime,pad=True,fill_value=0.0)
                 
         evename=os.path.basename(eve)
         StreamDict[evename]=ST

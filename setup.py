@@ -21,7 +21,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.1.1',
+    version='0.1.2',
 
     description='A package for performing subspace and correlation detections on seismic data',
     # The project's main homepage.
@@ -47,5 +47,5 @@ setup(
     # What does your project relate to?
     keywords='seismology signal detection',
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
-    install_requires=['peppercorn','obspy','basemap','numpy','pandas','scipy','matplotlib','joblib','multiprocessing'],
+    install_requires=['peppercorn','obspy','basemap','numpy','pandas','scipy','matplotlib','joblib','multiprocessing','glob2'],
 )
