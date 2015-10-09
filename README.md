@@ -16,6 +16,10 @@ Special thanks to Tex Kubacki (whose work inspired Detex), Jared Stein, Lisa Lin
 
 Detex can be installed by running the setup.py script in the distribution directory. 
 
+```bash
+python setup.py install
+```
+
 ## Workflow
 
 The basic Detex workflow has five steps:
