@@ -38,7 +38,7 @@ There are two required files: the station key and the template key.
 The station key is generally saved as StationKey.csv. The following is an example:
 
 
-| NEWTORK | STATION | STARTTIME | ENDTIME | LAT | LON | ELEVATION | CHANNELS |
+| NETWORK | STATION | STARTTIME | ENDTIME | LAT | LON | ELEVATION | CHANNELS |
 |:----------:|:-----------:|:------------:| :-: | :-: | :-: | :-: | :-: |
 | TA | M18A	| 2009-04-01T00:00:00 | 2009-04-04T00:00:00	| 41.4272 | -110.0674 | 2103 | BHE-BHN-BHZ |
 | TA | M17A	| 2009-04-01T00:00:00 | 2009-04-04T00:00:00	| 41.4729 | - 110.6664 | 2101 | BHE-BHN-BHZ |
