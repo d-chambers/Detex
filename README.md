@@ -55,7 +55,7 @@ The template key by default is saved as TemplateKey.csv. It contains information
 | ANF | 2007-12-21T18-30-09	| 2007-12-21T18-30-09 | 41.7669	| -110.6122	| 8.97 | ML | 2.17 |
 | ANF | 2007-12-21T18-30-09	| 2007-12-21T18-30-09 | 41.7669	| -110.6122	| 8.97 | ML	| 2.17 |
 
-The CONTRIBUTOR, MTYPE, and DEPTH fields are not required but can be useful for record keeping. Additionally, any extra fields can be added in any order in order to better keep track of the events. 
+The CONTRIBUTOR and MTYPE fields are not required but can be useful for record keeping. Additionally, any extra fields can be added in any order in order to better keep track of the events. 
 
 The NAME field can be any string that can also be used as a file name by your OS. Windows does not allow ":" in a file path so the ":" between the hour and minute, and between the minute and seconds, have been replaced with a "-". Again, the time field can be in any format understood by obspy.UTCDateTime.
 
