@@ -17,7 +17,6 @@ from scipy.cluster.hierarchy import linkage
 
 pd.options.mode.chained_assignment = None #mute setting copy warning 
 
-warnings.filterwarnings('error') #uncomment this to make all warnings errors
  
  
 
@@ -238,7 +237,6 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
     # Load events into main dataframe to create subspaces
     TRDF = _loadEvents(efetcher, cl.filt, cl.trim, stakey, temkey, cl.decimate, 
                        dtype) 
- 
     for ind, row in TRDF.iterrows(): #Fill in cluster info from cluster object
         TRDF.loc[ind, 'Link'] = cl[row.Station].link
         TRDF.loc[ind, 'Clust'] = cl[row.Station].clusts   
@@ -248,14 +246,12 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
     detex.log(__name__, msg, pri=True)   
     ssDict = {} # dict to store subspaces in
     for num, row in TRDF.iterrows(): # Loop through each cluster
-        staSS = _makeSSDF(row, minEvents) 
+        staSS = _makeSSDF(row, minEvents)
         if len(staSS) < 1: #if no clusters form on current station
             msg = 'No events survived processing on %s' % staSS.station
             detex.log(__name__, msg, level='warning', pri=True)
         for sind, srow in staSS.iterrows(): 
             eventList = srow.Events
-            eventList.sort()
-            
             # get correlation values from cl object
             DFcc, DFlag = _getInfoFromClust(cl, srow)
             staSS['Lags'][sind] = DFlag
@@ -266,19 +262,18 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
             lags = _flatNoNan(DFlag)
             link = linkage(cx) #get cluster linkage
             staSS.loc[sind, 'Link'] = link
-            
             # get lag times and align waveforms
             CCtoLag = _makeLagSeries(cx, lags) # a map from cc to lag times
             delays = _getDelays(link, CCtoLag, cx, lags, cxdf)
             delayNP = -1 * np.min(delays)
             delayDF = pd.DataFrame(delays + delayNP, columns=['SampleDelays'])
             delayDF['Events'] = [eventList[x] for x in delayDF.index]
-            staSS.loc[sind, 'AlignedTD'] = _alignTD(delayDF, srow) 
+            staSS['AlignedTD'][sind] = _alignTD(delayDF, srow) 
             ustimes = _updateStartTimes(srow, delayDF, temkey)
-            staSS.loc[sind, 'Stats'] = ustimes # update Start Times
+            staSS['Stats'][sind] = ustimes # update Start Times
             offsets = _getOffsetList(sind, srow, staSS)
             offsetAr = [np.min(offsets), np.median(offsets), np.max(offsets)]
-            staSS.loc[sind, 'Offsets'] = offsetAr
+            staSS['Offsets'][sind] = offsetAr
         # Put output into subspaceDict
         staOut = staSS.drop(['MPfd','MPtd','Link','Lags','CCs'],axis=1)
         ssDict[row.Station] = staOut
@@ -288,7 +283,6 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
     substream = detex.subspace.SubSpaceStream(singDic, ssDict, cl, dtype, Pf, 
                                               cfetcher)
     return substream
-
 def _getInfoFromClust(cl, srow):
     """
     get the DFcc dataframe and lags dataframe from values already stored in
@@ -335,12 +329,14 @@ def _updateStartTimes(srow, delayDF, temkey):
     Update the starttimes to reflect the values trimed in alignement
     """
     statsdict = srow.Stats
-    for key in statsdict.keys():
+    sdo = srow.Stats
+    for key in sdo.keys():
         temtemkey = temkey.loc[temkey.NAME == key].iloc[0]
         delaysamps = delayDF[delayDF.Events == key].iloc[0].SampleDelays
-        Nc = statsdict[key]['Nc']
-        sr = statsdict[key]['sampling_rate']
-        stime = statsdict[key]['starttime']
+        Nc = sdo[key]['Nc']
+        sr = sdo[key]['sampling_rate']
+        stime = sdo[key]['starttime']
+        
         stime_new = stime + delaysamps/(sr*Nc) # updated starttime to trim
         statsdict[key]['starttime'] = stime_new
         otime = obspy.UTCDateTime(temtemkey.TIME).timestamp #starttime 
@@ -505,11 +501,11 @@ def _makeSingleEventDict(cl, TRDF, temkey):
             #DF.Events[a[0]]=evlist\
             evelist = [cl[row.Station].singles[sn]]
             temtemkey = temkey.loc[temkey.NAME == evelist[0]].iloc[0]
-            DF.loc[sn, "Station"] = row.Station
-            DF.loc[sn, "MPtd"] = _trimDict(row, 'MPtd', evelist)
-            DF.loc[sn, "MPfd"] = _trimDict(row, 'MPfd', evelist)
-            DF.loc[sn, "Stats"] = _trimDict(row, 'Stats', evelist)
-            DF.loc[sn, "Channels"] = _trimDict(row, 'Channels', evelist)
+            DF["Station"][sn] = row.Station
+            DF["MPtd"][sn] = _trimDict(row, 'MPtd', evelist)
+            DF["MPfd"][sn] = _trimDict(row, 'MPfd', evelist)
+            DF["Stats"][sn] = _trimDict(row, 'Stats', evelist)
+            DF["Channels"][sn] = _trimDict(row, 'Channels', evelist)
             otime = obspy.UTCDateTime(temtemkey.TIME).timestamp
             stime =  DF.Stats[sn][evelist[0]]['starttime']
             DF.Stats[sn][evelist[0]]['origintime'] = otime
@@ -545,21 +541,26 @@ def _makeSSDF(row, minEvents):
     DF['FAS'] = object
     DF['NumBasis'] = int
     DF['Offsets'] = object
+    DF['Stats'] = object
+    DF['MPtd'] = object
+    DF['MPfd'] = object
+    DF['Channels'] = object
     DF['Station'] = row.Station
     DF = DF.astype(object)
     for ind, row2 in DF.iterrows():
         evelist = row.Clust[ind]
-        DF.loc[ind, 'Events'] = evelist
-        DF.loc[ind, 'MPtd'] = _trimDict(row, 'MPtd', evelist)
-        DF.loc[ind, 'MPfd'] = _trimDict(row, 'MPfd', evelist)
-        DF.loc[ind, 'Stats'] = _trimDict(row, 'Stats', evelist)
-        DF.loc[ind, 'Channels'] = _trimDict(row, 'Channels', evelist)
+        evelist.sort()
+        DF['Events'][ind] = evelist
+        DF['MPtd'][ind] = _trimDict(row, 'MPtd', evelist)
+        DF['MPfd'][ind] = _trimDict(row, 'MPfd', evelist)
+        DF['Stats'][ind] = _trimDict(row, 'Stats', evelist)
+        DF['Channels'][ind] = _trimDict(row, 'Channels', evelist)
     #only keep subspaces that meet min req, dont renumber
     DF = DF[[len(x) >= minEvents for x in DF.Events]] 
-    DF.reset_index(drop=True, inplace=True)
+    #DF.reset_index(drop=True, inplace=True)
     return DF
 
-def _trimDict(row,column,evelist): 
+def _trimDict(row, column, evelist): 
     """
     function used to get only desired values form dictionary 
     """
@@ -586,14 +587,14 @@ def _loadEvents(fetcher, filt, trim, stakey, temkey,
     #Make list in data frame that shows which stations are in each event
     # Load streams into dataframe to call later
     for ind, row in TRDF.iterrows():
-        TRDF.loc[ind, 'MPtd'] = {}
-        TRDF.loc[ind, 'MPfd'] = {}  
+        TRDF['MPtd'][ind] = {}
+        TRDF['MPfd'][ind] = {}  
         sts, eves, chans, stats = _loadStream(fetcher, filt, trim, decimate,
                                               row.Station, dtype, temkey, 
                                               stakey, enforceOrigin)                  
-        TRDF.loc[ind,'Events'] = eves
-        TRDF.loc[ind, 'Channels'] = chans
-        TRDF.loc[ind, 'Stats'] = stats
+        TRDF['Events'][ind] = eves
+        TRDF['Channels'][ind] = chans
+        TRDF['Stats'][ind] = stats
         # Make sure some events are good for given station
         if not isinstance(TRDF['Events'][ind], list):
             TRDF.loc[ind, 'Keep'] = False
@@ -936,7 +937,9 @@ def _applyFilter(st, filt, decimate=False, dtype='double', fillZeros=False):
         st.decimate(decimate)
     startTrim = max([x.stats.starttime for x in st])
     endTrim = min([x.stats.endtime for x in st])
-    st.trim(starttime=startTrim, endtime=endTrim) 
+    
+    st.trim(starttime=startTrim, endtime=endTrim)
+    st = st.split()
     st.detrend('linear')
     if isinstance(filt,list) or isinstance(filt,tuple):
         st.filter('bandpass', freqmin=filt[0] ,freqmax=filt[1], 

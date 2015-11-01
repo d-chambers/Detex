@@ -31,7 +31,7 @@ from detex.construct import fast_normcorr, multiplex
 
 pd.options.mode.chained_assignment = None #mute setting copy warning 
 
-warnings.filterwarnings('error') #uncomment this to make all warnings errors
+#warnings.filterwarnings('error') #uncomment this to make all warnings errors
  
 # lines for backward compat.
 createSubSpace = detex.construct.createSubSpace

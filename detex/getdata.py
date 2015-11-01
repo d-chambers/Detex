@@ -255,7 +255,10 @@ def _getTemData(temkey, stakey, temDir, formatOut, fetcher, tb4, taft):
         fdir = os.path.join(temDir, name)
         if not os.path.exists(fdir):
             os.makedirs(fdir)
-        st.write(os.path.join(fdir, fname), formatOut)
+        try:
+            st.write(os.path.join(fdir, fname), formatOut)
+        except:
+            detex.deb([st, fdir, fname, formatOut])
     if not os.path.exists(os.path.join(temDir,'.index.db')):
         indexDirectory(temDir)
 
@@ -564,6 +567,7 @@ def _loadDirectoryData(fet, start, end, net, sta, chan, loc):
         st += obspy.read(fil)
     st.trim(starttime=start, endtime=end)
     st.merge()
+    st.split()
     #check if chan variable is string else iterate
     if isinstance(chan, str):
         stout = st.select(channel=chan)
@@ -827,13 +831,7 @@ def _associatePathList(pathList, dfin):
         pat.append(dfin.loc[num, p])
     return os.path.join(*pat)
 
-if __name__ == '__main__':
-    fet = DataFetcher(method='uuss', removeResponse=True)
-    #t1 = obspy.UTCDateTime('2012-10-17T18-34-00.36')
-    t1 = obspy.UTCDateTime('2015-07-22T20:10:00')
-    t2 = t1 + 5*60
-    #st = fet.getStream(start=t1, end=t2, net='UU', sta='IMU')
-    st = fet.getStream(start=t1, end=t2, net='UU', sta='BGU', chan='HHZ')
+getAllData =  make_data_directories
     
 
 

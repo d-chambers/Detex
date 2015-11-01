@@ -518,7 +518,7 @@ def loadSQLite(corDB,tableName,sql=None,readExcpetion=False,silent=True,convertN
             #df=pd.read_sql(sql, con)
             df=psql.read_sql(sql,con)
             if convertNumeric:
-                df=df.convert_objects(convert_dates=False,convert_numeric=True) #convert unicode to flaot where possible
+                df=df.convert_objects(convert_dates=False,convert_numeric=True) #convert unicode to float where possible
     except:
         if not silent:
             print 'failed to load %s in %s with sql=%s'%(corDB,tableName,sql)

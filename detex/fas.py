@@ -164,7 +164,7 @@ def _loadMPSubSpace(row, conLen):
         ssArrayFD = np.array([fft(x[::-1],n=releb) for x in ssArrayTD])
     return ssArrayTD, ssArrayFD, rele, Nc
 
-def _checkSTALTA(st, filt, LTATime, STATime, limit):
+def _checkSTALTA(st, filt, STATime, LTATime, limit):
     """
     Take a stream and make sure it's vert. component (or first comp 
     if no vert) does not exceed limit given STATime and LTATime
@@ -179,7 +179,10 @@ def _checkSTALTA(st, filt, LTATime, STATime, limit):
     sr = sz.stats.sampling_rate
     ltaSamps = LTATime * sr
     staSamps = STATime * sr
-    cft = classicSTALTA(sz.data, staSamps, ltaSamps)
+    try:
+        cft = classicSTALTA(sz.data, staSamps, ltaSamps)
+    except:
+        detex.deb([sz, staSamps, ltaSamps])
     if np.max(cft) <= limit:
         return True
     else:
