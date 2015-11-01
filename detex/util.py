@@ -4,35 +4,91 @@ Created on Thu May 29 16:41:48 2014
 
 @author: Derrick
 """
-import numpy as np, obspy, glob, os, streamPick, sys, sqlite3, detex.pandas_dbms, random
-import pandas.io.sql as psql, simplekml, pandas as pd ,matplotlib.pyplot as plt
+import numpy as np
+import obspy
+import glob
+import os
+import sys
+import sqlite3
+import detex.pandas_dbms
+import random
+import pandas.io.sql as psql
+import simplekml
+import pandas as pd 
+import matplotlib.pyplot as plt
 
-class AllTemplates(object): #class to load all templates
-    """Class for visualization purposes"""
-    def __init__(self,CorDB='Corrs.db',templatePath='EventWaveForms',condir='ContinuousWaveForms',templateKey='TemplateKey.csv',ArcDB='Arc.db'):
-        self.__dict__.update(locals())
-        self.templateKey=pd.read_csv(templateKey)
-        self.temps=[0]*len(templateKey)
-        for a in self.templateKey.iterrows():
-            staKey=pd.read_csv(a[1]['STATIONKEY'])
-            self.temps[a[0]]=[0]*len(staKey)
-            for b in staKey.iterrows():
-                try:
-                    path=glob.glob(os.path.join(templatePath,a[1]['NAME'],b[1]['NETWORK']+'.'+b[1]['STATION'],'*'))[0]
-                except:
-                    print b[1]['STATION']
-                    continue
-                TR=obspy.core.read(os.path.join(path,'*.sac'))
-                TR.filter('bandpass',freqmin=1,freqmax=10,corners=2,zerophase=True)
-                trim=np.load(glob.glob(os.path.join(path,'*.tms.npy'))[0])
-                self.temps[a[0]][b[0]]=TR.trim(starttime=obspy.core.UTCDateTime(trim[0]),endtime=obspy.core.UTCDateTime(trim[1]))
-    def __getitem__(self,index): # allow indexing
-        return self.temps[index]
-    def plotAllTemplates(self,index):
-        """plot all of template index's templates"""
-        for a in range(len(self)):
-            plt.subplot(3,3,a)
-            
+
+
+# Constants 
+req_temkey = set(['TIME', 'NAME', 'LAT', 'LON', 'MAG', 'DEPTH'])
+req_stakey = set(['NETWORK', 'STATION', 'STARTTIME', 'ENDTIME', 'LAT', 'LON',
+                  'ELEVATION', 'CHANNELS'])
+key_types = ['template', 'station']
+req_columns = {'template':req_temkey, 'station':req_stakey}
+
+
+def read_key(dfkey, key_type='template'):
+    """
+    Read a template key csv and perform checks for required columns
+    Parameters
+    ---------
+    dfkey : str or pandas DataFrame
+        A path to the template key csv or the DataFrame itself
+    key_type : str
+        "template" for template key or "station" for station key
+    Returns 
+    --------
+    A pandas DataFrame if required columns exist, else raise Exception
+    
+    """
+    if key_type not in key_types:
+        msg = "unsported key type, supported types are %s" % (key_types)
+        detex.log(__name__, msg, level='error')
+        
+    if isinstance(dfkey, str):
+        if not os.path.exists(dfkey):
+            msg = '%s does not exists, check path'
+            detex.log(__name__, msg, level='error')
+        else:
+            df = pd.read_csv(dfkey)
+    elif isinstance(dfkey, pd.DataFrame):
+        df = dfkey
+    else:
+        msg = 'Data type of dfkey not understood'
+        detex.log(__name__, msg, level='error')
+        
+    # Check required columns
+    if not req_columns[key_type].issubset(df.columns):
+        msg = ('Required columns not in %s, required columns for %s key are %s' 
+               %(df, key_type, req_columns))
+        detex.log(__name__, msg, level='error')
+    
+    tdf = df.loc[:, list(req_columns[key_type])]
+    condition = [all([x != '' for item, x in row.iteritems()]) 
+                for num,row in tdf.iterrows()]
+    df = df[condition]
+    df.sort(columns=list(req_columns[key_type]), inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    
+    # specific operations for various key types
+    if key_type == 'station':
+        df['STATION'] = [str(x) for x in df['STATION']]
+        df['NETWORK'] = [str(x) for x in df['NETWORK']]
+    return df
+
+def get_number_channels(st):
+    """
+    Take an obspy stream and get the number of unique channels in stream 
+    (stream must have only one station)
+    """
+    if len(set([x.stats.station for x in st])) > 1:
+        msg = 'function only takes streams with exactly 1 station'
+        detex.log(__name__, msg, level='error')
+    nc = len(list(set([x.stats.channel for x in st])))
+    return nc
+
+
+#            
 """
 #Functions for writing to output formats such as hypoDD phase formats, hypoInverse phase formats, and kml (google earth)
 #__________________________________________
@@ -361,6 +417,7 @@ def getcontinuousDataLength(Condir='ContinuousWaveForms',numToRead=10):
     
     numToRead is the number of traces to read for each station in determining continuous data length
     """
+    return 3720
     stations=glob.glob(os.path.join(Condir,'*'))
     ledict={}
     for sta in stations:
@@ -435,7 +492,7 @@ def DoldDB(CorDB): # Check if CorDB exists, if so delete
         os.remove(CorDB)
         
         
-def loadSQLite(corDB,tableName,sql=None,readExcpetion=False,silent=True):     
+def loadSQLite(corDB,tableName,sql=None,readExcpetion=False,silent=True,convertNumeric=True):     
     """
     Function to load sqlite database created by detex
     
@@ -455,12 +512,13 @@ def loadSQLite(corDB,tableName,sql=None,readExcpetion=False,silent=True):
     A pandas dataframe with loaded table or None if table does not exist in database
     """
     try:              
-        if sql==None:
+        if sql is None:
             sql='SELECT %s FROM %s' % ('*', tableName)
         with sqlite3.connect(corDB, detect_types=sqlite3.PARSE_DECLTYPES) as con:
             #df=pd.read_sql(sql, con)
             df=psql.read_sql(sql,con)
-            df=df.convert_objects(convert_dates=False,convert_numeric=True) #convert unicode to flaot where possible
+            if convertNumeric:
+                df=df.convert_objects(convert_dates=False,convert_numeric=True) #convert unicode to flaot where possible
     except:
         if not silent:
             print 'failed to load %s in %s with sql=%s'%(corDB,tableName,sql)

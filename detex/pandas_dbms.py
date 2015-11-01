@@ -143,7 +143,8 @@ def db_colname(pandas_colname):
     '''convert pandas column name to a DBMS column name
         TODO: deal with name length restrictions, esp for Oracle
     '''
-    colname =  pandas_colname.replace(' ','_').strip()                  
+
+    colname =  pandas_colname.replace(' ','_').strip()               
     return colname
     
 
