@@ -122,11 +122,9 @@ class ClusterStream(object):
                         ind2=np.where(np.array(Clu.key)==ev2)[0][0]
                     except IndexError: #if either event is nopt in index
                         detex.log(__name__,'%s or %s not found on station %s'%(ev1,ev2,sta))
-                        #deb([Clu,ev1,ev2])
                         continue
                     
                     trdf=self.TRDF[self.TRDF.Station==sta].iloc[0]
-                    #deb([trdf,ind1,ind2])
                     sr1,sr2=trdf.Stats[ev1]['sampling_rate'],trdf.Stats[ev2]['sampling_rate']
                     if sr1!=sr2:
                         detex.log(__name__,'Sampling rates not equal for %s and %s'%(ev1,ev2))
@@ -135,7 +133,6 @@ class ClusterStream(object):
                         sr=sr1
                     Nc1,Nc2=trdf.Stats[ev1]['Nc'],trdf.Stats[ev2]['Nc']
                     if Nc1!=Nc2:
-                        #deb([trdf,ev1,ev2,sta])
                         detex.log(__detex__,'Number of channels not equal for %s and %s on %s',level='warning')
                         continue
                     else:
@@ -1887,7 +1884,6 @@ class SSDetex(object):
         """
         #TODO use the frequency domain templates to speed up
         #TODO Clean this up
-        deb([trigIndex,CorSeries,MPcon,mags,events,WFU,UtU,eventWaveForms,coef])
 
         WFlen=np.shape(WFU)[1] # event waveform length
         ConDat=MPcon[trigIndex*CorSeries.Nc:trigIndex*CorSeries.Nc+WFlen] #continuous data chunk that triggered  subspace
