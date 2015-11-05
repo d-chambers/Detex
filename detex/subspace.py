@@ -1664,13 +1664,17 @@ class SSDetex(object):
         tableName='ss_df' if self.issubspace else 'sg_df'
         DF=pd.DataFrame() # Initialize emptry data frame, will later be dumped to SQL database
         ssArrayTD,ssArrayFD,reqlen,offsets,mags,eventWaveForms,events,WFU,UtU=self._loadMPSubSpace(DFsta,self.continuousDataLength,sta,channels,samplingRate,returnFull=True,PKS=staPksDf) 
-        conDatGen = self.cfetcher.getConData(stakey, utcstart=self.UTCstart, utcend=self.UTCend)
+        conDatGen = self.cfetcher.getConData(stakey, utcstart=self.UTCstart, utcend=self.UTCend, returnTimes=True)
         #glob.glob(os.path.join(self.ConDir,sta,str(conrangeyear[a]),str(b),sta+'*'))
-        for st in conDatGen: #loop through each chunk of continuous data
-        
+        for st, utc1, utc2 in conDatGen: #loop through each chunk of continuous data
+            if st is None or len(st) < 1:
+                msg = 'could not get data on %s from %s to %s' %(stakey.STATION.iloc[0], utc1, utc2)
+                detex.log(__name__, msg, level='warning', pri=True)
+                continue
             CorDF,MPcon,ConDat=self._getRA(ssArrayTD,ssArrayFD,st,len(channels),reqlen,contrim,Names)
-            if not isinstance(CorDF,pd.DataFrame): #if something is broken skip hour                        
-                detex.log(__name__,'%s failed' % fileToCorr,level='warning') 
+            if not isinstance(CorDF,pd.DataFrame): #if something is broken skip hours
+                #msg = '%s failed on %s' % (fname, sta)                        
+                detex.log(__name__, 'failed on it', level='warning', pri=True) 
                 continue
             for name,row in CorDF.iterrows(): # iterate through each subspace/single
                 if self.calcHist and len(CorDF)>0: 
@@ -1841,6 +1845,7 @@ class SSDetex(object):
             
             if self.estimateMags: #estimate magnitudes
                 ProEnmag,stdMag,SNR=self._estimateMagnitude(trigIndex,CorSeries,MPcon,mags[name],events[name],WFU[name],UtU[name],eventWaveForms[name],coef)
+                
             else:
                 ProEnmag,stdMag,SNR=np.NaN,np.NaN,np.NaN
             
@@ -1882,7 +1887,7 @@ class SSDetex(object):
         """
         #TODO use the frequency domain templates to speed up
         #TODO Clean this up
-        #deb([trigIndex,CorSeries,MPcon,mags,events,WFU,UtU])
+        deb([trigIndex,CorSeries,MPcon,mags,events,WFU,UtU,eventWaveForms,coef])
 
         WFlen=np.shape(WFU)[1] # event waveform length
         ConDat=MPcon[trigIndex*CorSeries.Nc:trigIndex*CorSeries.Nc+WFlen] #continuous data chunk that triggered  subspace
@@ -1917,7 +1922,8 @@ class SSDetex(object):
                 projectedEnergyMags=mags[0]+np.log10(np.dot(ConDat,WFU[0])/np.dot(WFU[0],WFU[0])) #use simple waveform scaling if single
                 stdMags=mags[0]+np.log10(np.std(ConDat)/np.std(WFU[0]))
     
-
+        #deb([mags, projectedEnergyMags, ConDat, WFU, stdMags])
+        print np.mean(mags), np.mean(stdMags)
         return projectedEnergyMags,stdMags,SNR
         
     def _subSamp(self,Ceval,trigIndex,sr,starttime) :
@@ -2085,9 +2091,9 @@ class SSDetex(object):
         try:
             conStream=detex.construct._applyFilter(st,self.filt,self.decimate,self.dtype,fillZeros=self.fillZeros)
         except:
-            detex.deb([st,self.filt,self.decimate,self.dtype,self.refillZeros])
+#            #detex.deb([st,self.filt,self.decimate,self.dtype,self.fillZeros])
             detex.log(__name__,'failed to filter %s, skipping' % st,level='warning')
-            return None,None,None
+#            return None,None,None
         
         CorDF.SampRate=conStream[0].stats.sampling_rate
         MPcon,ConDat,TR=multiplex(conStream,Nc,returnlist=True,retst=True)

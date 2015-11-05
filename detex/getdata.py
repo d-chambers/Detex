@@ -120,14 +120,14 @@ def quick_fetch(fetch_arg):
     elif isinstance(fetch_arg, str):
         if fetch_arg in DataFetcher.supMethods:
             if fetch_arg == 'dir':
-                msg = 'If using method dir you must path a path to directory'
+                msg = 'If using method dir you must pass a path to directory'
                 detex.log(__name__, msg, level='error')
             dat_fet = DataFetcher(fetch_arg, removeResponse=True)
         else:
             if not os.path.exists(fetch_arg):
                 msg = 'Directory %s does not exist' % fetch_arg
                 detex.log(__name__, msg, level='error')
-            dat_fet = DataFetcher('dir',directoryName=fetch_arg)
+            dat_fet = DataFetcher('dir', directoryName=fetch_arg)
     else:
         msg = 'Input not understood, read docs and try again'
         detex.log(__name__, msg, level='error')
@@ -269,13 +269,11 @@ def _getConData(fetcher, stakey, conDir, secBuf, opType, formatOut):
                                         conDir=conDir,
                                         skipIfExists=True)
     for st, path, fname in streamGenerator:
-        if not os.path.exists(path):
-            os.makedirs(path)
-        try:
+        if st is not None: #if data were returned
+            if not os.path.exists(path):
+                os.makedirs(path)
             fname = fname + '.' + formatKey[formatOut]
-        except:
-            deb([fname, formatOut, st, path])
-        st.write(os.path.join(path, fname), formatOut)
+            st.write(os.path.join(path, fname), formatOut)
     if not os.path.exists(os.path.join(conDir,'.index.db')):
         indexDirectory(conDir)
 
@@ -433,9 +431,9 @@ class DataFetcher(object):
 
      
     
-    def getConData(self, stakey, secBuff=None, returnName=False, conDir=None,
-                   skipIfExists=False, utcstart=None, utcend=None, 
-                   duration=None, randSamps=None):
+    def getConData(self, stakey, secBuff=None, returnName=False, 
+                   returnTimes=False, conDir=None, skipIfExists=False,
+                   utcstart=None, utcend=None, duration=None, randSamps=None):
         """
         Get continuous data defined by the stations and time range in 
         the station key
@@ -501,10 +499,14 @@ class DataFetcher(object):
                 net = ser.NETWORK
                 sta = ser.STATION
                 chan = ser.CHANNELS.split('-')
-                st = self._getStream(self, start, end, net, sta, chan, '*')
+                st = self.getStream(start, end, net, sta, chan, '*')
+                if st is None:
+                    continue
                 if returnName:
                     path, fname = _makePathFile(conDir, netsta, utc)
                     yield st, path, fname
+                elif returnTimes:
+                    yield st, start, end
                 else:
                     yield st
  
@@ -547,11 +549,18 @@ def _loadDirectoryData(fet, start, end, net, sta, chan, loc):
 
     """
     # get times with slight buffer
-    t1 = obspy.core.UTCDateTime(start).timestamp
-    t2 = obspy.core.UTCDateTime(end).timestamp
+    t1 = obspy.UTCDateTime(start).timestamp
+    t2 = obspy.UTCDateTime(end).timestamp
     buf = 3 * fet.conDatDuration 
     dfind = _loadIndexDb(fet.directoryName, net+ '.' +sta, t1 - buf, t2 + buf)
     
+    if dfind is None:
+        t1p = obspy.UTCDateTime(t1)
+        t2p = obspy.UTCDateTime(t2)
+        msg = 'data from %s to %s on %s not found in %s' % (t1p, t2p, sta, 
+                                                            fet.directoryName)
+        detex.log(__name__, msg, level='warning', pri=True)
+        return None
     cst = dfind.Starttime <= t1
     cet = dfind.Endtime >= t2
     cstam = cst.argmin()
@@ -577,6 +586,8 @@ def _loadDirectoryData(fet, start, end, net, sta, chan, loc):
             stout += st.select(channel=cha)
     loc = '*' if loc in ['???','??'] else loc #convert ? to *
     st = st.select(location=loc)
+    if st is None:
+        detex.deb([fet, start, end, net, sta, chan, loc, dfind, ind1, ind2])
     return st
 
 def _loadFromClient(fet, start, end, net, sta, chan, loc):
@@ -594,7 +605,6 @@ def _loadFromClient(fet, start, end, net, sta, chan, loc):
                                       end, attach_response=fet.removeResponse)
         except AttributeError: # if not fdsn client
             try: #try neic client
-               #st = client.getWaveForm(net, sta, loc, chan, start, end)
                 st = client.getWaveform(net, sta, loc, chan, start, end)
             except: 
                 msg = ('Client type not understood')
@@ -756,6 +766,9 @@ def indexDirectory(dirPath, extension='msd'):
                 df.loc[len(df)-1, key] = value
             df.loc[len(df)-1, 'FileName'] = fname
         #Create path index key
+    if len(pathList) < 1:
+        msg = 'No obspy readable files found in %s' % dirPath
+        detex.log(__name__, msg, level='error')
     dfInd = _createIndexDF(pathList)
     detex.util.saveSQLite(df,os.path.join(dirPath, '.index.db'),'ind')
     detex.util.saveSQLite(dfInd,os.path.join(dirPath, '.index.db'),'indkey')    
@@ -812,8 +825,7 @@ def _loadIndexDb(dirPath, station, t1, t2):
           ('*', 'ind', t1, t2, station))
     df = detex.util.loadSQLite(indexFile[0],'ind', sql=sql, silent=False)
     if df is None or len(df)<1: #if not in database
-        return False
-    #deb([sql, indexFile])
+        return None
     dfin = detex.util.loadSQLite(indexFile[0],'indkey', convertNumeric=False)
     dfin.columns = [int(x.split('_')[1]) for x in dfin.columns] 
     dfin.index = [int(x) for x in dfin.index]

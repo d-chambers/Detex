@@ -42,29 +42,18 @@ def setLogger(makeLog=True,filename='detex_log.log'):
     filename : str
         Path to log file to be created
     """
-    reload(logging) # reload to reconfigure default ipython logging behavior
+    reload(logging) # reload to reconfigure default ipython log
     cwd=os.getcwd()
     
     fil = os.path.join(cwd,filename)
     fh = logging.FileHandler(fil)
     fh.setLevel(logging.DEBUG)
     fmat = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    formatter = logging.Formatter(fmat)    
-    
+    formatter = logging.Formatter(fmat)
     fh.setFormatter(formatter)    
-    
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
-
-    
-    # create file handler which logs even debug messages
-
     logger.addHandler(fh)
-    # create console handler with a higher log level
-#    ch = logging.StreamHandler()
-#    ch.setLevel(logging.WARNING)
-#    ch.setFormatter(formatter)
-#    logger.addHandler(ch)
     return logger
     
 

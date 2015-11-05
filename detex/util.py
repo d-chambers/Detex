@@ -47,7 +47,7 @@ def read_key(dfkey, key_type='template'):
         
     if isinstance(dfkey, str):
         if not os.path.exists(dfkey):
-            msg = '%s does not exists, check path'
+            msg = '%s does not exists, check path' % dfkey
             detex.log(__name__, msg, level='error')
         else:
             df = pd.read_csv(dfkey)

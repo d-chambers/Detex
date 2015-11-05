@@ -935,6 +935,7 @@ def _applyFilter(st, filt, decimate=False, dtype='double', fillZeros=False):
             st = _mergeChannels(st)
     if decimate:
         st.decimate(decimate)
+        
     startTrim = max([x.stats.starttime for x in st])
     endTrim = min([x.stats.endtime for x in st])
     

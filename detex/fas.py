@@ -17,7 +17,7 @@ from scipy.fftpack import fft
 from obspy.signal.trigger import classicSTALTA
 from itertools import chain #from_iterable
 
-############################## Subspace Detex and FAS ###################################################
+############## Subspace Detex and FAS #######################
 
 def _initFAS(TRDF, conDatNum, cluster, fetcher, LTATime=5,
              STATime=0.5, numBins=401, dtype='double', staltalimit=7.5, 
