@@ -95,8 +95,14 @@ def _getDSVect(fetcher, stakey, utc1, utc2, filt, deci, dtype,
         scount = 0 # success count
         DSmat = []
         for st in stgen: #loop over random samps of continuous data
+            if st is None:
+                continue
             count += 1
-            st = detex.construct._applyFilter(st, filt, deci, dtype)
+            stt = st.copy()
+            try:
+                st = detex.construct._applyFilter(st, filt, deci, dtype)
+            except:
+                detex.deb([stt, filt, deci, dtype])
             passSTALTA = _checkSTALTA(st, filt, sta, lta, limit)
             if not passSTALTA:
                 continue
@@ -182,6 +188,7 @@ def _checkSTALTA(st, filt, STATime, LTATime, limit):
     try:
         cft = classicSTALTA(sz.data, staSamps, ltaSamps)
     except:
+        return False
         detex.deb([sz, staSamps, ltaSamps])
     if np.max(cft) <= limit:
         return True

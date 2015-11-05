@@ -1919,7 +1919,6 @@ class SSDetex(object):
                 stdMags=mags[0]+np.log10(np.std(ConDat)/np.std(WFU[0]))
     
         #deb([mags, projectedEnergyMags, ConDat, WFU, stdMags])
-        print np.mean(mags), np.mean(stdMags)
         return projectedEnergyMags,stdMags,SNR
         
     def _subSamp(self,Ceval,trigIndex,sr,starttime) :
