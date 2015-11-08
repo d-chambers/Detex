@@ -579,9 +579,9 @@ class SSResults(object):
         self.fetcher = fetcher
 
     def writeDetections(self, onlyVerified=False, minDS=False, minMag=False, 
-                        eventDir=None, updateTemKey=True, temkeyPath=None,
-                        timeBeforeOrigin=1*60, timeAfterOrigin=4*60,
-                        waveFormat="mseed"):
+                        eventDir='EventWaveForms', updateTemKey=True, 
+                        temkeyPath=None, timeBeforeOrigin=1*60, 
+                        timeAfterOrigin=4*60, waveFormat="mseed"):
         """
         Function to make all of the eligable new detections templates. New 
         event directories will be added to eventDir and the template key 

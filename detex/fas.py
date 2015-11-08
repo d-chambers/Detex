@@ -95,8 +95,8 @@ def _getDSVect(fetcher, stakey, utc1, utc2, filt, deci, dtype,
         scount = 0 # success count
         DSmat = []
         for st in stgen: #loop over random samps of continuous data
-            if st is None:
-                continue
+            if st is None or len(st) < 1:
+                continue # no need to log, fetcher will do it
             count += 1
             stt = st.copy()
             try:

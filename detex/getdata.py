@@ -374,9 +374,10 @@ class DataFetcher(object):
             self.inventoryClient = obspy.fdsn.Client('iris') # use iris
     
     def getTemData(self, temkey, stakey, tb4=None, taft=None, returnName=True,
-                   temDir=None, skipIfExists=False):
+                   temDir=None, skipIfExists=False, skipDict=None):
         """
-        Take detex station keys and template keys and yield stream objects
+        Take detex station keys and template keys and yield stream objects of
+        all possible combinations
         
         Parameters
         ----------
@@ -396,24 +397,38 @@ class DataFetcher(object):
             Name of template directory, used to check if exists
         skipIfExists : bool
             If True dont return if file is in temDir
+        skipDict : dict
+            Dictionary of events (keys) and stations (values) to skip
+        
         Yields
         --------
-        Stream objects
+        Stream objects of possible combination if data are fetchable and event
+        names if returnName == True
         """        
         if tb4 is None:
             tb4 = self.timeBeforeOrigin
         if taft is None:
             taft = self.timeAfterOrigin
+        if len(skipDict.keys()) < 1: # if empty dict set to None
+            skipDict = None
         indexiter = itertools.product(stakey.index, temkey.index)
         #iter through each station/event pair and fetch data
         for stain, temin in indexiter:
             ser = temkey.loc[temin].combine_first(stakey.loc[stain])
             netsta = ser.NETWORK + '.' + ser.STATION
+            # Skip event/station combos in skipDict
+            if skipDict is not None and ser.NAME in skipDict.keys():
+                vals = skipDict[ser.NAME]
+                if vals == netsta or vals == netsta.split('.')[1]:
+                    continue
+            # skip events that already have files
             if skipIfExists:
                 pfile = glob.glob(os.path.join(temDir, ser.NAME, netsta + '*'))
-                if len(pfile) > 0: #if already exists then skip
+                if len(pfile) > 0:
                     continue
-            t = obspy.UTCDateTime(ser.TIME)
+                
+            time = ser.TIME if 'T' in ser.TIME else float(ser.TIME)
+            t = obspy.UTCDateTime(time)
             start = t - tb4
             end = t + taft
             net = ser.NETWORK

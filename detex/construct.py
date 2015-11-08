@@ -798,6 +798,8 @@ def _loadStream(fetcher, filt, trim, decimate, station, dtype,
     # load waveforms
     for st, evename in fetcher.getTemData(temkey, csta, trim[0], trim[1], 
                                           returnName=True):
+        if st is None or len(st) < 1:
+            continue #skip if stream empty
         st = _applyFilter(st, filt, decimate, dtype)
         tem = temkey[temkey.NAME == evename]
         if len(tem) < 1:
@@ -891,13 +893,15 @@ def multiplex(st, Nc=None, trimTolerance=15, template=False, returnlist=False,
         chans = [x.data for x in st] # Data on each channel
         minlen=np.array([len(x) for x in chans])  
         if max(minlen)-min(minlen) > trimTolerance:
+            netsta = st[0].stats.network + '.' + st[0].stats.stattion
+            utc1 = st[0].stats.starttime.formatIRISWebService().split('.')[0]
+            utc2 = st[0].stats.endtime.formatIRISWebService().split('.')[0]
+            msg = ('Channel lengths are not within %d on %s from %s to %s' %
+                  (netsta, utc1, utc2))
             if template:
-                msg = ('Channel lengths are not within %d samples on: %s' % 
-                      (trimTolerance, st[0]))
                 detex.log(__name__, msg, level='error')
             else:
-                msg = ('Channel lengths are not within %d samples on: %s' % 
-                      (trimTolerance, st[0]))
+                msg = msg + ' trimming to shortest channel'
                 detex.log(__name__, msg, level='warning', pri=True)
                 trimDim = min(minlen) #trim to smalles dimension
                 chansTrimed = [x[:trimDim] for x in chans] 

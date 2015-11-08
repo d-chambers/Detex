@@ -1,0 +1,5 @@
+2015-11-05 18:43:56,000 - detex - INFO - Imported Detex
+2015-11-05 18:44:18,770 - detex.results._verifyEvents - INFO - No veriFile passed or it does not exist, skipping verification
+2015-11-05 18:54:28,545 - detex.results._checkInputs - ERROR - requiredNumStations must be an integer greater than 0
+2015-11-07 15:54:56,707 - detex - INFO - Imported Detex
+2015-11-07 16:44:28,035 - detex - INFO - Imported Detex
