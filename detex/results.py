@@ -228,7 +228,7 @@ def _verifyEvents(Dets, Autos, veriFile, veriBuffer, includeAllVeriColumns):
         additionalColumns = list(set(vertem.columns) - set(cols))
 
         for vernum, verrow in vertem.iterrows():
-            con1 = Dets.MSTAMPmin - veriBuffer / 2. < verrow.STMP
+            con1 = Dets.MSTAMPmin - veriBuffer / 2.0 < verrow.STMP
             con2 = Dets.MSTAMPmax + veriBuffer / 2.0 > verrow.STMP
             con3 = [not x for x in Dets.Verified]
             temDets = Dets[(con1) & (con2) & (con3)]
@@ -246,7 +246,7 @@ def _verifyEvents(Dets, Autos, veriFile, veriBuffer, includeAllVeriColumns):
                 trudet['VerName'] = verrow.NAME
                 verlist.append(trudet)
             else:
-                con1 = Autos.MSTAMPmin - veriBuffer / 2. < verrow.STMP
+                con1 = Autos.MSTAMPmin - veriBuffer / 2.0 < verrow.STMP
                 con2 = Autos.MSTAMPmax + veriBuffer / 2.0 > verrow.STMP
                 con3 = [not x for x in Autos.Verified]
                 temAutos = Autos[(con1) & (con2) & (con3)]
@@ -257,11 +257,12 @@ def _verifyEvents(Dets, Autos, veriFile, veriBuffer, includeAllVeriColumns):
                         for col in additionalColumns:
                             if not col in trudet.columns:
                                 trudet[col] = verrow[col]
-                                trudet['VerMag'] = verrow.MAT
-                                trudet['VerLat'] = verrow.LAT
-                                trudet['VerLon'] = verrow.LON
-                                trudet['VerDepth'] = verrow.DEPTH
-                                trudet['VerName'] = verrow.NAME
+                    trudet['VerMag'] = verrow.MAG
+                    trudet['VerLat'] = verrow.LAT
+                    trudet['VerLon'] = verrow.LON
+                    trudet['VerDepth'] = verrow.DEPTH
+                    trudet['VerName'] = verrow.NAME
+                    verlist.append(trudet)
         if len(verlist) > 0:
             verifs = pd.concat(verlist, ignore_index=True)
             # sort and drop duplicates so each verify event is verified only

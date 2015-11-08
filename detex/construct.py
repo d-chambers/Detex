@@ -893,11 +893,11 @@ def multiplex(st, Nc=None, trimTolerance=15, template=False, returnlist=False,
         chans = [x.data for x in st] # Data on each channel
         minlen=np.array([len(x) for x in chans])  
         if max(minlen)-min(minlen) > trimTolerance:
-            netsta = st[0].stats.network + '.' + st[0].stats.stattion
+            netsta = st[0].stats.network + '.' + st[0].stats.station
             utc1 = st[0].stats.starttime.formatIRISWebService().split('.')[0]
             utc2 = st[0].stats.endtime.formatIRISWebService().split('.')[0]
             msg = ('Channel lengths are not within %d on %s from %s to %s' %
-                  (netsta, utc1, utc2))
+                  (trimTolerance, netsta, utc1, utc2))
             if template:
                 detex.log(__name__, msg, level='error')
             else:

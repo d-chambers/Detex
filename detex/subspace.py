@@ -24,20 +24,18 @@ import copy
 import colorsys
 import multiprocessing
 from struct import pack
-import warnings
 
 from scipy.cluster.hierarchy import dendrogram, fcluster
 from detex.construct import fast_normcorr, multiplex
+
 
 pd.options.mode.chained_assignment = None  # mute setting copy warning
 
 # warnings.filterwarnings('error') #uncomment this to make all warnings errors
 
 # lines for backward compat.
-createSubSpace = detex.construct.createSubSpace
-createCluster = detex.construct.createCluster
-loadClusters = detex.util.loadClusters
-loadSubSpace = detex.util.loadSubSpace
+from detex.construct import createCluster, createSubSpace
+from detex.util import loadClusters, loadSubSpace
 
 class ClusterStream(object):
     """
@@ -257,11 +255,10 @@ class ClusterStream(object):
         if isinstance(key, int):
             return self.clusters[key]
         elif isinstance(key, str):
-            key1 = self.stalist.index(key) # net.sta index
-            key2 = self.stalist2.index(key) # sta index
-            if (key not in key1) and (key not in key2):
-                msg =  '%s is not a station in this ClusterStream' % key
-                detex.log(__name__, msg, level='error')
+            if len(key.split('.')) == 1:
+                return self.clusters[self.stalist2.index(key)]
+            elif len(key.split('.')) == 2:
+                 return self.clusters[self.stalist.index(key)]
         else:
             msg = ('indexer must either be an int or str of sta.net or sta you'
                    ' passed %s' % key)

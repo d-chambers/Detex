@@ -6,6 +6,7 @@
 deTex: A Python Toolbox for running subspace detections.
 ==================================================================
 """
+# General imports
 import os
 import glob
 import inspect
@@ -13,18 +14,22 @@ import logging
 import logging.handlers
 import sys
 
+# Detex imports
+import getdata
+import util
+import subspace
+import fas
+import construct
+import results
+
 # import all modules in detex directory
-modules = glob.glob(os.path.dirname(__file__)+"/*.py")
-__all__ = [os.path.basename(f)[:-3] for f in modules if os.path.isfile(f)]
-from detex import *
+#modules = glob.glob(os.path.dirname(__file__)+"/*.py")
+#__all__ = [os.path.basename(f)[:-3] for f in modules if os.path.isfile(f)]
 
-# Set shortcuts for lazy people 
 
-#getAllData=getdata.getAllData
+# Imports for lazy people (ie make detex.createCluster callable) 
+from construct import createCluster, createSubSpace
 
-createCluster = construct.createCluster
-
-createSubSpace = construct.createSubSpace
 
 #detResults=results.detResults
 

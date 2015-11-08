@@ -409,7 +409,7 @@ class DataFetcher(object):
             tb4 = self.timeBeforeOrigin
         if taft is None:
             taft = self.timeAfterOrigin
-        if len(skipDict.keys()) < 1: # if empty dict set to None
+        if skipDict is not None and len(skipDict.keys()) < 1: 
             skipDict = None
         indexiter = itertools.product(stakey.index, temkey.index)
         #iter through each station/event pair and fetch data
