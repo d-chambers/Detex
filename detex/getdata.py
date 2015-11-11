@@ -90,7 +90,7 @@ def makeTemplatemkey(catalog, filename='TemplateKey.csv', save=True):
 
 
 
-def quick_fetch(fetch_arg):
+def quickFetch(fetch_arg):
     """
     Instantiate a DataFetcher using as little information as possible
     Parameters
@@ -134,7 +134,7 @@ def quick_fetch(fetch_arg):
         deb(dat_fet)
     return dat_fet
     
-def make_data_directories(template_key='TemplateKey.csv', 
+def makeDataDirectories(template_key='TemplateKey.csv', 
                          station_key='StationKey.csv', 
                          fetch='IRIS', 
                          formatOut='mseed', 
@@ -858,7 +858,7 @@ def _associatePathList(pathList, dfin):
         pat.append(dfin.loc[num, p])
     return os.path.join(*pat)
 
-getAllData =  make_data_directories
+getAllData =  makeDataDirectories
     
 
 

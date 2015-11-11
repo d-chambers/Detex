@@ -21,6 +21,9 @@ import subspace
 import fas
 import construct
 import results
+import streamPick
+import pandas_dbms
+import version
 
 # import all modules in detex directory
 #modules = glob.glob(os.path.dirname(__file__)+"/*.py")
@@ -34,6 +37,8 @@ from construct import createCluster, createSubSpace
 #detResults=results.detResults
 
 maxsize = 100 * 1024*1024 # max size log file can be in bytes (100 mb defualt)
+verbose = True # set to false to avoid printing to screen
+makeLog = True # set to false to not make log file
 
 ## Configure logger to be used across all of Detex
 def setLogger(makeLog=True,filename='detex_log.log'):
@@ -86,26 +91,30 @@ def log(name, msg, level='info', pri=False, close=False, e=Exception):
         exception
     """
     # get name of function that called log
+    if not verbose:
+        pri = False
     cfun = inspect.getouterframes(inspect.currentframe())[1][0].f_code.co_name 
     log = logging.getLogger(name+'.'+cfun)
-    if level == 'info':
+    if level == 'info' and makeLog:
         log.info(msg)
-    elif level == 'debug':
+    elif level == 'debug' and makeLog:
         log.debug(msg)
-    elif level == 'warning' or level == 'warn':
+    elif (level == 'warning' or level == 'warn') and makeLog :
         log.warning(msg)
-    elif level == 'critical':
+    elif level == 'critical' and makeLog:
         log.critical(msg)
     elif level == 'error':
-        log.error(msg)
+        if makeLog:
+            log.error(msg)
         closeLogger()
         raise e(msg)
     else:
-        raise Exception('level input not understood, acceptable values are' 
-                        '"debug","info","warning","error","critical"')
+        if makeLog:
+            raise Exception('level input not understood, acceptable values are' 
+                        ' "debug","info","warning","error","critical"')
     if pri:
         print msg
-    if close: #close logger
+    if close and makeLog: #close logger
         closeLogger()
     
 def closeLogger():
@@ -118,9 +127,9 @@ def deb(varlist):
     global de
     de = varlist
     sys.exit(1)
-
-logger=setLogger()
-logger.info('Imported Detex')
+if makeLog:
+    logger=setLogger()
+    logger.info('Imported Detex')
 
 
 

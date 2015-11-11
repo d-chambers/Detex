@@ -114,7 +114,7 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
     stakey = pd.read_csv(stationKey)  # load station key
 
     ss_info, sg_info = _loadInfoDataFrames(ssDB)  # load info DataFrames
-    fetcher = detex.getdata.quick_fetch(fetch)
+    fetcher = detex.getdata.quickFetch(fetch)
 
     # load histograms #TODO: Create visualization methods for hists
     #ss_hist = detex.util.loadSQLite(ssDB, 'ss_hist')  

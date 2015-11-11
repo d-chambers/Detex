@@ -278,19 +278,22 @@ class Cluster(object):
                  filt, decimate, trim, DFcc):
 
         # instantiate a few needed varaibles (not all to save space)
-        self.link, self.DFcc, self.station, self.temkey = link, DFcc, station, temkey
+        self.link = link
+        self.DFcc = DFcc
+        self.station = station
+        self.temkey = temkey
         self.key = eventList
         self.updateReqCC(CCreq)
-        self.nonClustColor = '0.6'  # use a grey of 0.6 for non-clustering events
+        self.nonClustColor = '0.6'  # use a grey of 0.6 for singletons
 
     def updateReqCC(self, newCCreq):
         """
-        Function to update the required correlation coeficient for this station
+        Function to update the required correlation coeficient for 
+        this station
         Parameters
         -------------
         newCCreq : float (between 0 and 1)
             Required correlation coef
-            
         """
         if newCCreq < 0. or newCCreq > 1.:
             msg = 'Parameter CCreq must be between 0 and 1'
@@ -626,7 +629,8 @@ class Cluster(object):
 
 class SubSpaceStream(object):
     """ Class used to hold subspaces for detector
-    Holds both subspaces (as defined from the SScluster object) and single event clusters, or singles
+    Holds both subspaces (as defined from the SScluster object) and 
+    single event clusters, or singles
     """
 
     def __init__(self, singlesDict, subSpaceDict, cl, dtype, Pf, cfetcher):
@@ -647,78 +651,92 @@ class SubSpaceStream(object):
     def _checkSelection(self, selectCriteria, selectValue, Threshold):
         if selectCriteria in [1, 2, 3]:
             if selectValue > 1 or selectValue < 0:
-                raise Exception(
-                    'When selectCriteria==%d selectValue must be a float between 0 and 1' %
-                    selectCriteria)
+                msg = ('When selectCriteria==%d selectValue must be a float'
+                       ' between 0 and 1' % selectCriteria)
+                detex.log(__name__, msg, level='error')
         elif selectCriteria == 4:
             if selectValue < 0 or not isinstance(selectValue, int):
-                raise Exception(
-                    'When selectCriteria==3 selectValue must be an integer greater than 0')
+                msg =  ('When selectCriteria==3 selectValue must be an'
+                        'integer greater than 0')
+                detex.log(__name__, msg, level='error')
         else:
-            raise Exception(
-                'selectCriteria of %s is not supported' %
-                str(selectCriteria))
-        if not Threshold is None:
+            msg = 'selectCriteria of %s is not supported' % selectCriteria
+            detex.log(__name__, msg, level='error')
+                
+                
+        if Threshold is not None:
             if not isinstance(Threshold, numbers.Number) or Threshold < 0:
-                raise Exception(
-                    'Unsupported type for Threshold, must be None or float between 0 and 1')
-
-    def SVD(
-            self,
-            selectCriteria=2,
-            selectValue=0.9,
-            conDatNum=100,
-            Threshold=None,
-            normalize=False,
-            useSingles=True,
-            **kwargs):
+                msg = 'Unsupported type for Threshold, must be None or float'
+                detex.log(__name__, msg, level='error')
+    def SVD(self, selectCriteria=2, selectValue=0.9, conDatNum=100,
+            Threshold=None, normalize=False, useSingles=True, **kwargs):
         """
-        Function to perform SVD on the alligned waveforms and select which of the SVD basis are to be used in event detection
-        Also assigns a detection threshold to each subspace-station pair
+        Function to perform SVD on the alligned waveforms and select which 
+        of the SVD basis are to be used in event detection. Also assigns 
+        a detection threshold to each subspace-station pair.
 
         Parameters
         ----------------
 
         selctionCriteria : int, selectValue : number
-            selectCriteria is the method for selecting which basis vectors will be used as detectors. selectValue depends
-            on selectCriteria Options are:
+            selectCriteria is the method for selecting which basis vectors 
+            will be used as detectors. selectValue depends on selectCriteria
+            Valid options are:
 
-            0 - using the given Pf, find number of dimensions to maximize detection probability !!! NOT YET IMPLIMENTED!!!
+            0 - using the given Pf, find number of dimensions to maximize 
+            detection probability !!! NOT YET IMPLIMENTED!!!
                     selectValue - Not used
-                    (Need to find a way to estimate the doubly-non central F distribution in python to implement)
+                    (Need to find a way to use the doubly-non central F 
+                    distribution in python)
 
-            1 - Using a required dimension of representation and the given Pf estimate the effect dimension of representation
-            (the _estimateDimSpace method is called, it needs more testing) and use the central F distribution of the null space
-            Harris 2006 EQ 20, find the required threshold
-                selectValue - Average factional energy captured (ranges from o to 1)
-            NOTE: THIS METHOD IS NOT YET STABLE
+            1 - Failed implementation, not supported
 
-            2 - select basis number based on an average fractional signal energy captured (see Figure 8 of Harris 2006)
-            Then calculate an empirical distribution of the detection statistic (of the null space in order to get a
-            threshold for each subspace station pair using conDatNum of continuous data chunks without high amplitude signal
-            (see getFAS method)
-                    selectValue - Average fractional energy captured can range from 0 (use no basis vectors) to 1
-                    (use all basis vectors). Harris uses 0.8. T
+            2 - select basis number based on an average fractional signal 
+            energy captured (see Figure 8 of Harris 2006). Then calculate
+            an empirical distribution of the detection statistic by running
+            each subspace over random continuous data with no high amplitude
+            signals (see getFAS method). A beta distribution is then fit to
+            the data and the DS value that sets the probability of false 
+            detection to the Pf defined in the subspace instance is selected
+            as the threshold.            
+                    selectValue - Average fractional energy captured, 
+                    can range from 0 (use no basis vectors) to 1
+                    (use all basis vectors). A value between 0.75 and 0.95
+                    is recommended. 
+                    
+            3 - select basis number based on an average fractional signal 
+            energy captured (see Figure 8 of Harris 2006).
+            Then set detection Threshold to a percentage of the minimum 
+            fractional energy captured. This method is a bit quick and dirty
+            but ensures all events in the waveform pool will be detected.
+                select value is a fraction representing the fraction of 
+                the minum fractional energy captured (between 0 and 1).
 
-            3 - select basis number based on an average fractional signal energy captured (see Figure 8 of Harris 2006)
-            Then set detection Threshold to a percentage of the minimum fractional energy captured. This method is a bit
-            quick and dirty but ensures all events in the waveform pool will be detected
-                select value is a fraction representing the fraction of the minum fractional energy captured.
-
-            4 - use a user defined number of basis vectors, beginning with most significant (Barrett and Beroza 2014 use first two basis
-            vectors as a "empirical" subspace detector). Then use same the value of Pf and the technique in method one to set threshold
-                    selectValue - can range from 0 to number of events in subspace, if selectValue is greater than number of events use all events
+            4 - use a user defined number of basis vectors, beginning with the 
+            most significant (Barrett and Beroza 2014 use first two basis
+            vectors as an "empirical" subspace detector). Then use the same 
+            technique in method one to set threshold
+                    selectValue - can range from 0 to number of events in 
+                    subspace, if selectValue is greater than number of events 
+                    all events are used
 
         conDatNum : int
-            The number of continuous data chunks to use to estimate the effective dimension of the signal space or to estimate the null distribution.
-            Used if selectCriteria == 1,2,4
+            The number of continuous data chunks to use to estimate the 
+            effective dimension of the signal space or to estimate the null
+            distribution. Used if selectCriteria == 1,2,4
         Threshold : float or None
-            Used to set each subspace at a user defined threshold. If not None overrides any of the previously defined method, avoids estimating
-            effective dimension of representation or distribution of the null space
+            Used to set each subspace at a user defined threshold. If any 
+            value is set it overrides any of the previously defined methods and
+            avoids estimating the effective dimension of representation or 
+            distribution of the null space. Can be useful if problems arise
+            in the false alarm statistic calculation
         normalize : boolean
-            If true normalize the amplitude of all the training events before preforming the SVD. Keeps higher amplitude events from dominating
-            the SVD vectors but can over emphasize noise. Haris 2006 recomends the normalization but personal experience has found normalization
-            can increase the detector's propensity to return false detections
+            If true normalize the amplitude of all the training events before 
+            preforming the SVD. Keeps higher amplitude events from dominating
+            the SVD vectors but can over emphasize noise. Haris 2006 recomends
+            using normalization but the personal experience of the author has
+            found normalization can increase the detector's propensity to 
+            return false detections.
         useSingles : boolean
             If true also calculate the thresholds for singles
         """
@@ -1280,7 +1298,7 @@ class SubSpaceStream(object):
 
     def attachPickTimes(
             self,
-            pksFile='EventPicks.csv',
+            pksFile='PhasePicks.csv',
             ssMode='Average',
             defaultDuration=30):
         """
@@ -1727,10 +1745,10 @@ class SubSpaceStream(object):
                 '%s already exists, delete it? ("y" or "yes" else do not delete)\n' %
                 subspaceDB)
             if user_input == 'yes' or user_input == 'y':
-                detex.util.DoldDB(subspaceDB)
+                os.remove(subspaceDB)
 
         elif delOldCorrs and os.path.exists(subspaceDB):
-            detex.util.DoldDB(subspaceDB)
+            os.remove(subspaceDB)
 
         if useSubSpaces:
             TRDF = self.subspaces
@@ -1798,16 +1816,16 @@ class SubSpaceStream(object):
             ssinfo, sginfo = self._getInfoDF()  # get general info on each single/subspace
             sshists, sghists = self._getHistograms(useSubSpaces, useSingles)
 
-            if useSubSpaces and len(ssinfo) > 0:
+            if useSubSpaces and ssinfo is not None:
                 detex.util.saveSQLite(
                     ssinfo, subspaceDB, 'ss_info')  # save subspace info
-            if useSingles and len(sginfo > 0):
+            if useSingles and sginfo is not None:
                 detex.util.saveSQLite(
                     sginfo, subspaceDB, 'sg_info')  # save singles info
-            if useSubSpaces and len(sshists > 0):
+            if useSubSpaces and sshists is not None:
                 detex.util.saveSQLite(
                     sshists, subspaceDB, 'ss_hist')  # save subspace histograms
-            if useSingles and len(sghists > 0):
+            if useSingles and sghists is not None:
                 detex.util.saveSQLite(
                     sghists, subspaceDB, 'sg_hist')  # save singles histograms
 
@@ -1848,8 +1866,14 @@ class SubSpaceStream(object):
                     beta1, beta2 = np.Nan, np.Nan
                 sglist.append(pd.DataFrame([[name, station, events, thresh, beta1, beta2]], columns=[
                               'Name', 'Sta', 'Events', 'Threshold', 'beta1', 'beta2']))
-        ssinfo = pd.concat(sslist, ignore_index=True)
-        sginfo = pd.concat(sglist, ignore_index=True)
+        if len(sslist) > 0:
+            ssinfo = pd.concat(sslist, ignore_index=True)
+        else: 
+            ssinfo = None
+        if len(sglist) > 0:
+            sginfo = pd.concat(sglist, ignore_index=True)
+        else:
+            sginfo = None
         return ssinfo, sginfo
 
     def _getHistograms(self, useSubSpaces, useSingles):

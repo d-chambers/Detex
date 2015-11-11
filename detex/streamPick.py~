@@ -1,14 +1,8 @@
-"""
-Modified Python package based on this one:
-https://github.com/miili/StreamPick
-"""
-
 import sys, os, pickle
 from PyQt4 import QtGui, QtCore
 from obspy import read
 from obspy.core import event, UTCDateTime
 from itertools import cycle
-import sys
 
 import numpy as np
 
@@ -554,11 +548,10 @@ class streamPick(QtGui.QMainWindow):
         
     def _pltNextStream(self):
         '''
-        Plot next Stream, used primarily in Detex loops when
-        streamPick is called to know to exit loop or go 
+        Plot next Stream, used primarily in Detex loops when streamPick is called to know to exit loop or go 
         to next stream
         '''
-        self.KeepGoing = True
+        self.KeepGoing=True
         self.close()
         #self._streamStation(self._stationCycle.next())
         #self._drawFig()
@@ -943,3 +936,13 @@ class streamPick(QtGui.QMainWindow):
                         freqmax=float(self.frqmax.cleanText()),
                         corners=int(int(self.corner.checkedId())))
 
+
+def deb(varlist):
+    global de
+    de=varlist
+    sys.exit(1)   
+#st = read('../OKAS01/*.mseed')
+#for tr in st:
+#    tr.trim(starttime=tr.stats.starttime, endtime=tr.stats.starttime+60)
+#new_pick = streamPick(stream=st)
+#print new_pick.picks

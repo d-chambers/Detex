@@ -48,7 +48,7 @@ def createCluster(CCreq=0.5,
         0 means all waveforms grouped together, 1 will not form any 
         groups (in order to run each waveform as a correlation detector)
     fetch_arg : str or detex.getdata.DataFetcher object
-        fetch_arg of detex.getdata.quick_fetch, see docs for details
+        fetch_arg of detex.getdata.quickFetch, see docs for details
     filt : list
         A list of the required input parameters for the obspy bandpass 
         filter [freqmin,freqmax,corners,zerophase]
@@ -102,7 +102,7 @@ def createCluster(CCreq=0.5,
     temkey = detex.util.read_key(TemplateKey, key_type='template')
     
     # get a data fetcher
-    fetcher = detex.getdata.quick_fetch(fetch_arg)
+    fetcher = detex.getdata.quickFetch(fetch_arg)
 
     # Intialize object DF that will be used to store cluster info
     msg = 'Starting IO operations and data checks'
@@ -227,10 +227,10 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
     if isinstance(conDatFetcher, detex.getdata.DataFetcher):
         cfetcher = conDatFetcher
     elif isinstance(conDatFetcher, str):
-        cfetcher = detex.getdata.quick_fetch(conDatFetcher)
+        cfetcher = detex.getdata.quickFetch(conDatFetcher)
     elif conDatFetcher is None:
          if efetcher.method == 'dir':
-             cfetcher = detex.getdata.quick_fetch('ContinuousWaveForms')
+             cfetcher = detex.getdata.quickFetch('ContinuousWaveForms')
          else: # if not directory assume obspy client used for both
              cfetcher = efetcher
         

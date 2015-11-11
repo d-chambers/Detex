@@ -6,14 +6,11 @@ Created on Thu May 29 16:41:48 2014
 """
 import numpy as np
 import obspy
-import glob
 import os
-import sys
 import detex.pandas_dbms
 import pandas.io.sql as psql
 import simplekml
 import pandas as pd
-import matplotlib.pyplot as plt
 import detex
 
 from sqlite3 import PARSE_DECLTYPES, connect
@@ -311,7 +308,7 @@ def readSum(sumfile):
             'VertError']
     DF = pd.DataFrame(index=range(len(lines)), columns=cols)
 
-    for linum, l in enumerate(lines):
+    for a, l in enumerate(lines):
         DF.Lat[a] = (float(l[16:18]) + (float(l[19:21].replace(' ', '0')) +
                      float(l[21:23].replace(' ', '0'))/100)/60)
 
@@ -417,7 +414,7 @@ def writeTemplateKeyFromEQSearchSum(eq='eqsrchsum', oname='eqTemplateKey.csv'):
                (18, 20), (21, 26), (27, 30), (31, 36), (37, 43), (45, 50)]
     names = ['year', 'mo', 'day', 'hr', 'min', 'sec', 'latdeg', 'latmin',
              'londeg', 'lonmin', 'dep', 'mag']
-    df = pd.read_fwf(eqsum, colspecs=clspecs, header=None, names=names)
+    df = pd.read_fwf(eq, colspecs=clspecs, header=None, names=names)
     year = ['19%02d' % x if x > 50 else '20%02d' % x for x in df['year']]
     month = ['%02d' % x for x in df['mo']]
     day = ['%02d' % x for x in df['day']]
@@ -438,7 +435,7 @@ def writeTemplateKeyFromEQSearchSum(eq='eqsrchsum', oname='eqTemplateKey.csv'):
     DF['LON'] = Lon
     DF['MAG'] = df['mag']
     DF['DEPTH'] = df['dep']
-    DF.to_csv(outname)
+    DF.to_csv(oname)
 
 
 
@@ -554,7 +551,7 @@ def get_number_channels(st):
 ############################## Phase Picker ############################
 
 def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv', 
-               stationkey='StationKey.csv', pickFile='EventPicks.csv'):
+               stationkey='StationKey.csv', pickFile='PhasePicks.csv'):
     """
     Uses streamPicks to parse the templates and allow user to manually pick
     phases for events. Only P,S, Pend, and Send are supported phases under 
@@ -602,8 +599,10 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
                 ets[row.Station].append(row.Event)
     else:
         DF = pd.DataFrame(columns=cols)
-    
+    #detex.deb(temkey)
     for st, event in fetcher.getTemData(temkey, stakey, skipDict=ets):
+        reload(detex.streamPick)
+        # print event, st[0].stats.station
         Pks = None  # needed so OS X doesn't crash
         Pks = detex.streamPick.streamPick(st)
         tdict = {}
