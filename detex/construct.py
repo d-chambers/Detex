@@ -25,8 +25,8 @@ pd.options.mode.chained_assignment = None #mute setting copy warning
 def createCluster(CCreq=0.5, 
                   fetch_arg='EventWaveForms',  
                   filt=[1, 10, 2, True], 
-                  StationKey='StationKey.csv',
-                  TemplateKey='TemplateKey.csv', 
+                  stationKey='StationKey.csv',
+                  templateKey='TemplateKey.csv', 
                   trim=[100, 200], 
                   saveclust=True,
                   fileName='clust.pkl', 
@@ -35,7 +35,8 @@ def createCluster(CCreq=0.5,
                   consisLen=True, 
                   eventsOnAllStations=False,
                   subSamp=True, 
-                  enforceOrigin=False):
+                  enforceOrigin=False,
+                  fillZeros=False):
     """ 
     Function to initialize an instance of the cluster class which 
     contains the linkage matrix, event names, and a few visualization 
@@ -52,10 +53,11 @@ def createCluster(CCreq=0.5,
     filt : list
         A list of the required input parameters for the obspy bandpass 
         filter [freqmin,freqmax,corners,zerophase]
-    StationKey : str
-        Path to the station key used by the events 
-    TemplateKey : boolean
-        Path to the template key 
+    stationKey : str or pd.DataFrame
+        Path to the station key used by the events or loaded station key
+        in DataFrame
+    templateKey : str or pd.DataFrame
+        Path to the template key or loaded template key in DataFrame
     trim : list 
         A list with seconds to trim from start of each stream in [0] 
         and the total duration in seconds to keep from trim point in 
@@ -80,36 +82,43 @@ def createCluster(CCreq=0.5,
             double- numpy float 64
             single- numpy float 32, much faster and amenable with 
                 cuda GPU processing, sacrifices precision
-    consisLen : boolean
+    consisLen : bool
         If true the data in the events files are more or less the 
         same length. Switch to false if the data are not, but can 
         greatly increase run times. 
-    eventsOnAllStations : boolean
+    eventsOnAllStations : bool
         If True only use the events that occur on all stations, if 
         false let each station have an independent event list
     subSamp : boolean
         If True subsample lag times with cosine extrapolation
-    enforceOrigin : boolean
+    enforceOrigin : bool
         If True make sure each traces starts at the reported origin time 
         for a give event (trim or merge with zeros if not). Required 
-        for lag times to be meaningful for hypoDD input
+        for lag times to be meaningful for hypoDD input.
+    fillZeros : bool
+        If True fill zeroes from trim[0] to trim[1]. Suggested for older 
+        data or if only triggered data are avaliable.
     Returns
     ---------
         An instance of the detex SSClustering class
     """
-    # Read in stationkey and template keys
-    stakey = detex.util.read_key(StationKey, key_type='station')
-    temkey = detex.util.read_key(TemplateKey, key_type='template')
+    # Read in stationkey and template keys and check a few key parameters
+    stakey = detex.util.readKey(stationKey, key_type='station')
+    temkey = detex.util.readKey(templateKey, key_type='template')
+    _checkClusterInputs(filt, dtype, trim)
     
     # get a data fetcher
-    fetcher = detex.getdata.quickFetch(fetch_arg)
+    fetcher = detex.getdata.quickFetch(fetch_arg, fillZeros=fillZeros)
 
     # Intialize object DF that will be used to store cluster info
     msg = 'Starting IO operations and data checks'
     detex.log(__name__, msg, level='info', pri=True)
     TRDF = _loadEvents(fetcher, filt, trim, stakey, temkey, decimate,
                        dtype, enforceOrigin=enforceOrigin)
-    
+    if len(TRDF) < 1: # if no events survive
+        msg = ('No events survived pre-processing, check DataFetcher and event\
+                quality')
+        detex.log(__name__, msg, level='error')
     # make sure lengths are all equal else remove problem events
     if consisLen: 
         TRDF = _testStreamLengths(TRDF)
@@ -219,7 +228,6 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
     else:
         msg = 'Invalid clust type, must be a path or ClusterStream instance.'
         detex.log(__name__, msg, level='error')
-    
     # Get info from cluster, load fetchers
     temkey = cl.temkey
     stakey = cl.stakey
@@ -248,8 +256,9 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
     for num, row in TRDF.iterrows(): # Loop through each cluster
         staSS = _makeSSDF(row, minEvents)
         if len(staSS) < 1: #if no clusters form on current station
-            msg = 'No events survived processing on %s' % staSS.station
+            msg = 'No events grouped into subspaces on %s' % row.Station
             detex.log(__name__, msg, level='warning', pri=True)
+            continue
         for sind, srow in staSS.iterrows(): 
             eventList = srow.Events
             # get correlation values from cl object
@@ -275,7 +284,7 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
             offsetAr = [np.min(offsets), np.median(offsets), np.max(offsets)]
             staSS['Offsets'][sind] = offsetAr
         # Put output into subspaceDict
-        staOut = staSS.drop(['MPfd','MPtd','Link','Lags','CCs'],axis=1)
+        staOut = staSS.drop(['MPfd','MPtd','Link','Lags','CCs'], axis=1)
         ssDict[row.Station] = staOut
     # make a list of sngles to pass to subspace class
     singDic = _makeSingleEventDict(cl, TRDF, temkey) 
@@ -471,15 +480,15 @@ def _alignTD(delayDF, srow):
     """
     aligned = {}   
     #find the required length for each aligned stream 
-    TDlengths = len(srow.MPtd[delayDF.Events[0]])-max(delayDF.SampleDelays) 
+    TDlengths = len(srow.MPtd[delayDF.Events[0]]) - max(delayDF.SampleDelays) 
     for ind, row in delayDF.iterrows(): 
         orig = srow.MPtd[row.Events] 
         orig = orig[row.SampleDelays:]
         orig = orig[:TDlengths]
         aligned[row.Events] = orig 
         if len(orig) == 0:
-            msg = ('Alignment of multiplexed stream failing, try raising ccreq'
-                    'of input cluster object')
+            msg = ('Alignment of multiplexed stream failing on %s, \
+                   try raising ccreq or widenning trim window' % srow.Station)
             detex.log(__name__, msg, level='error')
         
     return aligned
@@ -802,15 +811,17 @@ def _loadStream(fetcher, filt, trim, decimate, station, dtype,
             continue #skip if stream empty
         st = _applyFilter(st, filt, decimate, dtype)
         tem = temkey[temkey.NAME == evename]
-        if len(tem) < 1:
-            msg = '%s not in template key'
+        sta = st[0].stats.station
+        if len(tem) < 1: # in theory this should never happen
+            msg = '%s not in template key, skipping'
             detex.log(__name__, msg, pri=True)
             continue
         originTime = obspy.UTCDateTime(tem.iloc[0].TIME)
         Nc = detex.util.get_number_channels(st) #get number of channels
         if Nc != len(st): 
-            msg = ('%s on %s is fractured or channels are missing' % 
-                  (evename, station))
+            msg = ('%s on %s is fractured or channels are missing, consider \
+                    setting fillZeros to True to try and make it usable, \
+                    skipping' % (evename, station))
             detex.log(__name__, msg, pri=True)
             continue
         if enforceOrigin: #if the waveforms should start at the origin
@@ -837,18 +848,13 @@ def _loadStream(fetcher, filt, trim, decimate, station, dtype,
         StreamDict.pop(key,None)
         channelDict.pop(key,None)
         stats.pop(key,None)
+        
     for key in set(allzeros): # remove waveforms with channels filled with 0s
-        msg = '%s has at least one channel that is all zeros, deleting' %key
+        msg = '%s has at least one channel that is all zeros, deleting' % key
         detex.log(__name__, msg, level='warning', pri=True)
         StreamDict.pop(key,None)
         channelDict.pop(key,None)
-        stats.pop(key,None)
-#    # recalc lengths, trim to smallest to avoid 1 sample different rejects
-#    trLen = []
-#    for key, st in StreamDict.iteritems():
-#        for x in st:
-#            trLen.append(len(x.data))
-    
+        stats.pop(key,None)    
     
     if len(StreamDict.keys())<2:
         msg = ('Less than 2 events survived preprocessing for station' 
@@ -968,6 +974,26 @@ def _mergeChannelsFill(st):
     st.merge(fill_value=0.0)
     return st
 
+def _checkClusterInputs(filt, dtype, trim):  
+    """
+    Check a few key input parameters to make sure everything is kosher
+    """
+    if filt is not None and len(filt) != 4: # check filt
+        msg = 'filt must either be None (no filter) or a len 4 list or tuple'
+        detex.log(__name__, msg, level='error')
+    if dtype != 'double' and dtype != 'single': # check dtype
+        msg = ('dype must be either "double" or "single" not %s, setting to \
+                double' % dtype)
+        dtype = 'double'
+        detex.log(__name__, msg, level='warn', pri=True)
+    if trim is not None: # check trim
+        if len(trim) != 2:
+            msg = 'Trim must be a list or tuple of length 2'
+            detex.log(__name__, msg, level='warn', pri=True)
+        else:
+            if -trim[0] > trim[1]:
+                msg = 'Invalid trim parameters'
+                detex.log(__name__, msg, level='error')
 
 
 

@@ -127,12 +127,11 @@ Huge changes!
 
 Detex now conforms (mostly) to pep8
 
-Split the gigantic subspace module into 3 modules: construct [for creating cluster and subspace classes],  fas [for determining false alarm statistics], detect [for running subspace detections], and subspace [now only containing ClusterStream, Cluster, and SubSpaceStream classes]
+split the gigantic subspace module into 3 modules: construct [for creating cluster and subspace classes],  fas [for determining false alarm statistics], detect [for running subspace detections], and subspace [now only containing ClusterStream, Cluster, and SubSpaceStream classes]
 
-Added the DataFetcher class to the getdata module with is responsible for serving data to all other detex  functions and classes. Allows for the use of a local directory structure or an obspy client for getting data. 
+added the DataFetcher class to the getdata module with is responsible for serving data to all other detex  functions and classes. Allows for the use of a local directory structure or an obspy client for getting data. 
 
 When local directories are used to store data they are automatically indexed with a SQLite database. This is done by parsing every non-directory file in the directory and trying to pass it to obspy.read. If it is readable it is included in the index, along with station, start times, end times, gaps, etc.
 
 Various bug fixes
 
-Changed the API slightly to be more consistent, should be mostly backward compatible

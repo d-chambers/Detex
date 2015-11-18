@@ -90,9 +90,10 @@ def makeTemplatemkey(catalog, filename='TemplateKey.csv', save=True):
 
 
 
-def quickFetch(fetch_arg):
+def quickFetch(fetch_arg, **kwargs):
     """
-    Instantiate a DataFetcher using as little information as possible
+    Instantiate a DataFetcher using as little information as possible.
+    
     Parameters
     ----------
     fetch_arg : str or DataFetcher instance 
@@ -104,6 +105,8 @@ def quickFetch(fetch_arg):
         data directory make sure it does not share names with a valid
         DataFetcher method
 
+    kwargs are passed to the DataFetcher, see DataFetcher docs for details
+    
     Returns
     -------
     An instance of DataFetcher
@@ -122,12 +125,12 @@ def quickFetch(fetch_arg):
             if fetch_arg == 'dir':
                 msg = 'If using method dir you must pass a path to directory'
                 detex.log(__name__, msg, level='error')
-            dat_fet = DataFetcher(fetch_arg, removeResponse=True)
+            dat_fet = DataFetcher(fetch_arg, removeResponse=True, **kwargs)
         else:
             if not os.path.exists(fetch_arg):
                 msg = 'Directory %s does not exist' % fetch_arg
                 detex.log(__name__, msg, level='error')
-            dat_fet = DataFetcher('dir', directoryName=fetch_arg)
+            dat_fet = DataFetcher('dir', directoryName=fetch_arg, **kwargs)
     else:
         msg = 'Input not understood, read docs and try again'
         detex.log(__name__, msg, level='error')
@@ -203,8 +206,8 @@ def makeDataDirectories(template_key='TemplateKey.csv',
 
     """
 
-    temkey = detex.util.read_key(template_key, 'template')
-    stakey = detex.util.read_key(station_key, 'station')    
+    temkey = detex.util.readKey(template_key, 'template')
+    stakey = detex.util.readKey(station_key, 'station')    
     
     # Check output type
     if formatOut not in formatKey.keys():
@@ -320,13 +323,20 @@ class DataFetcher(object):
         Seconds before origin of each event to fetch (used in getTemData)
     timeAfterOrigin : int or float
         Seconds after origin of each event to fetch (used in getTemData)
+    checkData : bool
+        If True apply some data checks before returning streams, can be useful
+        for older data sets. 
+    fillZeros : bool
+        If True fill data that arent avaliable with 0s (provided some data are
+        avaliable)
     
     """
     supMethods = ['dir', 'client', 'uuss', 'iris']
     def __init__(self, method, client=None, removeResponse=False,
                  inventoryClient=None, directoryName=None, opType='VEL',
                  prefilt=[.05, .1, 15, 20], conDatDuration=3600, conBuff=120,
-                 timeBeforeOrigin=1*60, timeAfterOrigin=4*60):
+                 timeBeforeOrigin=1*60, timeAfterOrigin=4*60, checkData=True,
+                 fillZeros=False):
     
         self.__dict__.update(locals())  # Instantiate all inputs
         self._checkInputs()
@@ -374,7 +384,8 @@ class DataFetcher(object):
             self.inventoryClient = obspy.fdsn.Client('iris') # use iris
     
     def getTemData(self, temkey, stakey, tb4=None, taft=None, returnName=True,
-                   temDir=None, skipIfExists=False, skipDict=None):
+                   temDir=None, skipIfExists=False, skipDict=None, 
+                   returnTimes=False):
         """
         Take detex station keys and template keys and yield stream objects of
         all possible combinations
@@ -398,12 +409,15 @@ class DataFetcher(object):
         skipIfExists : bool
             If True dont return if file is in temDir
         skipDict : dict
-            Dictionary of events (keys) and stations (values) to skip
-        
+            Dictionary of stations (keys, net.sta) and events (values) 
+            to skip
+        returnTimes : bool
+            If True return times of data
+            
         Yields
         --------
         Stream objects of possible combination if data are fetchable and event
-        names if returnName == True
+        names if returnName == True or times of data if returnTimes == True
         """        
         if tb4 is None:
             tb4 = self.timeBeforeOrigin
@@ -417,17 +431,19 @@ class DataFetcher(object):
             ser = temkey.loc[temin].combine_first(stakey.loc[stain])
             netsta = ser.NETWORK + '.' + ser.STATION
             # Skip event/station combos in skipDict
-            if skipDict is not None and ser.NAME in skipDict.keys():
-                vals = skipDict[ser.NAME]
-                if vals == netsta or vals == netsta.split('.')[1]:
+            if skipDict is not None and netsta in skipDict.keys():
+                vals = skipDict[netsta]
+                if ser.NAME in vals:
                     continue
             # skip events that already have files
             if skipIfExists:
                 pfile = glob.glob(os.path.join(temDir, ser.NAME, netsta + '*'))
                 if len(pfile) > 0:
                     continue
-                
-            time = ser.TIME if 'T' in ser.TIME else float(ser.TIME)
+            if isinstance(ser.TIME, str) and 'T' in ser.TIME:
+                time = ser.TIME
+            else:
+                time = float(ser.TIME)
             t = obspy.UTCDateTime(time)
             start = t - tb4
             end = t + taft
@@ -438,13 +454,11 @@ class DataFetcher(object):
             if st is None: #skip if returns nothing
                 continue
             if returnName:
-                #yield (self.getStream(start, end, net, sta, chan, '*'),
-                yield (st, ser.NAME)
+                yield st, ser.NAME
+            elif returnTimes:
+                yield st, start, end
             else:
-                #yield self.getStream(start, end, net, sta, chan, '*')
                 yield st
-
-     
     
     def getConData(self, stakey, secBuff=None, returnName=False, 
                    returnTimes=False, conDir=None, skipIfExists=False,
@@ -482,9 +496,9 @@ class DataFetcher(object):
         
         Yields
         --------
-        Obspy trace, and optionally, path to the 
+        Obspy trace and other requested parameters
         """
-        stakey = detex.util.read_key(stakey, 'station')
+        stakey = detex.util.readKey(stakey, 'station')
         
         if secBuff is None:
             secBuff = self.conBuff
@@ -527,7 +541,8 @@ class DataFetcher(object):
  
     def getStream(self, start, end, net, sta, chan='???', loc='??'):
         """
-        function for getting data\n
+        function for getting data.\n
+        
         Parameters
         ----------
         
@@ -543,8 +558,27 @@ class DataFetcher(object):
             Channels to fetch
         loc : str
             Location code for station
+        
+        Returns
+        ---------
+        An instance of obspy.Stream populated with requested data, or None if
+        not available.
         """
+        # make sure start and end are UTCDateTimes 
+        start = obspy.UTCDateTime(start)
+        end = obspy.UTCDateTime(end)
         st = self._getStream(self, start, end, net, sta, chan, loc)
+        
+        # perform checks if required
+        if self.checkData:
+            st = _dataCheck(st)        
+        
+        # if no data return None
+        if st is None or len(st) < 1:
+            return None
+        
+        
+        # remove response
         if self.removeResponse:
             netsta = net + '.' + sta
             name = obspy.UTCDateTime(start).formatIRISWebService()
@@ -553,6 +587,15 @@ class DataFetcher(object):
             except:
                 msg = 'Remove response failed for %s on %s' % (name, netsta)
                 detex.log(__name__, msg, level='warning')
+        
+        # trims and zero fills
+        st.trim(starttime=start, endtime=end)
+        st.detrend('linear')
+        st = st.split()
+        if self.fillZeros:
+            st.trim(starttime=start, endtime=end, pad=True, fill_value=0.0)
+            st.merge(fill_value=0.0)
+        #nc = len(set([x.stats.channel for x in st]))
         return st                  
 
 ########## Functions for loading data based on selected methods ###########
@@ -588,21 +631,21 @@ def _loadDirectoryData(fet, start, end, net, sta, chan, loc):
     st = obspy.core.Stream()
     for path, fname in zip(df.Path, df.FileName):
         fil = os.path.join(path, fname)
-        st += obspy.read(fil)
-    st.trim(starttime=start, endtime=end)
-    st.merge()
-    st.split()
-    #check if chan variable is string else iterate
+        try:
+            st += obspy.read(fil)
+        except:
+            msg = 'Cannot read %s, the file may be corrupt, skipping it' % fil
+            detex.log(__name__, msg, level='warn', pri=True)    
+    #st.trim(starttime=start, endtime=end)
+    # check if chan variable is string else iterate
     if isinstance(chan, str):
         stout = st.select(channel=chan)
     else:
         stout = obspy.core.Stream()
         for cha in chan:
             stout += st.select(channel=cha)
-    loc = '*' if loc in ['???','??'] else loc #convert ? to *
+    loc = '*' if loc in ['???','??'] else loc # convert ? to *
     st = st.select(location=loc)
-    if st is None:
-        detex.deb([fet, start, end, net, sta, chan, loc, dfind, ind1, ind2])
     return st
 
 def _loadFromClient(fet, start, end, net, sta, chan, loc):
@@ -642,6 +685,28 @@ def _loadFromClient(fet, start, end, net, sta, chan, loc):
         
 ########## MISC functions #############
 
+def _dataCheck(st):
+    
+    # if none or empty return None
+    if st is None or len(st) < 1:
+        return None
+    netsta = st[0].stats.network + '.' + st[0].stats.station
+    time = st[0].stats.starttime.formatIRISWebService().split('.')[0]
+    
+    #Check sample rates
+    if any([tr.stats.sampling_rate % 1 != 0 for tr in st]):
+        for tr in st:
+            tr.stats.sampling_rate = np.round(tr.stats.sampling_rate)
+            msg = ('Found non-int sampling_rates, rounded to nearest \
+                    int on %s around %s' % (netsta, time))
+            detex.log(__name__, msg, level='info')
+    if any([not np.any(x.data) for x in st]):
+        msg = ('At least one channel is all 0s on %s around %s, skipping' %
+                (netsta, time))
+        detex.log(__name__, msg, level='warn', pri=True)
+        return None
+    return st
+
 def _hasResponse(st):
     """
     Test if all channels have responses of a stream, return bool
@@ -673,11 +738,6 @@ def _fftprep(st):
         st[0].data = data
         st[0].stats.starttime = st[0].stats.starttime + st[0].stats.delta
     return st
-    
-def deb(varlist):
-    global de
-    de = varlist
-    sys.exit(1)
 
 def _divideIntoChunks(utc1, utc2, duration, randSamps):
     """
@@ -745,7 +805,7 @@ def indexDirectory(dirPath, extension='msd'):
               (extension, formatKey.values()))
         detex.log(__name__, msg, level='error')
     df = pd.DataFrame(columns=columns) # DataFrame for indexing
-    msg = 'Indexing %s' % dirPath
+    msg = '%s is not indexed, indexing now' % dirPath
     detex.log(__name__, msg, level='info', pri=True)
     pathList = [] # A list of lists with different path permutations
     for dirpath, dirname, filenames in  os.walk(dirPath):

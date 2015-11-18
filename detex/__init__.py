@@ -8,7 +8,6 @@ deTex: A Python Toolbox for running subspace detections.
 """
 # General imports
 import os
-import glob
 import inspect
 import logging
 import logging.handlers
@@ -24,6 +23,9 @@ import results
 import streamPick
 import pandas_dbms
 import version
+import detect
+
+logging.basicConfig()
 
 # import all modules in detex directory
 #modules = glob.glob(os.path.dirname(__file__)+"/*.py")
@@ -41,7 +43,7 @@ verbose = True # set to false to avoid printing to screen
 makeLog = True # set to false to not make log file
 
 ## Configure logger to be used across all of Detex
-def setLogger(makeLog=True,filename='detex_log.log'):
+def setLogger(makeLog=True, filename='detex_log.log'):
     """
     Function to set up the logger used across Detex
     
@@ -54,11 +56,14 @@ def setLogger(makeLog=True,filename='detex_log.log'):
     """
     reload(logging) # reload to reconfigure default ipython log
     cwd=os.getcwd()
-    
-    fil = os.path.join(cwd,filename)
+    fil = os.path.join(cwd, filename)
+    if os.path.exists(fil):
+        if os.path.getsize(fil) > maxsize:
+            print ('old log file %s exceeds size limit, deleting' % filename) 
+            os.path.remove(fil)
     fh = logging.FileHandler(fil)
     fh.setLevel(logging.DEBUG)
-    fmat = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    fmat = '%(asctime)s -- %(name)s -- %(levelname)s -- %(message)s'
     formatter = logging.Formatter(fmat)
     fh.setFormatter(formatter)    
     logger = logging.getLogger(__name__)
@@ -90,9 +95,11 @@ def log(name, msg, level='info', pri=False, close=False, e=Exception):
         If level == "error" and Exception is raised, e is the type of 
         exception
     """
-    # get name of function that called log
+    
     if not verbose:
         pri = False
+        
+    # get name of function that called log
     cfun = inspect.getouterframes(inspect.currentframe())[1][0].f_code.co_name 
     log = logging.getLogger(name+'.'+cfun)
     if level == 'info' and makeLog:
@@ -127,6 +134,8 @@ def deb(varlist):
     global de
     de = varlist
     sys.exit(1)
+
+
 if makeLog:
     logger=setLogger()
     logger.info('Imported Detex')
