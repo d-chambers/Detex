@@ -1,6 +1,6 @@
 # Using and contributing to detex with github
 
-[Detex](http://github.com/d-chambers/detex) is a python code for performing waveform similarity clustering and subspace detection. Anyone is welcome to contribute by following the steps listed below. As of version 0.2.0 [pep8](https://www.python.org/dev/peps/pep-0008/) is the governing style guide. 
+[Detex](http://github.com/d-chambers/detex) is a python code for performing waveform similarity clustering and subspace detection. Anyone is welcome to contribute by following the steps listed below. As of version 1.0.0 [pep8](https://www.python.org/dev/peps/pep-0008/) is the governing style guide and the branching model outlined [here](http://nvie.com/posts/a-successful-git-branching-model/) should be followed as closely as possible. 
 
 ## Get git
 The first thing you need to do is download the version control software git. It is an incredibly useful tool that will enable you to contribute to group software. You also need to create a github account.  This is easy to do and can be done on [github's home page](https://github.com/).
