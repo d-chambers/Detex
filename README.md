@@ -10,9 +10,9 @@ Special thanks to Tex Kubacki (whose work inspired Detex), Jared Stein, Kris Pan
 
 There are two tutorials avaliable:
 
-[The introductory tutorial](Readme/intro.md) - Serves to illustrate what detex does on a high level by introducing a suggested workflow. I recommend you start here. 
+[The introductory tutorial](ReadMe/intro.md) - Serves to illustrate what detex does on a high level by introducing a suggested workflow. I recommend you start here. 
 
-[The advanced tutorial](Readme/advanced.md) - Provides details on the important classes in detex and highlights key features. Apart from the doc strings, this tutorial serves as the main form of documentation for detex. 
+[The advanced tutorial](ReadMe/advanced.md) - Provides details on the important classes in detex and highlights key features. Apart from the doc strings, this tutorial serves as the main form of documentation for detex. 
 
 ## Contributing to detex
 
