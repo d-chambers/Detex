@@ -12,6 +12,10 @@ import pandas.io.sql as psql
 import simplekml
 import pandas as pd
 import detex
+import sip
+import time
+import PyQt4
+import sys
 
 from sqlite3 import PARSE_DECLTYPES, connect
 
@@ -723,7 +727,7 @@ def readLog(logpath='detex_log.log'):
     -----------
     DataFrame with log info
     """
-    df = pd.read_csv(logpath, sep='--', names=['Time','Mod','Level','Msg'])
+    df = pd.read_table(logpath, names=['Time','Mod','Level','Msg'])           
     return df
 
 
@@ -779,6 +783,9 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
     
     ets = {} # events to skip picking on
     count = 0
+    
+    # must init the PyQt app outside of the loop or else it kills python
+    qApp = PyQt4.QtGui.QApplication(sys.argv)
 
     # load pickfile if it exists
     if os.path.exists(pickFile):  
@@ -795,17 +802,17 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
     else:
         DF = pd.DataFrame(columns=cols)
     for st, event in fetcher.getTemData(temkey, stakey, skipDict=ets):
-        if st is None: # skip if no data returned
+        if st is None or len(st) < 1: # skip if no data returned
             continue
         count += 1
-        reload(detex.streamPick)
+        #reload(detex.streamPick)
+
         Pks = None  # needed so OS X doesn't crash
-        try:
-            Pks = detex.streamPick.streamPick(st)
-        except StopIteration:
-            detex.deb([st, event])
+        Pks = detex.streamPick.streamPick(st, ap=qApp)
+
         tdict = {}
         saveit = 0  # saveflag
+
         for b in Pks._picks:
             if b:
                 tstamp = b['time'].timestamp
