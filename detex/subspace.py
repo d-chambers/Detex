@@ -20,6 +20,8 @@ import itertools
 import copy
 import colorsys
 from struct import pack
+import PyQt4
+import sys
 
 from scipy.cluster.hierarchy import dendrogram, fcluster
 from detex.detect import _SSDetex
@@ -1182,14 +1184,15 @@ class SubSpaceStream(object):
         singles : boolean
             If true pick singletons
         """
+        qApp = PyQt4.QtGui.QApplication(sys.argv)
         if subspace:
-            self._pickTimes(self.subspaces, duration, 
-                            traceLimit, repick=repick)
+            self._pickTimes(self.subspaces, duration, traceLimit, 
+                            qApp, repick=repick)
         if singles:
-            self._pickTimes(self.singles, duration, traceLimit, 
+            self._pickTimes(self.singles, duration, traceLimit, qApp,
                             issubspace=False, repick=repick)
 
-    def _pickTimes(self, trdfDict, duration, traceLimit, 
+    def _pickTimes(self, trdfDict, duration, traceLimit, qApp,
                    issubspace=True, repick=False):
         """
         Function to initate GUI for picking, called by pickTimes
@@ -1198,9 +1201,9 @@ class SubSpaceStream(object):
             for ind, row in trdfDict[sta].iterrows():
                 if not row.SampleTrims or repick: # if not picked or repick
                     # Make a modified obspy stream to pass to streamPick
-                    TR = self._makeOpStream(ind, row, traceLimit)  
-                    Pks = None  # This is needed or it crashes OS X versions
-                    Pks = detex.streamPick.streamPick(TR)
+                    st = self._makeOpStream(ind, row, traceLimit)  
+                    Pks = None  # This is needed or it crashes OS X
+                    Pks = detex.streamPick.streamPick(st, ap=qApp)
                     d1 = {}
                     for b in Pks._picks:
                         if b:  # if any picks made
@@ -1810,7 +1813,7 @@ class SubSpaceStream(object):
         if useSingles:
             bins = json.dumps(self.histSingles['Bins'].tolist())
             dat = [['Bins', 'Bins', bins]]
-            sghists = [pd.DataFrame(dat, columns=dat)]
+            sghists = [pd.DataFrame(dat, columns=cols)]
             for sta in self.Stations:
                 if sta in self.histSingles.keys():
                     for skey in self.histSingles[sta]:

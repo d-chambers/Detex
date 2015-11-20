@@ -22,7 +22,6 @@ import construct
 import results
 import streamPick
 import pandas_dbms
-import version
 import detect
 
 logging.basicConfig()
@@ -38,9 +37,10 @@ from construct import createCluster, createSubSpace
 
 #detResults=results.detResults
 
-maxsize = 100 * 1024*1024 # max size log file can be in bytes (100 mb defualt)
+maxSize = 10 * 1024*1024 # max size log file can be in bytes (10 mb defualt)
 verbose = True # set to false to avoid printing to screen
 makeLog = True # set to false to not make log file
+version='1.0.3b' # current detex version
 
 ## Configure logger to be used across all of Detex
 def setLogger(makeLog=True, filename='detex_log.log'):
@@ -58,18 +58,19 @@ def setLogger(makeLog=True, filename='detex_log.log'):
     cwd=os.getcwd()
     fil = os.path.join(cwd, filename)
     if os.path.exists(fil):
-        if os.path.getsize(fil) > maxsize:
+        if os.path.getsize(fil) > maxSize:
             print ('old log file %s exceeds size limit, deleting' % filename) 
             os.path.remove(fil)
     fh = logging.FileHandler(fil)
     fh.setLevel(logging.DEBUG)
-    fmat = '%(asctime)s -- %(name)s -- %(levelname)s -- %(message)s'
+    fmat = '%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s'
     formatter = logging.Formatter(fmat)
     fh.setFormatter(formatter)    
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     logger.addHandler(fh)
-    return logger
+    lpath = os.path.abspath(filename)
+    return logger, lpath
     
 
 #define basic logging function
@@ -137,8 +138,8 @@ def deb(varlist):
 
 
 if makeLog:
-    logger=setLogger()
-    logger.info('Imported Detex')
+    logger, lpath = setLogger()
+    logger.info('Imported Detex, path to log file: %s' % lpath)
 
 
 
