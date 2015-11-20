@@ -14,13 +14,13 @@ Note that each of the segments of this tutorial, in addition to the introductory
 
 # Detex workflow
 
-## (Logging)[Advanced/Logging/configuring_detex.md]
-Introduces logging and explains how to check the version number
+## [Logging](Advanced/Logging/configuring_detex.md)
+Introduces logging and explains how to check the version number.
 
-## (Required Files)[Advanced/RequiredFiles/required_files.md]
+## [Required Files](Advanced/RequiredFiles/required_files.md)
 reviews the format of the two required files: the station key and the template key. Also highlights some methods for creating the keys (from station inventories and catalog objects for example). 
 
-##  (Getdata)[Advanced/GetData/get_data.md]
+##  [Getdata](Advanced/GetData/get_data.md)
 Covers the various methods of getting seismic data in detex. The focus is on the DataFetcher class and it's methods. 
 
 
