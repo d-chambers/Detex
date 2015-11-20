@@ -1,0 +1,5 @@
+2015-11-19 09:03:51,538	detex	INFO	Imported Detex
+2015-11-19 09:47:58,868	detex	INFO	Imported Detex
+2015-11-19 13:44:43,703	detex	INFO	Imported Detex, path to log file: /home/derrick/Gits/detex/Tutorial/detex_log.log
+2015-11-19 14:00:06,160	detex	INFO	Imported Detex, path to log file: /home/derrick/Gits/detex/Tutorial/detex_log.log
+2015-11-19 14:00:07,427	detex.getdata.quickFetch	ERROR	Directory EventWaveForms does not exist
