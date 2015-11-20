@@ -590,11 +590,13 @@ class DataFetcher(object):
         
         # trims and zero fills
         st.trim(starttime=start, endtime=end)
-        st.detrend('linear')
+        st.merge(1) # merge and split to overwrite overlaps 
+        
         st = st.split()
+        st.detrend('linear')
         if self.fillZeros:
             st.trim(starttime=start, endtime=end, pad=True, fill_value=0.0)
-            st.merge(fill_value=0.0)
+            st.merge(1, fill_value=0.0)
         #nc = len(set([x.stats.channel for x in st]))
         return st                  
 

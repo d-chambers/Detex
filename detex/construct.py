@@ -27,7 +27,7 @@ def createCluster(CCreq=0.5,
                   filt=[1, 10, 2, True], 
                   stationKey='StationKey.csv',
                   templateKey='TemplateKey.csv', 
-                  trim=[100, 200], 
+                  trim=[10, 120], 
                   saveclust=True,
                   fileName='clust.pkl', 
                   decimate=None, 
@@ -59,11 +59,12 @@ def createCluster(CCreq=0.5,
     templateKey : str or pd.DataFrame
         Path to the template key or loaded template key in DataFrame
     trim : list 
-        A list with seconds to trim from start of each stream in [0] 
-        and the total duration in seconds to keep from trim point in 
-        [1], the second parameter greatly influences the runtime and 
-        if the first parameter is incorrectly selected the waveform 
-        may be missed entirely
+        A list with seconds to trim events with respect to the origin time
+        reported in the station key. The defualt value of [10, 120] means
+        10 seconds before origin time is kept and 120 seconds after origin
+        time. The larger the calues of trim the longer the computation time
+        and higher potential that events will get missaligned. If trim
+        values are too low, however, the event could be missed entirely. 
     saveClust : boolean
         If true save the cluster object in the current working 
         directory as clustname
@@ -811,7 +812,6 @@ def _loadStream(fetcher, filt, trim, decimate, station, dtype,
             continue #skip if stream empty
         st = _applyFilter(st, filt, decimate, dtype)
         tem = temkey[temkey.NAME == evename]
-        sta = st[0].stats.station
         if len(tem) < 1: # in theory this should never happen
             msg = '%s not in template key, skipping'
             detex.log(__name__, msg, pri=True)
@@ -819,9 +819,9 @@ def _loadStream(fetcher, filt, trim, decimate, station, dtype,
         originTime = obspy.UTCDateTime(tem.iloc[0].TIME)
         Nc = detex.util.get_number_channels(st) #get number of channels
         if Nc != len(st): 
-            msg = ('%s on %s is fractured or channels are missing, consider \
-                    setting fillZeros to True to try and make it usable, \
-                    skipping' % (evename, station))
+            msg = ('%s on %s is fractured or channels are missing, consider '
+                    'setting fillZeros to True in ClusterStream to try and '
+                    'make it usable, skipping') % (evename, station)
             detex.log(__name__, msg, pri=True)
             continue
         if enforceOrigin: #if the waveforms should start at the origin
