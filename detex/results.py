@@ -267,7 +267,7 @@ def _verifyEvents(Dets, Autos, veriFile, veriBuffer, includeAllVeriColumns):
             verifs = pd.concat(verlist, ignore_index=True)
             # sort and drop duplicates so each verify event is verified only
             # once
-            verifs.sort(columns=['Event', 'DSav'])
+            verifs.sort_values(by=['Event', 'DSav'])
             verifs.drop_duplicates(subset='Event')
             verifs.drop('Verified', axis=1, inplace=True)
         else:
@@ -370,12 +370,12 @@ def _deleteDetDups(ssDB, trigCon, trigParameter, associateBuffer, starttime,
         msg = 'Cant create detResults instance, no detections meet all reqs'
         detex.log(__name__, msg, level='error')
     ssdf.reset_index(drop=True, inplace=True)
-    ssdf.sort(columns=['Sta', 'MSTAMPmin'], inplace=True)
+    ssdf.sort_values(by=['Sta', 'MSTAMPmin'], inplace=True)
     con1 = ssdf.MSTAMPmin - associateBuffer > ssdf.MSTAMPmax.shift()
     con2 = ssdf.Sta == ssdf.Sta.shift()
     ssdf['Gnum'] = (con1 & con2).cumsum()
-    ssdf.sort(columns=['Gnum', 'DS'], inplace=True)
-    ssdf.drop_duplicates(subset='Gnum', take_last=True, inplace=True)
+    ssdf.sort_values(by=['Gnum', 'DS'], inplace=True)
+    ssdf.drop_duplicates(subset='Gnum', keep='last', inplace=True)
     ssdf.reset_index(inplace=True, drop=True)
 
     return ssdf
@@ -387,19 +387,16 @@ def _associateDetections(ssdf, associateReq, requiredNumStations,
     Associate detections together using pandas groupby return dataframe of 
     detections and autocorrelations
     """
-    ssdf.sort(columns='MSTAMPmin', inplace=True) 
+    ssdf.sort_values(by='MSTAMPmin', inplace=True) 
     ssdf.reset_index(drop=True, inplace=True)
+    cols = ['Event', 'DSav', 'DSmax', 'NumStations', 'DS_STALTA','MSTAMPmin', 
+            'MSTAMPmax', 'Mag', 'ProEnMag', 'Verified', 'Dets', ]
     if isinstance(ss_info, pd.DataFrame) and associateReq > 0:
         ssdf = pd.merge(ssdf, ss_info, how='inner', on=['Sta', 'Name'])
     gs = (ssdf.MSTAMPmin - associateBuffer > ssdf.MSTAMPmax.shift()).cumsum()
     groups = ssdf.groupby(gs)
-    
-    acols = ['Event', 'DSav', 'DSmax', 'DS_STALTA','MSTAMPmin', 'MSTAMPmax', 
-             'Mag', 'ProEnMag', 'Verified', 'Dets']
-    autolist = [pd.DataFrame(columns=acols)]
-    dcols = ['Event', 'DSav', 'DSmax', 'DS_STALTA', 'MSTAMPmin', 'MSTAMPmax',
-             'Mag', 'ProEnMag', 'Verified', 'Dets']
-    detlist = [pd.DataFrame(columns=dcols)]
+    autolist = [pd.DataFrame(columns=cols)]
+    detlist = [pd.DataFrame(columns=cols)]
     temkey['STMP'] = np.array([obspy.core.UTCDateTime(x) for x in temkey.TIME])
     temcop = temkey.copy()
 
@@ -411,11 +408,11 @@ def _associateDetections(ssdf, associateReq, requiredNumStations,
             g = _checkSharedEvents(g)
             # Make sure detections occur on the required number of stations
             if len(set(g.Sta)) >= requiredNumStations:
-                isauto, autoDF = _createAutoTable(g, temcop)
+                isauto, autoDF = _createAutoTable(g, temcop, cols)
                 if isauto:
                     autolist.append(autoDF)
                 else:
-                    detdf = _createDetTable(g)
+                    detdf = _createDetTable(g, cols)
                     detlist.append(detdf)
     else:
         for num, g in groups:
@@ -424,14 +421,14 @@ def _associateDetections(ssdf, associateReq, requiredNumStations,
                 # If there is more than one single or subpspace representing a
                 # station on each event only keep the one with highest DS
                 if len(set(g.Sta)) < len(g.Sta):
-                    g = g.sort(columns='DS').drop_duplicates(
-                        subset='Sta', take_last=True).sort(columns='MSTAMPmin')
-                isauto, autoDF = _createAutoTable(g, temcop)
+                    g = g.sort_values(by='DS').drop_duplicates(
+                        subset='Sta', keep='last').sort_values('MSTAMPmin')
+                isauto, autoDF = _createAutoTable(g, temcop, cols)
                 if isauto:
                     autolist.append(autoDF)
                     # temcop=temcop[temcop.NAME!=autoDF.iloc[0].Event]
                 else:
-                    detdf = _createDetTable(g)
+                    detdf = _createDetTable(g, cols)
                     detlist.append(detdf)
     detTable = pd.concat(detlist, ignore_index=True)
     autoTable = pd.concat(autolist, ignore_index=True)
@@ -444,19 +441,16 @@ def _checkSharedEvents(g):
     pass  # TODO figure out how to incorporate an association requirement
 
 
-def _createDetTable(g):
+def _createDetTable(g, cols):
     mag, proEnMag = _getMagnitudes(g)
     utc = obspy.UTCDateTime(np.mean([g.MSTAMPmin.mean(), g.MSTAMPmax.mean()]))
     event = utc.formatIRISWebService().replace(':', '-').split('.')[0]
-    cols = ['Event', 'DSav', 'DSmax', 'DS_STALTA', 'MSTAMPmin', 'MSTAMPmax',
-            'Mag', 'ProEnMag', 'Verified', 'Dets']
-    data = [event, g.DS.mean(), g.DS.max(), g.DS_STALTA.mean(), 
+    data = [event, g.DS.mean(), g.DS.max(), len(g), g.DS_STALTA.mean(), 
              g.MSTAMPmin.min(), g.MSTAMPmax.max(), mag, proEnMag, False, g]
     detDF = pd.DataFrame([data], columns=cols)
     return detDF
 
-
-def _createAutoTable(g, temkey):
+def _createAutoTable(g, temkey, cols):
     isauto = False
     for num, row in g.iterrows():  # find out if this is an auto detection
         temtemkey = temkey[(temkey.STMP > row.MSTAMPmin) &
@@ -466,31 +460,23 @@ def _createAutoTable(g, temkey):
             event = temtemkey.iloc[0].NAME
     if isauto:
         mag, proEnMag = _getMagnitudes(g)
-        data = [event, g.DS.mean(), g.DS.max(), g.DS_STALTA.mean(), 
+        data = [event, g.DS.mean(), g.DS.max(), len(g), g.DS_STALTA.mean(), 
                 g.MSTAMPmin.min(), g.MSTAMPmax.max(), mag, proEnMag, False, g]
-        cols = ['Event', 'DSav', 'DSmax', 'DS_STALTA', 'MSTAMPmin', 
-                'MSTAMPmax', 'Mag', 'ProEnMag', 'Verified', 'Dets']
         autoDF = pd.DataFrame([data], columns=cols)
         return isauto, autoDF
     else:
         return isauto, pd.DataFrame()
-
 
 def _getMagnitudes(g):
     if any([not np.isnan(x) for x in g.Mag]):
         mag = np.nanmedian(g.Mag)
     else:
         mag = np.NaN
-    try:
-        any([not np.isnan(x) for x in g.ProEnMag])
-    except:
-        deb(g)
     if any([not np.isnan(x) for x in g.ProEnMag]):
         PEmag = np.nanmedian(g.ProEnMag)
     else:
         PEmag = np.NaN
     return mag, PEmag
-
 
 def _loadSSdb(ssDB, trigCon, trigParameter, sta=None):  
     """

@@ -250,11 +250,10 @@ def writeHypoDDEventInput(temkey, fileName='event.dat'):
     fil.close()
 
 ############## Hypoinverse Functions ################
-
 def makeHypoInversePhaseFile(phases, evekey, outname, fix=0, usePhases=['P'],
                   fixFirstStation=False):
     """ 
-    Write a y2k complient phase file used by hypoinverse 2000, format defined
+    Write a hypoinverse phase file used by hypoinverse, format defined
     on page 113 of the manual for version 1.39, using the phase file created
     by detex.util.pickPhases. Format for this file is free csv with the 
     following fields: TimeStamp (epoch time in seconds), Station (net.sta),
@@ -328,9 +327,9 @@ def _makeSHypStationLine(sta, cha, net, ts, pha):
     secs = float(datestring[12:])
     ssss = '%5.2f' % secs
     end = '01'
-    ty = ' %s 0' % pha
-    line = "{:<5}{:<3}{:<5}{:<3}{:<12}{:<80}{:<2}\n".format(
-                        sta,net,cha,ty,YYYYMMDDHHMM,ssss,end)
+    ty = '%s 0' % pha
+    line = "{:<5}{:<4}{:<5}{:<3}{:<12}{:<80}{:<2}\n".format(
+                        sta, net, cha, ty, YYYYMMDDHHMM, ssss, end)
     return line
     
 def _makeHypTermLine(pha, everow, fix, fixFirstStation):
@@ -353,7 +352,7 @@ def _makeHypTermLine(pha, everow, fix, fixFirstStation):
     else:
         lat, latmin, latchar = _returnLat(everow.LAT)
         lon, lonmin, lonchar = _returnLon(everow.LON)
-        dep = '%3.2f' % everow.DEPTH
+        dep = '%05.2f' % everow.DEPTH
     endline="{:<6}{:<8}{:<3}{:<4}{:<4}{:<4}{:<5}{:<1}\n".format(
     space, hhmmssss, lat, latmin, lon, lonmin, dep, fixchar)
     return endline 
@@ -381,18 +380,17 @@ def makeHypoInverseStationFile(stationKey, outname):
             ele = '%4d' % srow.ELEVATION
             for chan in chans.split('-'):
                 li = _makeInvStaLine(net, sta, chan, lond, lonm, lonc, latd, 
-                                latm, lonc, ele)
+                                latm, latc, ele)
                 stafil.write(li)
 
 def _makeInvStaLine(net, sta, chan, lond, lonm, lonc, latd, 
                     latm, latc, ele):
-    chco = chan[-1] # optional 1 letter chan code
-    fstr = "{:<5}{:<2}{:<1}{:<3}{:<1}{:<2}{:<7}{:<1}{:<3}{:<7}{:<1}{:<4}"
-    sto = fstr.format(sta, net, chco, chan, ' ',latd, latm, latc, lonm, 
-                      lond, lonc, ele)
-    return "{:<86}".format(sto) + os.linesep
-        
-    
+    chco = ' ' # optional 1 letter chan code
+    fstr = "{:<6}{:<3}{:<1}{:<5}{:<3}{:<7}{:<1}{:<4}{:<7}{:<1}{:<4}"
+    sto = fstr.format(sta, net, chco, chan,latd, latm, latc, lond, 
+                      lonm, lonc, ele)
+    ends = '5.0  P  0.00  0.00  0.00  0.00 0  0.00--'
+    return "{:<86}".format(sto + ends) + os.linesep
         
 def readSum(sumfile):
     """
@@ -566,7 +564,7 @@ def readKey(dfkey, key_type='template'):
     df = df[condition]
     
     # TODO if column TIME is utcDateTime object sorting fails, fix this
-    df.sort(columns=list(req_columns[key_type]), inplace=True)
+    df.sort_values(by=list(req_columns[key_type]), inplace=True)
     df.reset_index(drop=True, inplace=True)
 
     # specific operations for various key types
@@ -574,9 +572,77 @@ def readKey(dfkey, key_type='template'):
         df['STATION'] = [str(x) for x in df['STATION']]
         df['NETWORK'] = [str(x) for x in df['NETWORK']]
     return df
+
+def inventory2StationKey(inv, starttime, endtime, fileName=None):
+    """
+    Function to create a station key from an obspy station inventory
+    
+    Parameters
+    ----------
+    inv : an obspy.station.inventory.Inventory instance
+        The inventory to use to create the station key, level of inventory
+        must be at least "channel"
+    starttime : obspy.UTCDateTime instance
+        The start time to be written to station key
+    endtime : obspy.UTCDateTime instance
+        The end time to be written to the station key
+    fileName : None or str
+        If str then path to file to save (as csv), default name is 
+        StationKey.csv
+    Returns
+    -------
+    A pandas DataFrame of the station key
+
+    """
+    # input checks
+    if not isinstance(inv, obspy.station.inventory.Inventory):
+        msg = 'inv must be an obspy Inventory instance'
+        detex.log(__name__, msg, level='error')
+    if not isinstance(starttime, obspy.UTCDateTime):
+        msg = 'starttime must be an obspy.UTCDateTime instance'
+        detex.log(__name__, msg, level='error')
+    if not isinstance(endtime, obspy.UTCDateTime):
+        msg = 'endtime must be an obspy.UTCDateTime instance'
+        detex.log(__name__, msg, level='error')      
+    if starttime >= endtime:
+        msg = 'starttime must be less than endtime'
+        detex.log(__name__, msg, level='error')
+    contents = inv.get_contents() # get contents
+    if len(contents['channels']) < 1:
+        msg = ('Either no channels were found or inventory level is not at '
+                'least "channel", try recreating the inventory using '
+                'level="channel"')
+        detex.log(__name__, msg, level='error')
+    # Init DataFrame
+    cols = ['NETWORK', 'STATION', 'STARTTIME', 'ENDTIME', 
+            'LAT', 'LON', 'ELEVATION', 'CHANNELS']
+    
+    df = pd.DataFrame(index=range(len(contents['stations'])), columns=cols)
+    # Iter inv
+    count = 0
+    stime = str(starttime).split('.')[0].replace(':', '-')
+    etime = str(endtime).split('.')[0].replace(':', '-')
+    for net in inv:
+        nc = net.code
+        for sta in net:
+            lat = sta.latitude
+            lon = sta.longitude
+            ele = sta.elevation
+            sc = sta.code
+            chanlist = []
+            for chan in sta.channels:
+                chanlist.append(chan.code)
+            chanlist.sort()
+            cs = '-'.join(chanlist)
+            dat = np.array([nc, sc, stime, etime, lat, lon, ele, cs])
+            df.loc[count] = dat
+            count += 1
+    if isinstance(fileName, str):
+        df.to_csv(fileName)
+    return df
     
     
-def writeTemplateKeyFromEQSearchSum(eq='eqsrchsum', oname='eqTemplateKey.csv'):
+def EQSearch2TemplateKey(eq='eqsrchsum', oname='eqTemplateKey.csv'):
     """
     Write a template key from the eqsearch sum file (produced by the 
     University of Utah seismograph stations code EQsearch)
@@ -618,6 +684,64 @@ def writeTemplateKeyFromEQSearchSum(eq='eqsrchsum', oname='eqTemplateKey.csv'):
     DF['MAG'] = df['mag']
     DF['DEPTH'] = df['dep']
     DF.to_csv(oname)
+    return DF
+
+def catalog2Templatekey(cat, fileName=None):
+    """
+    Function to get build the Detex required file TemplateKey.csv 
+    from an obspy catalog object
+
+    Parameters
+    -----------
+    catalog : instance of obspy.core.event.Catalog
+        The catalog to use in the template key creation
+    filename : str or None
+        If None no file is saved, if str then path to the template key to
+        save. Default is StationKey.csv.
+    Returns
+    --------
+    A pandas DataFrame of the template key information found in the 
+    catalog object
+
+    Notes
+    -------
+    obspy catalog object docs at:
+    http://docs.obspy.org/packages/autogen/obspy.fdsn.client.Client.get_events
+    .html#obspy.fdsn.client.Client.get_events
+    """
+    if not isinstance(cat, obspy.core.event.Catalog):
+        msg = 'input is not an obspy catalog object'
+        detex.log(__name__, msg, level='error')
+    cols = ['NAME', 'TIME', 'LAT', 'LON', 'DEPTH', 'MAG',
+            'MTYPE', 'CONTRIBUTOR']
+    df = pd.DataFrame(index=range(len(cat)), columns=cols)
+    
+
+    for evenum, event in enumerate(cat):
+        if not event.origins:
+            msg = ("Event '%s' does not have an origin" % 
+            str(event.resource_id))
+            detex.log(__name__, msg, level='debug')
+            continue
+        if not event.magnitudes:
+            msg = ("Event '%s' does not have a magnitude" % str(
+                event.resource_id))
+            detex.log(__name__, msg, level='debug')
+        origin = event.preferred_origin() or event.origins[0]
+        lat = origin.latitude
+        lon = origin.longitude
+        dep = origin.depth / 1000.0
+        time = origin.time.formatIRISWebService().replace(':', '-')
+        name = time.split('.')[0]
+        magnitude = event.preferred_magnitude() or event.magnitudes[0]
+        mag = magnitude.mag
+        magty = magnitude.magnitude_type
+        auth = origin.creation_info.author
+        dat = np.array([name, time, lat, lon, dep, mag, magty, auth])
+        df.loc[evenum] = dat
+    if isinstance(fileName, str):
+        df.to_csv(fileName)
+    return df
 
 def saveSQLite(DF, CorDB, Tablename, silent=True):  
     """
@@ -831,15 +955,15 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
         if not Pks.KeepGoing:
             msg = 'Exiting picking GUI, progress saved in %s' % pickFile
             detex.log(__name__, msg, level='info', pri=True)
-            DF.sort(columns=['Station', 'Event'], inplace=True)
+            DF.sort_values(by=['Station', 'Event'], inplace=True)
             DF.reset_index(drop=True, inplace=True)
             DF.to_csv(pickFile, index=False)
             return
         if count % 10 == 0: # save every 10 phase picks
-            DF.sort(columns=['Station', 'Event'], inplace=True)
+            DF.sort_values(by=['Station', 'Event'], inplace=True)
             DF.reset_index(drop=True, inplace=True)
             DF.to_csv(pickFile, index=False)
-    DF.sort(columns=['Station', 'Event'], inplace=True)
+    DF.sort_values(by=['Station', 'Event'], inplace=True)
     DF.reset_index(drop=True, inplace=True)
     DF.to_csv(pickFile, index=False)
     

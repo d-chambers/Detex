@@ -336,9 +336,9 @@ class _SSDetex(object):
             else: # if single trim and normalize (already done for subspaces)
                 start = row.SampleTrims['Starttime']
                 end = row.SampleTrims['Endtime']
-                mptd = row.MPTD.values()[0]
+                mptd = row.MPtd.values()[0]
                 upr = mptd[start:end]
-                U = np.array(x / np.linalg.norm(x) for x in [upr])
+                U = np.array([x / np.linalg.norm(x) for x in [upr]])
                 dlen = len(upr)
                 WFs = [upr]
             UtU = np.dot(np.transpose(U), U)

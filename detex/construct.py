@@ -202,7 +202,7 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
             double- a np.float64 (default)
     conDatFetcher : None, str, or instance of detex.getdata.DataFetcher
         Parameter to indicate how continuous data will be fetched in the newly
-        created instance of SubSpaceStream. 
+        created instance of SubSpace. 
         If None is passed detex will try to deduce the appropriate type of 
         DataFetcher from the event datafetcher attached to cluster instance
         If a str the str will be then be passed to detex.getdata.quickFetch 
@@ -213,7 +213,7 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
         
     Returns
     -----------
-    An instance of the SubSpaceStream class
+    An instance of the SubSpace class
     
         Note
     ----------
@@ -290,7 +290,7 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
     # make a list of sngles to pass to subspace class
     singDic = _makeSingleEventDict(cl, TRDF, temkey) 
     
-    substream = detex.subspace.SubSpaceStream(singDic, ssDict, cl, dtype, Pf, 
+    substream = detex.subspace.SubSpace(singDic, ssDict, cl, dtype, Pf, 
                                               cfetcher)
     return substream
 def _getInfoFromClust(cl, srow):
@@ -624,7 +624,7 @@ def _loadEvents(fetcher, filt, trim, stakey, temkey,
             mpfd = scipy.fftpack.fft(mp, n=reqlenbits)
             TRDF.loc[ind, 'MPfd'][key] = mpfd
     TRDF = TRDF[TRDF.Keep]
-    TRDF.sort(columns='Station', inplace=True)
+    TRDF.sort_values(by='Station', inplace=True)
     TRDF.reset_index(inplace=True, drop=True) 
     return TRDF
     
@@ -937,8 +937,8 @@ def _applyFilter(st, filt, decimate=False, dtype='double', fillZeros=False):
     if dtype == 'single': #cast into single
         for num,tr in enumerate(st):
             st[num].data = tr.data.astype(np.float32)
-    Nc = list(set([x.stats.channel for x in st]))
-    if len(st) > len(Nc): #if data is fragmented only keep largest chunk
+    nc = list(set([x.stats.channel for x in st]))
+    if len(st) > len(nc): #if data is fragmented only keep largest chunk
         if fillZeros:
             st = _mergeChannelsFill(st)
         else:

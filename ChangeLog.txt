@@ -135,4 +135,10 @@ When local directories are used to store data they are automatically indexed wit
 
 Various bug fixes
 
-Changed the API slightly to be more consistent, should be mostly backward compatible
+Changed the name of writeTemplateKeyFromEQSearchSum to eqSearch2TemplateKey, and the name of makeTemplatemkeyey to catalog2TemplateKey and moved it from getdata to util. 
+
+Changed the name of several arguments slightly to be more consistent, should be mostly backward compatible
+
+added the NumStations to results tables
+
+

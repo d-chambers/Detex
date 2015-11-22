@@ -18,75 +18,7 @@ eveDirDefault = 'EventWaveForms'
 # extension key to map obspy output type to extension. Add more here
 formatKey = {'mseed': 'msd', 'pickle': 'pkl', 'sac': 'sac', 'Q': 'Q'}
 
-def makeTemplatemkey(catalog, filename='TemplateKey.csv', save=True):
-    """
-    Function to get build the Detex required file TemplateKey.csv 
-    from an obspy catalog object, or list of obspy catalog objects
 
-    Parameters
-    -----------
-    catalog : obspy catalog object or list of catalog objects
-
-    filename : str
-        Output for the template key file
-
-    save : boolean
-        If true save file to disk
-
-    Returns
-    --------
-    A pandas DataFrame of the template key information found in the 
-    catalog object
-
-    Notes
-    -------
-    obspy catalog object docs at:
-    http://docs.obspy.org/packages/autogen/obspy.fdsn.client.Client.get_events
-    .html#obspy.fdsn.client.Client.get_events
-    """
-    if not isinstance(catalog, list or tuple):  # make sure input is a list
-        catalog = [catalog]
-    lats = []
-    lons = []
-    depths = []
-    mags = []
-    names = []
-    time = []
-    author = []
-    magtypes = []
-    for cat in catalog:
-        if not isinstance(cat, obspy.core.event.Catalog):
-            msg = 'input is not an obspy catalog object'
-            detex.log(__name__, msg, level='error')
-        for event in cat:
-            if not event.origins:
-                msg = ("Event '%s' does not have an origin" % 
-                str(event.resource_id))
-                detex.log(__name__, msg, level='debug')
-                continue
-            if not event.magnitudes:
-                msg = ("Event '%s' does not have a magnitude" % str(
-                    event.resource_id))
-                detex.log(__name__, msg, level='debug')
-            origin = event.preferred_origin() or event.origins[0]
-            lats.append(origin.latitude)
-            lons.append(origin.longitude)
-            depths.append(origin.depth / 1000.0)
-            tim = origin.time.formatIRISWebService().replace(':', '-')
-            time.append(tim)
-            names.append(tim.split('.')[0])
-            magnitude = event.preferred_magnitude() or event.magnitudes[0]
-            mags.append(magnitude.mag)
-            magtypes.append(magnitude.magnitude_type)
-            author.append(origin.creation_info.author)
-    columnnames = ['NAME', 'TIME', 'LAT', 'LON',
-                   'DEPTH', 'MAG', 'MTYPE', 'CONTRIBUTOR']
-    data = [names, time, lats, lons, depths, mags, magtypes, author]
-    DF = pd.DataFrame(np.transpose(data), columns=columnnames)
-    DF['STATIONKEY'] = 'StationKey.csv'
-    if save:
-        DF.to_csv(filename)
-    return DF
 
 
 
@@ -686,6 +618,25 @@ def _loadFromClient(fet, start, end, net, sta, chan, loc):
     return st
         
 ########## MISC functions #############
+        
+        
+        
+def _progress_bar(total, fileMoveCount):
+    global countSoFar
+    countSoFar += 1
+    width = 25
+    percent = float((float(countSoFar)/float(total))*100.0)
+    completed=int(percent)
+    totalLeft=100
+    completedAmount = int(completed/(float(totalLeft)/float(width)))
+    spaceAmount = int((float(totalLeft)-float(completed))/
+    (float(totalLeft)/float(width)))
+
+    for i in xrange(width):
+        sys.stdout.write("\r[" + "=" * completedAmount + " " * spaceAmount +
+        "]" +  str(round(float(percent), 2)) + "%" + " " + str(countSoFar) + 
+        "/" + str(total) + "  Bad Files:" + str(fileMoveCount) + " ")
+        sys.stdout.flush()
 
 def _dataCheck(st):
     
@@ -909,7 +860,7 @@ def _loadIndexDb(dirPath, station, t1, t2):
     
     # reconstruct path
     df['Path'] = [_associatePathList(x,dfin) for x in df['Path']]
-    df.sort(columns='FileName', inplace=True)
+    df.sort_values(by='FileName', inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
 

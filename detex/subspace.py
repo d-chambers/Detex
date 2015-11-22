@@ -300,7 +300,7 @@ class Cluster(object):
         # get events that actually cluster (filter out singletons)
         dfcl = self.dflink[self.dflink.disSim <= 1 -self.CCreq]  
         # sort putting highest links in cluster on top
-        dfcl.sort(columns='disSim', inplace=True, ascending=False)
+        dfcl.sort_values(by='disSim', inplace=True, ascending=False)
         dfcl.reset_index(inplace=True, drop=True)
         dftemp = dfcl.copy()
         clustlinks = {}
@@ -624,7 +624,7 @@ class Cluster(object):
 #        return ''
 
 
-class SubSpaceStream(object):
+class SubSpace(object):
     """ Class used to hold subspaces for detector
     Holds both subspaces (as defined from the SScluster object) and 
     single event clusters, or singles
@@ -914,25 +914,27 @@ class SubSpaceStream(object):
         for sta in self.singStations:
             sing = self.singles[sta] # singles on station
             sampTrims = self.singles[sta].SampleTrims
+            self.singles[sta].Name = ['SG%d' % x for x in range(len(sing))]
             # get singles that have phase picks
             singsAccepted = sing[[len(x.keys()) > 0 for x in sampTrims]]
             self.singles[sta] = singsAccepted
             self.singles[sta].reset_index(inplace=True, drop=True)
-            self.singles[sta].Name = ['SG%d' % x for x in range(len(sing))]
-        if threshold is not None:
+        if threshold is None:
             # get empirical dist unless manual threshold is passed
             self.getFAS(conDatNum, useSingles=True, 
                         useSubSpaces=False, **kwargs)
         for sta in self.singStations:
             for ind, row in self.singles[sta].iterrows():
-                if len(row.SampleTrims) < 1:  # skip singles with no pick times
+                if len(row.SampleTrims.keys()) < 1:  # skip singles with no pick times
                     continue
                 if threshold:
                     th = threshold
                 else:
-                    beta_a, beta_b = row.FAS[0]['betadist'][0:2]
-                    th = scipy.stats.beta.isf(
-                        self.Pf, beta_a, beta_b, 0, 1)  # get threshold
+                    try:
+                        beta_a, beta_b = row.FAS[0]['betadist'][0:2]
+                    except:
+                        detex.deb([self, row])
+                    th = scipy.stats.beta.isf(self.Pf, beta_a, beta_b, 0, 1)
                     if th > .9:
                         th, Pftemp = self._approxThreshold(beta_a, beta_b, 
                                                            self.Pf, 1000, 3)
@@ -1477,7 +1479,7 @@ class SubSpaceStream(object):
         loaded, examined for high amplitude signals with a basic STA/LTA 
         method, and any traces with STA/LTA ratios higher than the 
         staltalimit parameter are rejected. The continuous DataFetcher
-        already attached to the SubSpaceStream instance will be used to get
+        already attached to the SubSpace instance will be used to get
         the continuous data. 
         Parameters
         -------------        
@@ -1506,7 +1508,6 @@ class SubSpaceStream(object):
         The results are stored in a DataFrame for each subspace/singleton
         under the "FAS" column of the main DataFrame
         """
-
         if useSubSpaces:
             self._updateOffsets()  # make sure offset times are up to date
             for sta in self.subspaces.keys():
@@ -1608,7 +1609,7 @@ class SubSpaceStream(object):
             statistic vectors (all hours, stations and subspaces) by keeping a
             a cumulative bin count. Only slows the detections down slightly 
             and can be useful for threshold sanity checks. The histograms are
-            then returned to the main DataFrame in the SubSpaceStream instance
+            then returned to the main DataFrame in the SubSpace instance
             as the column histSubSpaces, and saved in the subspaceDB under the
             ss_hist and sg_hists tables for subspacs and singletons. 
         useSubspace : bool
