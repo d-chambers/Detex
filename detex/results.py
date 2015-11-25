@@ -18,7 +18,7 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
                requiredNumStations=4, veriBuffer=1, ssDB='SubSpace.db', 
                templateKey='TemplateKey.csv', stationKey='StationKey.csv',
                veriFile=None, includeAllVeriColumns=True, reduceDets=True, 
-               Pf=False, Stations=None, starttime=None, endtime=None,
+               Pf=False, stations=None, starttime=None, endtime=None,
                fetch='ContinuousWaveForms'):
     """
     Function to create an instance of the CorResults class. Used to associate 
@@ -86,7 +86,7 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
         in order to only keep detections with thresholds above some Pf, 
         defiend for each subspace station pair. If used values of 10**-8 
         and greater generally work well
-    Stations : list of str or None
+    stations : list of str or None
         If not None, a list or tuple of stations to be used in the 
         associations. All others will be discarded
     starttime : None or obspy.UTCDateTime readable object
@@ -98,18 +98,16 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
     fetch : str or instance of detex.getdata.DataFetcher
         Used to determine where to get waveforms, fed into 
         detex.getdata.quickfetch
-
     """
     # Make sure all inputs exist and are kosher
     _checkExistence([ssDB, templateKey, stationKey])
     _checkInputs(trigCon, trigParameter, associateReq,
                  ss_associateBuffer, requiredNumStations)
     if associateReq != 0:
-        # TODO: implement this in a way that isnt cripplingly slow
         msg = 'associateReq values other than 0 not yet supported'
         raise detex.log(__name__, msg, level='error')
 
-    # Try to read in all input files and dataframes needed in the
+    # Try to read in all input files and dataframes needed
     temkey = pd.read_csv(templateKey)  # load template key
     stakey = pd.read_csv(stationKey)  # load station key
 
@@ -128,10 +126,10 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
     # subpspace, keeping only the subspace with highest detection stat
     if reduceDets:
         ssdf = _deleteDetDups(ssDB, trigCon, trigParameter, ss_associateBuffer,
-                              starttime, endtime, Stations, 'ss_df', 
+                              starttime, endtime, stations, 'ss_df', 
                               PfKey=ss_PfKey)
         sgdf = _deleteDetDups(ssDB, trigCon, trigParameter, sg_associateBuffer,
-                              starttime, endtime, Stations, 'sg_df', 
+                              starttime, endtime, stations, 'sg_df', 
                               PfKey=sg_PfKey)
     else:
         if Pf:
@@ -144,8 +142,8 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
         detex.log(__name__, msg, level='error')
     df = pd.concat([ssdf, sgdf], ignore_index=True)
     df.reset_index(drop=True, inplace=True)
-    if isinstance(Stations, (list, tuple)):  # filter stations
-        df = df[df.Sta.isin(Stations)]
+    if isinstance(stations, (list, tuple)):  # filter stations
+        df = df[df.Sta.isin(stations)]
         
     # Associate detections on different stations together
     Dets, Autos = _associateDetections(df, associateReq, requiredNumStations, 
@@ -222,7 +220,8 @@ def _verifyEvents(Dets, Autos, veriFile, veriBuffer, includeAllVeriColumns):
         return
     else:
         vertem = _readVeriFile(veriFile)
-        vertem['STMP'] = [obspy.core.UTCDateTime(x) for x in vertem['TIME']]
+        tstmp = [obspy.UTCDateTime(x).timestamp for x in vertem['TIME']]
+        vertem['STMP'] = tstmp
         verlist = []
         cols = ['TIME', 'LAT', 'LON', 'MAG', 'ProEnMag', 'DEPTH', 'NAME']
         additionalColumns = list(set(vertem.columns) - set(cols))
@@ -296,7 +295,7 @@ def _readVeriFile(veriFile):
     return df
 
 
-def _buildSQL(PfKey, trigCon, trigParameter, Stations,
+def _buildSQL(PfKey, trigCon, trigParameter, stations,
               starttime, endtime, tableName):
     """Function to build a list of SQL commands for loading the database 
     with desired parameters
@@ -310,14 +309,14 @@ def _buildSQL(PfKey, trigCon, trigParameter, Stations,
         endtime = obspy.UTCDateTime(endtime).timestamp
 
     # define stations
-    if isinstance(Stations, (list, tuple)):
+    if isinstance(stations, (list, tuple)):
         if isinstance(PfKey, pd.DataFrame):
-            PfKey = PfKey[PfKey.Sta.isin(Stations)]
+            PfKey = PfKey[PfKey.Sta.isin(stations)]
     else:
         if isinstance(PfKey, pd.DataFrame):
-            Stations = PfKey.Sta.values
+            stations = PfKey.Sta.values
         else:
-            Stations = ['*']  # no stations definition use all
+            stations = ['*']  # no stations definition use all
 
     if isinstance(PfKey, pd.DataFrame):
         for num, row in PfKey.iterrows():
@@ -333,7 +332,7 @@ def _buildSQL(PfKey, trigCon, trigParameter, Stations,
             cond = 'DS'
         elif trigCon == 1:
             cond = 'DS_STALTA'
-        for sta in Stations:
+        for sta in stations:
             if sta == '*':
                 sqstr = ('SELECT %s FROM %s WHERE %s >= %s AND MSTAMPmin>=%f '
                          'AND MSTAMPmin<=%f') % ('*', tableName, cond, 
@@ -348,14 +347,14 @@ def _buildSQL(PfKey, trigCon, trigParameter, Stations,
 
 
 def _deleteDetDups(ssDB, trigCon, trigParameter, associateBuffer, starttime,
-                   endtime, Stations, tableName, PfKey=None):
+                   endtime, stations, tableName, PfKey=None):
     """
     delete dections of same event, keep only detection with highest 
     detection statistic
     """
     sslist = []
     SQLstr = _buildSQL(PfKey, trigCon, trigParameter,
-                       starttime, Stations, endtime, tableName)
+                       starttime, stations, endtime, tableName)
     for sql in SQLstr:
         loadedRes = detex.util.loadSQLite(ssDB, tableName, sql=sql)
 #        if loadedRes is None:

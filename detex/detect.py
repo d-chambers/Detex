@@ -55,16 +55,20 @@ class _SSDetex(object):
         self.dataLength = dur
         
         # if using utcSavs init list and make sure all inputs are UTCs
-        if isinstance(utcSaves, collections.Iterable):
-            self.UTCSaveList = []
-            try:
-                ts = [obspy.UTCDateTime(x).timestamp for x in utcSaves]
-            except ValueError:
-                msg = ('Not all elements in utcSaves are readable by obspy '
-                       'UTCDateTime class')
+        if utcSaves is not None:
+            if isinstance(utcSaves, collections.Iterable):
+                self.UTCSaveList = []
+                try:
+                    ts = [obspy.UTCDateTime(x).timestamp for x in utcSaves]
+                except ValueError:
+                    msg = ('Not all elements in utcSaves are readable by obspy'
+                           ' UTCDateTime class')
+                    detex.log(__name__, msg, level='error')
+                self.utcSaves = np.array(ts)
+            else:
+                msg = 'UTCSaves must be a list or tupple'
                 detex.log(__name__, msg, level='error')
-            self.utcSaves = np.array(ts)
-        
+            
         # init histogram stuff if used
         if calcHist:
             self.hist = {}
@@ -137,7 +141,6 @@ class _SSDetex(object):
         if self.classifyEvents is not None:
             datGen = self.fetcher.getTemData(self.evekey, stakey)
         else:
-            
             datGen = self.fetcher.getConData(stakey, utcstart=self.utcStart,
                                              utcend=self.utcEnd, 
                                              returnTimes=True)
@@ -208,13 +211,13 @@ class _SSDetex(object):
         CorDF = pd.DataFrame(index=names, columns=cols)
         utc1 = st[0].stats.starttime
         utc2 = st[0].stats.endtime       
-        
         try:
             conSt = _applyFilter(st, self.filt, self.decimate, self.dtype, 
                                      fillZeros=self.fillZeros)
         except:
             msg = 'failed to filter %s, skipping' % st
             detex.log(__name__, msg ,level='warning', pri=True)
+            return None, None, None
         sr = conSt[0].stats.sampling_rate
         CorDF.SampRate = sr
         MPcon, ConDat, TR = multiplex(conSt, Nc, returnlist=True, retst=True)
@@ -413,11 +416,8 @@ class _SSDetex(object):
             minof = np.min(offsets[name])
             maxof = np.max(offsets[name])
             MSTAMPmax, MSTAMPmin = times - minof, times - maxof
-            try:
-                Sar.loc[count] = [coef, SLValue, times, name, sta, MSTAMPmin, 
-                                  MSTAMPmax, stMag, SNR, peMag]
-            except:
-                detex.deb([Sar, count, coef, SLValue, times, name, sta, MSTAMPmin, MSTAMPmax, stMag, SNR, peMag])
+            Sar.loc[count] = [coef, SLValue, times, name, sta, MSTAMPmin, 
+                              MSTAMPmax, stMag, SNR, peMag]
             count += 1
         return Sar
 

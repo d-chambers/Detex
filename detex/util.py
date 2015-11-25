@@ -392,7 +392,7 @@ def _makeInvStaLine(net, sta, chan, lond, lonm, lonc, latd,
     ends = '5.0  P  0.00  0.00  0.00  0.00 0  0.00--'
     return "{:<86}".format(sto + ends) + os.linesep
         
-def readSum(sumfile):
+def readHypo2000Sum(sumfile):
     """
     read a sum file from hyp2000 and return DataFrame with info loaded into,
     you guessed it, a DataFrame
@@ -434,6 +434,41 @@ def readSum(sumfile):
         DF.VertError[a] = (float(l[89:91].replace(' ', '0')) + 
             float(l[91:93].replace(' ', '0')) / 100.0)
     return DF   
+
+def readHypo71Sum(sumfile):
+    """
+    Read a summary file from hypoinverse in the y2k compliant hypo71 
+    format
+    
+    Parameters
+    ----------
+    sumfile : str
+        Path the the sum file
+        
+    Returns
+    -----------
+    DataFrame populated with sumfile info
+    """
+    fw = [(0,20), (19,22), (22,23), (23,28), (28,32), (32,33), (33,38), 
+          (38,45), (52,55), (55,59), (59,64), (64,69), (69,74), (74,79) ]
+    cols = ['ds', 'latd', 'latc', 'latm', 'lond', 'lonc', 'lonm', 'depth', 
+            'numphase', 'azgap', 'stadist', 'rms','horerr', 'vererr']
+    toDrop = ['ds', 'latd', 'latc', 'latm', 'lond', 'lonc', 'lonm']
+    df = pd.read_fwf(sumfile, colspecs=fw, names=cols )
+    
+    latmul = [1 if x else -1 for x in df['latc'].isnull()]
+    df['lat'] = np.multiply((df['latd'] + df['latm']/60.), latmul)
+    lonmul = [1 if x else -1 for x in df['lonc'].isnull()]
+    df['lon'] = np.multiply((df['lond'] + df['lonm']/60.), lonmul)
+    utcs = [obspy.UTCDateTime(x.replace(' ','')) for x in df.ds]
+    irisws = [x.formatIRISWebService().replace(':','-') for x in utcs]
+    times = [x.timestamp for x in utcs]
+    names = [x.split('.')[0] for x in irisws]
+    df['times'] = times
+    df['names'] = names
+    df.drop(toDrop, axis=1, inplace=True)
+    return df
+
 
 ########## NonLinLoc Functions ##############
 

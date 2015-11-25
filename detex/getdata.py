@@ -66,7 +66,6 @@ def quickFetch(fetch_arg, **kwargs):
     else:
         msg = 'Input not understood, read docs and try again'
         detex.log(__name__, msg, level='error')
-        deb(dat_fet)
     return dat_fet
     
 def makeDataDirectories(template_key='TemplateKey.csv', 
@@ -190,10 +189,7 @@ def _getTemData(temkey, stakey, temDir, formatOut, fetcher, tb4, taft):
         fdir = os.path.join(temDir, name)
         if not os.path.exists(fdir):
             os.makedirs(fdir)
-        try:
-            st.write(os.path.join(fdir, fname), formatOut)
-        except:
-            detex.deb([st, fdir, fname, formatOut])
+        st.write(os.path.join(fdir, fname), formatOut)
     if not os.path.exists(os.path.join(temDir,'.index.db')):
         indexDirectory(temDir)
 
@@ -501,9 +497,9 @@ class DataFetcher(object):
         end = obspy.UTCDateTime(end)
         st = self._getStream(self, start, end, net, sta, chan, loc)
         
-        # perform checks if required
+        # perform checks if required            
         if self.checkData:
-            st = _dataCheck(st)        
+            st = _dataCheck(st, start, end)        
         
         # if no data return None
         if st is None or len(st) < 1:
@@ -638,13 +634,20 @@ def _progress_bar(total, fileMoveCount):
         "/" + str(total) + "  Bad Files:" + str(fileMoveCount) + " ")
         sys.stdout.flush()
 
-def _dataCheck(st):
+def _dataCheck(st, start, end):
     
     # if none or empty return None
     if st is None or len(st) < 1:
         return None
     netsta = st[0].stats.network + '.' + st[0].stats.station
     time = st[0].stats.starttime.formatIRISWebService().split('.')[0]
+    
+    # check if data range is way off what was requested
+    utcmin = min([x.stats.starttime for x in st])
+    utcmax = max([x.stats.endtime for x in st])
+    if (end - start) - (utcmax - utcmin) > 60 * 10: # give 10 mine tolerance
+        msg = '%s starting on %s is shorter than expected' % (netsta, time)
+        detex.log(__name__, msg, pri=True)
     
     #Check sample rates
     if any([tr.stats.sampling_rate % 1 != 0 for tr in st]):
@@ -776,20 +779,18 @@ def indexDirectory(dirPath, extension='msd'):
                         pathList[ind].append(va)
         #Loop over file names perform quality checks
         for fname in filenames:
-            try:
-                fpath = os.path.join(*dirList)
-            except: 
-                deb([fname, dirList])
+            if fname[0] =='.':
+                continue
+            fpath = os.path.join(*dirList)
             fullpath = os.path.join(fpath, fname)
             qualDict = _checkQuality(fullpath)
             if qualDict is None: #If file is not obspy readable
-                msg = '%s is not obspy-readable, skipping' % fullpath
-                detex.log(__name__, msg, level='debug')
+                msg = 'obspy failed to read %s , skipping' % fullpath
+                detex.log(__name__, msg, level='warning', pri=True)
                 continue # skip to next file
             pathInts = [pathList[num].index(x) for num, 
                         x in enumerate(dirList)]
             df.loc[len(df), 'Path'] = json.dumps(pathInts)
-
             for key, value in qualDict.iteritems():
                 df.loc[len(df)-1, key] = value
             df.loc[len(df)-1, 'FileName'] = fname
@@ -802,7 +803,6 @@ def indexDirectory(dirPath, extension='msd'):
     detex.util.saveSQLite(dfInd,os.path.join(dirPath, '.index.db'),'indkey')    
                 
 def _createIndexDF(pathList):
-        #deb(pathList)
         indLength = len(pathList)
         colLength = max([len(x) for x in pathList])
         ind = [x for x in range(indLength)]

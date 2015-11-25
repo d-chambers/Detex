@@ -39,11 +39,11 @@ from construct import createCluster, createSubSpace
 
 maxSize = 10 * 1024*1024 # max size log file can be in bytes (10 mb defualt)
 verbose = True # set to false to avoid printing to screen
-makeLog = True # set to false to not make log file
-version='1.0.3b' # current detex version
+makeLog = False # set to false to not make log file
+version='1.0.4' # current detex version
 
 ## Configure logger to be used across all of Detex
-def setLogger(makeLog=True, filename='detex_log.log'):
+def setLogger(filename='detex_log.log'):
     """
     Function to set up the logger used across Detex
     
@@ -55,11 +55,14 @@ def setLogger(makeLog=True, filename='detex_log.log'):
         Path to log file to be created
     """
     reload(logging) # reload to reconfigure default ipython log
+    # set makeLog to True
+    global makeLog
+    makeLog = True
     cwd=os.getcwd()
     fil = os.path.join(cwd, filename)
     if os.path.exists(fil):
         if os.path.getsize(fil) > maxSize:
-            print ('old log file %s exceeds size limit, deleting' % filename) 
+            print ('old log file %s exceeds size limit, deleting' % fil) 
             os.path.remove(fil)
     fh = logging.FileHandler(fil)
     fh.setLevel(logging.DEBUG)
@@ -70,6 +73,7 @@ def setLogger(makeLog=True, filename='detex_log.log'):
     logger.setLevel(logging.DEBUG)
     logger.addHandler(fh)
     lpath = os.path.abspath(filename)
+    logger.info('Starting logging, path to log file: %s' % fil)
     return logger, lpath
     
 
@@ -114,7 +118,8 @@ def log(name, msg, level='info', pri=False, close=False, e=Exception):
     elif level == 'error':
         if makeLog:
             log.error(msg)
-        closeLogger()
+        if makeLog:
+            closeLogger()
         raise e(msg)
     else:
         if makeLog:
@@ -139,7 +144,7 @@ def deb(varlist):
 
 if makeLog:
     logger, lpath = setLogger()
-    logger.info('Imported Detex, path to log file: %s' % lpath)
+    
 
 
 

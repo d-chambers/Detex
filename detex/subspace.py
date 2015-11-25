@@ -160,7 +160,7 @@ class ClusterStream(object):
             evcodes[num] = row.NAME
         return evcodes
 
-    def updateReqCC(self, reqCC, write=True):
+    def updateReqCC(self, reqCC):
         """
         Updates the required correlation coefficient for clusters to form on
         all stations or individual stations. 
@@ -171,8 +171,6 @@ class ClusterStream(object):
             clusters to form will be set to reqCC on all stations. 
             If dict keys must be indicies for each cluster object (IE net.sta,
             sta, or int index) and values are the reqCC for that station.
-        write : bool
-            If true save updated ClusterStream instance to disk
         Notes 
         ---------------
         The Cluster class also have a similar method that can be more 
@@ -190,8 +188,6 @@ class ClusterStream(object):
         elif isinstance(reqCC, list):
             for num, cc in enumerate(reqCC):
                 self[num].updateReqCC(cc)
-        if write:
-            self.write()
 
     def printAtr(self):  # print out basic attributes used to make cluster
         for cl in self.clusters:
@@ -1757,10 +1753,13 @@ class SubSpace(object):
                 events = ','.join(ss.Events)
                 numbasis = ss.NumBasis
                 thresh = ss.Threshold
-                if len(ss.FAS.keys()) > 1:
-                    b1, b2 = ss.FAS['betadist'][0], ss.FAS['betadist'][1]
-                else:
-                    b1, b2 = np.Nan, np.Nan
+                try:
+                    if isinstance(ss.FAS, dict) and len(ss.FAS.keys()) > 1:
+                        b1, b2 = ss.FAS['betadist'][0], ss.FAS['betadist'][1]
+                    else:
+                        b1, b2 = np.nan, np.nan
+                except:
+                    detex.deb(ss)
                 cols = ['Name', 'Sta', 'Events', 'Threshold', 'NumBasisUsed',
                         'beta1', 'beta2']
                 dat = [[name, station, events, thresh, numbasis, b1, b2]]
@@ -1775,10 +1774,10 @@ class SubSpace(object):
                 station = ss.Station
                 events = ','.join(ss.Events)
                 thresh = ss.Threshold
-                if len(ss.FAS[0].keys()) > 1:
+                if isinstance(ss.FAS, dict) and len(ss.FAS[0].keys()) > 1:
                     b1, b2 = ss.FAS[0]['betadist'][0], ss.FAS[0]['betadist'][1]
                 else:
-                    b1, b2 = np.Nan, np.Nan
+                    b1, b2 = np.nan, np.nan
                 cols=['Name', 'Sta', 'Events', 'Threshold', 'beta1', 'beta2']
                 dat = [[name, station, events, thresh, b1, b2]]
                 sglist.append(pd.DataFrame(dat, columns=cols))

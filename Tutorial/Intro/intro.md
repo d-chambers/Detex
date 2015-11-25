@@ -1,25 +1,16 @@
 
 #  Detex Tutorial
 
-Detex is a python package for performing waveform similarity clustering and [subspace detection](https://e-reports-ext.llnl.gov/pdf/335299.pdf). It is written in python and relies heavily on Obspy, Numpy, Scipy, Matplotlib, and Pandas. If you are not familiar with python I recommend you install the [anaconda distribution](http://continuum.io/downloads) for your platform and spend a few hours learning the basics of the language before attempting to use Detex. Here are some great tutorials:
+Detex is a python package for performing waveform similarity clustering and [subspace detection](https://e-reports-ext.llnl.gov/pdf/335299.pdf). It is written in python and relies heavily on Obspy, Numpy, Scipy, Matplotlib, and Pandas. If you are not familiar with python I recommend you install the [anaconda distribution](http://continuum.io/downloads) for your platform and spend a few hours learning the basics of the language before using Detex. Here are some quick and snappy tutorials:
 
 http://www.stavros.io/tutorials/python/
 http://www.tutorialspoint.com/python/python_quick_guide.htm
 
-Also, any time spent learning [obspy](http://docs.obspy.org/tutorial/) is a good investment as it is a very powerful tool for processing geophysical data.
+Any time spent learning [obspy](http://docs.obspy.org/tutorial/) is a good investment as it is a very powerful tool for processing geophysical data.
 
 Some knowledge of [pandas](http://pandas.pydata.org/pandas-docs/stable/tutorials.html) will also be useful, as the pandas DataFrame is used extensively in detex.
 
-Special thanks to Tex Kubacki (whose work inspired Detex), Jared Stein, Lisa Linvile, Shawn Blotz, and Chase Batchelor.
-
-## Acknowledgment and More Info
-
-The following publication provides additional details on the methods employed by detex :
-
-Chambers, D. J., Koper, K. D., Pankow, K. L., & McCarter, M. K. (2015). Detecting and characterizing coal mine related seismicity in the Western US using subspace methods. Geophysical Journal International, 203(2), 1388-1399. doi: 10.1093/gji/ggv383
-
-If you use detex in your research please consider citing it. 
-
+If you are looking for more in-depth information about detex checkout the [advanced tutorial](../Advanced/advanced.md).
 
 ## Installation 
 
@@ -41,7 +32,7 @@ The basic Detex workflow has five steps:
 
 
 
-##1. Prepare required files
+## 1. Prepare required files
 There are two required files: the station key and the template key.
 
 The station key is generally saved as StationKey.csv. The following is an example:
@@ -71,7 +62,7 @@ The NAME field can be any string that can also be used as a file name by your OS
 The LAT and LON fields are not strictly required for basic Detex functionality, but are used in some visualization methods. 
 
 
-##2. Data aquisition
+## 2. Data aquisition
 Detex uses obspy's fdsn module to download seismic data from a variety of data centers. For supported options see the [obspy documentation](http://docs.obspy.org/packages/obspy.fdsn.html)
 
 The getdata module is used for acquisition. Once the template key and station key have been created the data can be downloaded by using the getAllData function. Progress will periodically print to screen.
@@ -96,8 +87,8 @@ The getdata module is used for acquisition. Once the template key and station ke
     ------------------------------------------------------------------------------
     
 
-##  3. Clustering
-The next step is to cross correlate every event with every other event in order to form waveform similarity groupings on each station. A single link-algorithm is used to perform the clustering up to a determined dissimilarity level.   
+## 3. Clustering
+The next step is to cross correlate every event with every other event in order to form waveform similarity groupings on each station. A single link-algorithm is used to perform the clustering up to a determined dissimilarity level.
 
 In order to do this a clusterStream object is created, which is essentially a container for cluster objects created using data from each station independently. The main input parameter is the required correlation coefficient, below which clustering will not occur. If you want to run each waveform as a 1D subspace (IE in waveform correlation detection) you can simply set the required correlation coefficient to 1. Conversely, if you want to include all events in the subspace regardless of similarity then set this parameter to 0. The default value is 0.5 can be easily changed without re-running the correlations. For example:
 
@@ -117,11 +108,11 @@ In order to do this a clusterStream object is created, which is essentially a co
     cl.dendro() #create a dendrogram to visualize grouping structure on each station
 
 
-![png](ReadMe/Images/output_7_0.png)
+![png](Images/output_7_0.png)
 
 
 
-![png](ReadMe/Images/output_7_1.png)
+![png](Images/output_7_1.png)
 
 
 Now if we wanted to form strictly 4 groups on each station we can modify the required correlation coefficient for grouping. This can be done for all stations at once or for each station individually. 
@@ -136,11 +127,11 @@ Now if we wanted to form strictly 4 groups on each station we can modify the req
     
 
 
-![png](ReadMe/Images/output_9_1.png)
+![png](Images/output_9_1.png)
 
 
 
-![png](ReadMe/Images/output_9_2.png)
+![png](Images/output_9_2.png)
 
 
 
@@ -151,7 +142,7 @@ Now if we wanted to form strictly 4 groups on each station we can modify the req
     
 
 
-![png](ReadMe/Images/output_10_1.png)
+![png](Images/output_10_1.png)
 
 
 
@@ -159,11 +150,11 @@ Now if we wanted to form strictly 4 groups on each station we can modify the req
     cl.simMatrix()
 
 
-![png](ReadMe/Images/output_11_0.png)
+![png](Images/output_11_0.png)
 
 
 
-![png](ReadMe/Images/output_11_1.png)
+![png](Images/output_11_1.png)
 
 
 There are several other functions of the ClusterStream class. Notably, input for [hypoDD](http://www.ldeo.columbia.edu/~felixw/hypoDD.html]) (a well-established double difference relocation program) can be created using the writeHypoDDEventInput, writeHypoDDStationInput, and writeSimpleHypoDDInput class methods; although as of version 0.1.0 they have not been fully tested. I hope to develop other methods for locating detected events in the future. 
@@ -197,7 +188,7 @@ Next a singular value decomposition is performed on the  waveform groups that ha
 
     ss.SVD()
 
-###4.5 Run detectors
+### 4.5 Run detectors
 Detex will scan the continuous data for each station-subspace pair and declare a detection whenever any subspace's threshold is exceeded. 
 
 
@@ -251,7 +242,7 @@ Any of these tables can be loaded into a dataframe using the detex.util.loadSQLi
         
 
 
-![png](ReadMe/Images/output_22_0.png)
+![png](Images/output_22_0.png)
 
 
 ## 5 Associate detections
@@ -672,14 +663,5 @@ Now the waveforms of the newly detected events have been stored with the same di
 
 Note that detex has created a log (detex_log.log) that can be useful in debugging. 
 
-## Detex utilities
-There are several useful utilites in the detex.util module. Here I will highlight a few of them.
 
-### KML generation
-Using the [simple kml module](https://pypi.python.org/pypi/simplekml/1.2.8) several detex files can be converted to kml for easy viewing in google earth. They include the stations in the station key (detex.util.writeKMLFromStationKey), the template key (detex.util.writeKMLFromTemplateKey), outputs from hypoDD or hypoInverse, etc. 
-
-### Loading arbitrary continuous data
-The loadContinuousData function of detex.util can be used to load any data contained in the ContinuousWaveForms directory, trimmed to a user's specifications.
-
-## [Contributing to detex](ReadMe/ContributeToDetex/contributing.md)
 

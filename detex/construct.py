@@ -451,7 +451,6 @@ def _CCX2(mpfd1, mpfd2, mptd1, mptd2, Nc1, Nc2, subSamp=False):
             maxind = np.nanargmax(result)
     except:
         return 0.0,0.0
-        #deb([mpfd1,mpfd2,mptd1,mptd2,Nc1,Nc2])
     
     #return maxcc,maxind-n +1
     if subSamp:
@@ -864,7 +863,6 @@ def _loadStream(fetcher, filt, trim, decimate, station, dtype,
     evlist = StreamDict.keys()
     evlist.sort()
     #if 'IMU' in station:
-    #    deb(evlist)
     return StreamDict, evlist, channelDict, stats
 
 def multiplex(st, Nc=None, trimTolerance=15, template=False, returnlist=False, 
@@ -994,10 +992,3 @@ def _checkClusterInputs(filt, dtype, trim):
             if -trim[0] > trim[1]:
                 msg = 'Invalid trim parameters'
                 detex.log(__name__, msg, level='error')
-
-
-
-def deb(varlist):
-    global de
-    de=varlist
-    sys.exit(1)   
