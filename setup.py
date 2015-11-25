@@ -5,8 +5,8 @@ Created on Wed Jan 28 13:11:57 2015
 @author: Derrick
 """
 
-from setuptools import setup, find_packages  # Always prefer setuptools over distutils
-from codecs import open  # To use a consistent encoding
+from setuptools import setup, find_packages
+from codecs import open
 from os import path
 
 here = path.abspath(path.dirname(__file__))
@@ -47,5 +47,5 @@ setup(
     # What does your project relate to?
     keywords='seismology signal detection',
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
-    install_requires=['peppercorn','obspy','basemap','numpy','pandas','scipy','matplotlib','joblib','multiprocessing','glob2'],
+    install_requires=['peppercorn','obspy','basemap','numpy','pandas >= 0.17.0','scipy','matplotlib','joblib','multiprocessing','glob2'],
 )

@@ -141,4 +141,8 @@ Changed the name of several arguments slightly to be more consistent, should be 
 
 added the NumStations to results tables
 
+Version 1.0.4
+-------------
+Fixed bug in detex.results._deleteDups where detections from different stations can get grouped together
+
 

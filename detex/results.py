@@ -72,10 +72,10 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
         Any additional columns may be present with any name that will be 
         included in the verification dataframe depending on 
         includeAllVeriColumns
-    includeAllVeriColumns: boolean
+    includeAllVeriColumns: bool
         If true include all columns that are in the veriFile in the verify 
         dataframe that will be part of the SSResults object.
-    reduceDets : boolean
+    reduceDets : bool
         If true loop over each station and delete detections of the same 
         event that don't have the highest detection Stat value.
         It is recommended this be left as True unless there a specific 
@@ -357,8 +357,6 @@ def _deleteDetDups(ssDB, trigCon, trigParameter, associateBuffer, starttime,
                        starttime, stations, endtime, tableName)
     for sql in SQLstr:
         loadedRes = detex.util.loadSQLite(ssDB, tableName, sql=sql)
-#        if loadedRes is None:
-#            detex.deb([ssDB, sql, tableName])
         if isinstance(loadedRes, pd.DataFrame):
             sslist.append(loadedRes)
     if len(sslist) < 1:  # if no events found
@@ -370,9 +368,9 @@ def _deleteDetDups(ssDB, trigCon, trigParameter, associateBuffer, starttime,
         detex.log(__name__, msg, level='error')
     ssdf.reset_index(drop=True, inplace=True)
     ssdf.sort_values(by=['Sta', 'MSTAMPmin'], inplace=True)
-    con1 = ssdf.MSTAMPmin - associateBuffer > ssdf.MSTAMPmax.shift()
-    con2 = ssdf.Sta == ssdf.Sta.shift()
-    ssdf['Gnum'] = (con1 & con2).cumsum()
+    con1 = ((ssdf.MSTAMPmin - associateBuffer) > ssdf.MSTAMPmax.shift())
+    con2 = ssdf.Sta != ssdf.Sta.shift()
+    ssdf['Gnum'] = (con1 | con2).cumsum()
     ssdf.sort_values(by=['Gnum', 'DS'], inplace=True)
     ssdf.drop_duplicates(subset='Gnum', keep='last', inplace=True)
     ssdf.reset_index(inplace=True, drop=True)
@@ -399,11 +397,9 @@ def _associateDetections(ssdf, associateReq, requiredNumStations,
     temkey['STMP'] = np.array([obspy.core.UTCDateTime(x) for x in temkey.TIME])
     temcop = temkey.copy()
 
-    # if there is an association requirement (IE required number of shaed
-    # events)
+    # if there is a required number of shared events
     if isinstance(ss_info, pd.DataFrame) and associateReq > 0:
         for num, g in groups:
-
             g = _checkSharedEvents(g)
             # Make sure detections occur on the required number of stations
             if len(set(g.Sta)) >= requiredNumStations:
