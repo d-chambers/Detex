@@ -820,20 +820,18 @@ def loadSQLite(corDB, tableName, sql=None, readExcpetion=False, silent=True,
     -------
     A pandas dataframe with loaded table or None if DB or table does not exist
     """
-    try:
-        if sql is None:
-            sql = 'SELECT %s FROM %s' % ('*', tableName)
-        with connect(corDB, detect_types=PARSE_DECLTYPES) as con:
-            df = psql.read_sql(sql, con)
-            if convertNumeric:
-                df = df.convert_objects(
-                    convert_dates=False, convert_numeric=True)
-    except:
-        msg = 'failed to load %s in %s with sql=%s' % (corDB, tableName, sql)
-        detex.log(__name__, msg, level='warn', pri=not silent)
-        df = None
-        if readExcpetion:
-            raise Exception
+   # try:
+    if sql is None:
+        sql = 'SELECT %s FROM %s' % ('*', tableName)
+    with connect(corDB, detect_types=PARSE_DECLTYPES) as con:
+        df = psql.read_sql(sql, con)
+        if convertNumeric:
+            for item, ser in df.iteritems():
+                try:
+                    serConverted = pd.to_numeric(ser)
+                    df[item] = serConverted
+                except ValueError:
+                    pass
     return df
 
 def loadClusters(filename='clust.pkl'): 
