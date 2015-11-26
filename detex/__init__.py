@@ -6,21 +6,44 @@
 deTex: A Python Toolbox for running subspace detections.
 ==================================================================
 """
-#imports
-import getdata, results, util, arc, pandas_dbms, streamPick, Picks, subspace, ANF, version, inspect,os,logging
+# General imports
+import os
+import inspect
+import logging
+import logging.handlers
+import sys
 
-# Set shortcuts for lazy people 
+# Detex imports
+import getdata
+import util
+import subspace
+import fas
+import construct
+import results
+import streamPick
+import pandas_dbms
+import detect
 
-getAllData=getdata.getAllData
+logging.basicConfig()
 
-createCluster=subspace.createCluster
+# import all modules in detex directory
+#modules = glob.glob(os.path.dirname(__file__)+"/*.py")
+#__all__ = [os.path.basename(f)[:-3] for f in modules if os.path.isfile(f)]
 
-createSubSpace=subspace.createSubSpace
 
-detResults=results.detResults
+# Imports for lazy people (ie make detex.createCluster callable) 
+from construct import createCluster, createSubSpace
+
+
+#detResults=results.detResults
+
+maxSize = 10 * 1024*1024 # max size log file can be in bytes (10 mb defualt)
+verbose = True # set to false to avoid printing to screen
+makeLog = False # set to false to not make log file
+version='1.0.4' # current detex version
 
 ## Configure logger to be used across all of Detex
-def setLogger(makeLog=True,filename='detex_log.log'):
+def setLogger(filename='detex_log.log'):
     """
     Function to set up the logger used across Detex
     
@@ -31,52 +54,97 @@ def setLogger(makeLog=True,filename='detex_log.log'):
     filename : str
         Path to log file to be created
     """
-    reload(logging) #reload to reconfigure default ipython logging behavior (hopefully this doesnt screw up anything)
+    reload(logging) # reload to reconfigure default ipython log
+    # set makeLog to True
+    global makeLog
+    makeLog = True
     cwd=os.getcwd()
-    
+    fil = os.path.join(cwd, filename)
+    if os.path.exists(fil):
+        if os.path.getsize(fil) > maxSize:
+            print ('old log file %s exceeds size limit, deleting' % fil) 
+            os.path.remove(fil)
+    fh = logging.FileHandler(fil)
+    fh.setLevel(logging.DEBUG)
+    fmat = '%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s'
+    formatter = logging.Formatter(fmat)
+    fh.setFormatter(formatter)    
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    
-    # create file handler which logs even debug messages
-    if makeLog:
-        fh = logging.FileHandler(os.path.join(cwd,filename))
-        fh.setLevel(logging.DEBUG)
-        fh.setFormatter(formatter)
-        logger.addHandler(fh)
-    # create console handler with a higher log level
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.WARNING)
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-    return logger
+    logger.addHandler(fh)
+    lpath = os.path.abspath(filename)
+    logger.info('Starting logging, path to log file: %s' % fil)
+    return logger, lpath
     
 
 #define basic logging function
 
-def log(name,msg,level='info',pri=False):
+def log(name, msg, level='info', pri=False, close=False, e=Exception):
     """
-    Wrapper to log various events in detex. By default only events with level "warning" and above are printed to screen
+    Function to log important events as detex runs
+    Parameters
+    ----------
+    name : the __name__ statement
+        should always be set to __name__ from the log call. This will enable
+        inspect to trace back to where the call initially came from and 
+        record it in the log
+    msg : str
+        A message to log
+    level : str
+        level of event (info, debug, warning, critical, or error)
+    pri : bool
+        If true print msg to screen without entire log info
+    close : bool
+        If true close the logger so the log file can be opened
+    e : Exception class
+        If level == "error" and Exception is raised, e is the type of 
+        exception
     """
-    cfun=inspect.getouterframes(inspect.currentframe())[1][0].f_code.co_name # get name of function that called this one
-    log=logging.getLogger(name+'.'+cfun)
-    if level=='info':
+    
+    if not verbose:
+        pri = False
+        
+    # get name of function that called log
+    cfun = inspect.getouterframes(inspect.currentframe())[1][0].f_code.co_name 
+    log = logging.getLogger(name+'.'+cfun)
+    if level == 'info' and makeLog:
         log.info(msg)
-    elif level=='debug':
+    elif level == 'debug' and makeLog:
         log.debug(msg)
-    elif level=='warning' or 'warn':
+    elif (level == 'warning' or level == 'warn') and makeLog :
         log.warning(msg)
-    elif level=='critical':
+    elif level == 'critical' and makeLog:
         log.critical(msg)
-    elif level=='error':
-        log.error(msg)
+    elif level == 'error':
+        if makeLog:
+            log.error(msg)
+        if makeLog:
+            closeLogger()
+        raise e(msg)
     else:
-        raise Exception('level input not understood, acceptable values are "debug","info","warning","error","critical"')
+        if makeLog:
+            raise Exception('level input not understood, acceptable values are' 
+                        ' "debug","info","warning","error","critical"')
     if pri:
         print msg
+    if close and makeLog: #close logger
+        closeLogger()
+    
+def closeLogger():
+    handlers = logger.handlers[:]
+    for handler in handlers:
+        handler.close()
+        logger.removeHandler(handler)
+        
+def deb(varlist):
+    global de
+    de = varlist
+    sys.exit(1)
 
-logger=setLogger()
-logger.info('Imported Detex')
+
+if makeLog:
+    logger, lpath = setLogger()
+    
 
 
 

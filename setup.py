@@ -5,8 +5,8 @@ Created on Wed Jan 28 13:11:57 2015
 @author: Derrick
 """
 
-from setuptools import setup, find_packages  # Always prefer setuptools over distutils
-from codecs import open  # To use a consistent encoding
+from setuptools import setup, find_packages
+from codecs import open
 from os import path
 
 here = path.abspath(path.dirname(__file__))
@@ -21,7 +21,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.1.2',
+    version='1.0.4',
 
     description='A package for performing subspace and correlation detections on seismic data',
     # The project's main homepage.
@@ -47,5 +47,5 @@ setup(
     # What does your project relate to?
     keywords='seismology signal detection',
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
-    install_requires=['peppercorn','obspy','basemap','numpy','pandas','scipy','matplotlib','joblib','multiprocessing','glob2'],
+    install_requires=['peppercorn','obspy','basemap','numpy','pandas >= 0.17.0','scipy','matplotlib','joblib','multiprocessing','glob2'],
 )
