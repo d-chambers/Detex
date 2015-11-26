@@ -12,7 +12,7 @@ import shutil
 files_to_kill = ['detex_log.log', 'clust.pkl', 'SubSpace.db', 'subspace.pkl']
 # define directories to delete
 dirs_to_kill = ['ContinuousWaveForms', 'EventWaveForms', 'detex.egg-info', 
-                'dist', 'build', '.pynb_checkpoints', 'DetectedEvents']
+                'dist', 'build', '.ipynb_checkpoints', 'DetectedEvents']
 def tear_down():
     for root, dirs, files in os.walk("."):
         path = os.path.normpath(root)
