@@ -23,24 +23,25 @@ import results
 import streamPick
 import pandas_dbms
 import detect
+import warnings
 
 logging.basicConfig()
 
 # import all modules in detex directory
 #modules = glob.glob(os.path.dirname(__file__)+"/*.py")
 #__all__ = [os.path.basename(f)[:-3] for f in modules if os.path.isfile(f)]
-
+#warnings.filterwarnings('error') #uncomment this to make all warnings errors
 
 # Imports for lazy people (ie make detex.createCluster callable) 
 from construct import createCluster, createSubSpace
-
+from util import loadClusters, loadSubSpace
 
 #detResults=results.detResults
 
 maxSize = 10 * 1024*1024 # max size log file can be in bytes (10 mb defualt)
 verbose = True # set to false to avoid printing to screen
 makeLog = False # set to false to not make log file
-version='1.0.4' # current detex version
+__version__='1.0.4' # current detex version
 
 ## Configure logger to be used across all of Detex
 def setLogger(filename='detex_log.log'):
