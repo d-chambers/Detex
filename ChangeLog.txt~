@@ -145,6 +145,4 @@ Version 1.0.4
 -------------
 Fixed bug in detex.results._deleteDups where detections from different stations can get grouped together
 
-Changed the intro tutorial slightly
-
 
