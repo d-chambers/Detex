@@ -60,13 +60,13 @@ There are few important classes worth mentioning:
 
 # Detex workflow
 
-## [Logging](Advanced/Logging/logging.md)
+## [Logging](Logging/logging.md)
 Introduces logging and explains how to check the version number.
 
-## [Required Files](Advanced/RequiredFiles/required_files.md)
+## [Required Files](RequiredFiles/required_files.md)
 reviews the format of the two required files: the station key and the template key. Also highlights some methods for creating the keys (from station inventories and catalog objects for example). 
 
-##  [Getdata](Advanced/GetData/get_data.md)
+##  [Getdata](GetData/get_data.md)
 Covers the various methods of getting seismic data in detex using the DataFetcher class. 
 
 
