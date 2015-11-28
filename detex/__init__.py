@@ -69,7 +69,8 @@ def setLogger(filename='detex_log.log'):
     fh.setLevel(logging.DEBUG)
     fmat = '%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s'
     formatter = logging.Formatter(fmat)
-    fh.setFormatter(formatter)    
+    fh.setFormatter(formatter)
+    global logger    
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     logger.addHandler(fh)

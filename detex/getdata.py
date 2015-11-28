@@ -77,6 +77,7 @@ def makeDataDirectories(template_key='TemplateKey.csv',
                          timeAfterOrigin=4 * 60,
                          conDir=conDirDefault, 
                          secBuf=120, 
+                         conDatDuration=3600,
                          multiPro=False, 
                          getContinuous=True, 
                          getTemplates=True,
@@ -117,6 +118,8 @@ def makeDataDirectories(template_key='TemplateKey.csv',
         The number of seconds to download after each hour of continuous data. 
         This might be non-zero in order to capture some detections that would 
         normally be overlooked if data did not overlap somewhat. 
+    conDatDuration : real number (int, float, etc.)
+        The duration of the continuous data to download in seconds. 
     multiPro : bool
         If True fork several processes to get data at once, potentially much 
         faster but a bit inconsiderate on the server hosting the data
@@ -170,7 +173,8 @@ def makeDataDirectories(template_key='TemplateKey.csv',
     if getContinuous:
         msg = 'Getting continuous data'
         detex.log(__name__, msg, level='info', pri=True)
-        _getConData(fetcher, stakey, conDir, secBuf, opType, formatOut) 
+        _getConData(fetcher, stakey, conDir, secBuf, opType, formatOut, 
+                    duration=conDatDuration) 
     
     ## Log finish
     msg = "finished makeDataDirectories call"
@@ -193,12 +197,14 @@ def _getTemData(temkey, stakey, temDir, formatOut, fetcher, tb4, taft):
     if not os.path.exists(os.path.join(temDir,'.index.db')):
         indexDirectory(temDir)
 
-def _getConData(fetcher, stakey, conDir, secBuf, opType, formatOut):
+def _getConData(fetcher, stakey, conDir, secBuf, opType, formatOut,
+                duration=3600):
     streamGenerator = fetcher.getConData(stakey, 
                                         secBuf, 
                                         returnName=True, 
                                         conDir=conDir,
-                                        skipIfExists=True)
+                                        skipIfExists=True,
+                                        duration=duration)
     for st, path, fname in streamGenerator:
         if st is not None: #if data were returned
             if not os.path.exists(path):
@@ -221,15 +227,15 @@ class DataFetcher(object):
             "dir" : A data directory as created by makeDataDirectories
             "client" : an obspy client can be passed to get data
             useful if using an in-network database 
-            "iris" : an iris client is initiated 
+            "iris" : an iris client is initiated, also uses IRIS for inventory
             "uuss" : A client attached to the university of utah 
             seismograph stations is initated using CWB for waveforms
             and IRIS is used for station inventories
     client : An obspy client object
         Client object used to get data, from obspy.fdsn, obspy.neic etc.
     removeResponse : bool
-        If true remove response before returning stream
-    inventoryClient : An obspy client object
+        If True remove response before returning stream.
+    inventoryArg : None, obspy client object, or obspy Inventory object
         A seperate client for station inventories, only used if 
         removeResponse == True, also supports keyword "iris" for iris client
     directoryName : str
@@ -244,7 +250,7 @@ class DataFetcher(object):
     conDatDuration : int or float
         Duration for continuous data in seconds
     conBuff : int or float
-        The amount of data, in seconds, to donwnload at the end of the 
+        The amount of data, in seconds, to download at the end of the 
         conDatDuration. Ideally should be equal to template length, important 
         in order to avoid missing potential events at the end of a stream
     timeBeforeOrigin : int or float
@@ -255,29 +261,36 @@ class DataFetcher(object):
         If True apply some data checks before returning streams, can be useful
         for older data sets. 
     fillZeros : bool
-        If True fill data that arent avaliable with 0s (provided some data are
-        avaliable)
+        If True fill data that are not available with 0s (provided some data are
+        available)
     
     """
     supMethods = ['dir', 'client', 'uuss', 'iris']
-    def __init__(self, method, client=None, removeResponse=False,
-                 inventoryClient=None, directoryName=None, opType='VEL',
+    def __init__(self, method, client=None, removeResponse=True,
+                 inventoryArg=None, directoryName=None, opType='VEL',
                  prefilt=[.05, .1, 15, 20], conDatDuration=3600, conBuff=120,
                  timeBeforeOrigin=1*60, timeAfterOrigin=4*60, checkData=True,
                  fillZeros=False):
     
         self.__dict__.update(locals())  # Instantiate all inputs
+        self.inventory = _getInventory(inventoryArg)
         self._checkInputs()
         
+        if self.removeResponse and self.inventory is None:
+            if self.method == 'dir':
+                msg = ('Cannot remove response without a valid inventoryArg, '
+                        'switching to removeResponse to False')
+                detex.log(__name__, msg, level='warning', pri=True)
+                self.removeResponse = False
     
     def _checkInputs(self):
         if not isinstance (self.method, str):
-            msg = 'method must be a string. options are:\n %s' % supMethods
+            msg = 'method must be a string. options:\n %s' % self.supMethods
             detex.log(__name__, msg, level='error')
         self.method = self.method.lower() # parameter to lowercase
         if not self.method in DataFetcher.supMethods:
             msg = ('method %s not supported. Options are:\n %s' % 
-                   (self.method, supMethods))
+                   (self.method, self.supMethods))
             detex.log(__name__, msg, level='error')
             
         if self.method == 'dir':
@@ -291,10 +304,6 @@ class DataFetcher(object):
             else: 
                 self.directory = dirPath[0]
             self._getStream = _loadDirectoryData
-            if self.removeResponse:
-                msg = ('method %s does not support remove response, the '
-                'response should have been removed on the'
-                'detex.getdata.makeDataDirectory call') % self.method
         
         elif self.method == "client":
             if self.client is None:
@@ -309,7 +318,7 @@ class DataFetcher(object):
         elif self.method == 'uuss': # uuss setting 
             self.client = obspy.neic.Client(u'128.110.129.227')
             self._getStream = _loadFromClient
-            self.inventoryClient = obspy.fdsn.Client('iris') # use iris
+            self.inventory = obspy.fdsn.Client('iris') # use iris
     
     def getTemData(self, temkey, stakey, tb4=None, taft=None, returnName=True,
                    temDir=None, skipIfExists=False, skipDict=None, 
@@ -353,6 +362,9 @@ class DataFetcher(object):
             taft = self.timeAfterOrigin
         if skipDict is not None and len(skipDict.keys()) < 1: 
             skipDict = None
+        stakey = detex.util.readKey(stakey, key_type='station')
+        temkey = detex.util.readKey(temkey, key_type='template')
+        
         indexiter = itertools.product(stakey.index, temkey.index)
         #iter through each station/event pair and fetch data
         for stain, temin in indexiter:
@@ -505,16 +517,16 @@ class DataFetcher(object):
         if st is None or len(st) < 1:
             return None
         
-        
+        # attach response
+        if self.removeResponse and self.inventory is not None:
+            if not _hasResponse(st):
+                st = _attachResponse(self, st, start, end, net, sta, loc, chan)
+
         # remove response
         if self.removeResponse:
-            netsta = net + '.' + sta
-            name = obspy.UTCDateTime(start).formatIRISWebService()
-            try:
-                _removeInstrumentResposne(st, self.prefilt, self.opType)
-            except:
-                msg = 'Remove response failed for %s on %s' % (name, netsta)
-                detex.log(__name__, msg, level='warning')
+            st = _removeInstrumentResposne(self, st)
+        if st is None: # return None if response removal failed
+            return None
         
         # trims and zero fills
         st.trim(starttime=start, endtime=end)
@@ -525,7 +537,6 @@ class DataFetcher(object):
         if self.fillZeros:
             st.trim(starttime=start, endtime=end, pad=True, fill_value=0.0)
             st.merge(1, fill_value=0.0)
-        #nc = len(set([x.stats.channel for x in st]))
         return st                  
 
 ########## Functions for loading data based on selected methods ###########
@@ -583,13 +594,17 @@ def _loadFromClient(fet, start, end, net, sta, chan, loc):
     Use obspy client to fetch waveforms
     """
     client = fet.client
-    invClient = fet.inventoryClient
     # str reps of utc objects for error messages
     startstr = start.formatIRISWebService()
     endstr = end.formatIRISWebService()
+    if not isinstance(chan, str): # if list is passed join
+        chan = ','.join(chan)
+    else:
+        if '-' in chan:
+            chan = ','.join(chan.split('-'))
     try: # try to fetch data
         try:
-            st = client.get_waveforms(net, sta, loc, ','.join(chan), start, 
+            st = client.get_waveforms(net, sta, loc, chan, start, 
                                       end, attach_response=fet.removeResponse)
         except AttributeError: # if not fdsn client
             try: #try neic client
@@ -597,42 +612,55 @@ def _loadFromClient(fet, start, end, net, sta, chan, loc):
             except: 
                 msg = ('Client type not understood')
                 detex.log(__name__, msg, level='error')
-            if fet.removeResponse:
-                inv = invClient.get_stations(starttime=start,
-                                             endtime=end,
-                                             network=net,
-                                             station=sta,
-                                             loc=loc,
-                                             channel=chan,
-                                             level="response")
-                st.attach_response(inv)
     except:
         msg = ('Could not fetch data on %s from %s to %s' % 
         (net+'.'+sta, startstr, endstr))
         detex.log(__name__, msg, level='warning', pri=True)
         st = None
+        detex.deb([client, net, sta ,loc, chan, start, end, fet])
     return st
         
 ########## MISC functions #############
         
+def _attachResponse(fet, st, start, end, net, sta, loc, chan):
+    """
+    Function to attach response from inventory or client
+    """
+    if not fet.removeResponse or fet.inventory is None:
+        return st
+    if isinstance(fet.inventory, obspy.station.inventory.Inventory):
+        st.attach(fet.inventory)
+    else:
+        inv = fet.inventory.get_stations(starttime=start,
+                                         endtime=end,
+                                         network=net,
+                                         station=sta,
+                                         loc=loc,
+                                         channel=chan,
+                                         level="response")
+        st.attach(inv)
+    return st
         
-        
-def _progress_bar(total, fileMoveCount):
-    global countSoFar
-    countSoFar += 1
-    width = 25
-    percent = float((float(countSoFar)/float(total))*100.0)
-    completed=int(percent)
-    totalLeft=100
-    completedAmount = int(completed/(float(totalLeft)/float(width)))
-    spaceAmount = int((float(totalLeft)-float(completed))/
-    (float(totalLeft)/float(width)))
-
-    for i in xrange(width):
-        sys.stdout.write("\r[" + "=" * completedAmount + " " * spaceAmount +
-        "]" +  str(round(float(percent), 2)) + "%" + " " + str(countSoFar) + 
-        "/" + str(total) + "  Bad Files:" + str(fileMoveCount) + " ")
-        sys.stdout.flush()
+def _getInventory(invArg):
+    """
+    Take a string, Obspy client, or inventory object and return inventory
+    object used to attach responses to stream objects for response removal
+    """
+    if isinstance(invArg, obspy.station.inventory.Inventory):
+        return invArg
+    elif isinstance (invArg, obspy.fdsn.Client):
+        return invArg
+    elif isinstance(invArg, str):
+        if invArg.lower() == 'iris':
+            invArg = obspy.fdsn.Client('IRIS')
+        elif not os.path.exists(invArg):
+            msg = ('if inventoryArg is str then it must be a client name, ie  '
+                    'IRIS, or a path to a station xml')
+            detex.log(__name__, msg, level='error')
+        else:
+            return detex.read_inventory(invArg)
+    elif invArg is None:
+        return None
 
 def _dataCheck(st, start, end):
     
@@ -669,16 +697,20 @@ def _hasResponse(st):
     """
     return all([hasattr(tr.stats, 'response') for tr in st])
 
-def _removeInstrumentResposne(st, prefilt, opType):
+def _removeInstrumentResposne(fet, st):
+    if not fet.removeResponse: # pass stream back if no response removal
+        return st
     st.detrend('linear')  # detrend
     st = _fftprep(st)
     try:
-        st.remove_response(output=opType, pre_filt=prefilt)
+        st.remove_response(output=fet.opType, pre_filt=fet.prefilt)
     except:
-        msg = 'RemoveResponse Failed for %s,%s, not saving' % (
-            st[0].stats.network, st[0].stats.station)
+        utc1 = str(st[0].stats.starttime).split('.')[0]
+        utc2 = str(st[0].stats.endtime).split('.')[0]
+        msg = 'RemoveResponse Failed for %s,%s, from %s to %s, skipping' % (
+            st[0].stats.network, st[0].stats.station, utc1, utc2)
         detex.log(__name__, msg, level='warning')
-        st = False
+        st = None
     return st
 
 
@@ -831,15 +863,10 @@ def _checkQuality(stPath):
     duration = endtime - starttime
     nc = len(list(set([x.stats.channel for x in st])))
     netsta = st[0].stats.network + '.' + st[0].stats.station
-    if len(gaps) > 0:
-        hasGaps = True
-    else: 
-        hasGaps = False
     outDict = {'Gaps': gapsum, 'Starttime' : starttime, 'Endtime' : endtime,
                'Duration' : duration, 'Nc' : nc, 'Nt':lengthStream,
                'Station' : netsta}
     return outDict  
-    
 
 def _loadIndexDb(dirPath, station, t1, t2):
     indexFile = glob.glob(os.path.join(dirPath, '.index.db'))
@@ -873,19 +900,3 @@ def _associatePathList(pathList, dfin):
 
 getAllData =  makeDataDirectories
     
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
