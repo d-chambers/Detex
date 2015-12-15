@@ -69,4 +69,5 @@ reviews the format of the two required files: the station key and the template k
 ##  [Getdata](GetData/get_data.md)
 Covers the various methods of getting seismic data in detex using the DataFetcher class. 
 
-
+## [Clustering](Clustering/clustering.md)
+Covers the waveform similarity clustering process required to form subspaces. 
