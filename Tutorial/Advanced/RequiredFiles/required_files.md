@@ -22,7 +22,7 @@ The CHANNELS field lists the channels that will be used for each station. If mul
 
 The LAT, LON, and ELEVATION fields give the stations location in global coordinates (elevation is from sea-level, in meters).
 
-The order of the headers is not important. Extra fields can be added without affecting Detex's ability to read the file. If you need to keep track of location for example, simply add a location field.
+The order of the headers is not important. Extra fields can be added without affecting detex's ability to read the file. If you need to keep track of location for example, simply add a location field.
 
 ## Template Key
 
@@ -508,3 +508,11 @@ stakey2 = detex.util.readKey(stakey, key_type='station')
 ```
 
 Since no errors were raised the station key and the template key we created are valid.
+
+# Next Section
+The [next section](../GetData/get_data.md) covers how to get data from various sources. 
+
+
+```python
+
+```

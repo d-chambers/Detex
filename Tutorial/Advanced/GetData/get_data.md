@@ -14,12 +14,12 @@ print ('-------------------------------')
 print (detex.getdata.DataFetcher.__doc__)
 ```
 
-    Current detex version is 1.0.4
+    Current detex version is 1.0.5
     -------------------------------
     
         
     
-        Class to handle data aquisition 
+        Class to handle data acquisition
         
         Parameters 
         ----------
@@ -31,7 +31,7 @@ print (detex.getdata.DataFetcher.__doc__)
                 useful if using an in-network database 
                 "iris" : an iris client is initiated, also uses IRIS for inventory
                 "uuss" : A client attached to the university of utah 
-                seismograph stations is initated using CWB for waveforms
+                seismograph stations is initiated using CWB for waveforms
                 and IRIS is used for station inventories
         client : An obspy client object
             Client object used to get data, from obspy.fdsn, obspy.neic etc.
@@ -67,7 +67,7 @@ print (detex.getdata.DataFetcher.__doc__)
             available)
         
         
-    
+
 
 Some of the more important parameters to pay attention to are the ones controlling the duration of files and the response removal. 
 
@@ -296,8 +296,14 @@ Next we need to call makeDataDirectories (or getAllData which was kept for backw
     Getting continuous data
     ContinuousWaveForms is not indexed, indexing now
     finished makeDataDirectories call
-    Wall time: 1min 56s
-    
+    CPU times: user 34.9 s, sys: 1min 24s, total: 1min 58s
+    Wall time: 1min 13s
+
+
+    /home/derrick/anaconda/lib/python2.7/site-packages/obspy/mseed/core.py:610: UserWarning: The encoding specified in trace.stats.mseed.encoding does not match the dtype of the data.
+    A suitable encoding will be chosen.
+      warnings.warn(msg, UserWarning)
+
 
 Before we look at the downloaded data lets discuss some of the parameters that you should pay attention to when calling the makeDataDirectories function. You should notice that many of the makeDataDirectories function's input arguments are similar to DataFetchers arguments. This is because under the hood the makeDataDirectories function is simply using a DataFetcher attached to a client (IRIS by default). If you wanted to use something besides IRIS you would just need to pass a DataFetcher instance attached to another client as the fetch argument.
 
@@ -338,9 +344,9 @@ ind
     <tr>
       <th>0</th>
       <td>[0, 0, 0, 0]</td>
-      <td>TA.M17A.2009-091T00-00-00.msd</td>
-      <td>1238544000</td>
-      <td>1238547720</td>
+      <td>TA.M17A.2009-091T06-00-00.msd</td>
+      <td>1238565600</td>
+      <td>1238569320</td>
       <td>0</td>
       <td>3</td>
       <td>3</td>
@@ -350,9 +356,9 @@ ind
     <tr>
       <th>1</th>
       <td>[0, 0, 0, 0]</td>
-      <td>TA.M17A.2009-091T01-00-00.msd</td>
-      <td>1238547600</td>
-      <td>1238551320</td>
+      <td>TA.M17A.2009-091T00-00-00.msd</td>
+      <td>1238544000</td>
+      <td>1238547720</td>
       <td>0</td>
       <td>3</td>
       <td>3</td>
@@ -386,9 +392,9 @@ ind
     <tr>
       <th>4</th>
       <td>[0, 0, 0, 0]</td>
-      <td>TA.M17A.2009-091T04-00-00.msd</td>
-      <td>1238558400</td>
-      <td>1238562120</td>
+      <td>TA.M17A.2009-091T01-00-00.msd</td>
+      <td>1238547600</td>
+      <td>1238551320</td>
       <td>0</td>
       <td>3</td>
       <td>3</td>
@@ -410,9 +416,9 @@ ind
     <tr>
       <th>6</th>
       <td>[0, 0, 0, 0]</td>
-      <td>TA.M17A.2009-091T06-00-00.msd</td>
-      <td>1238565600</td>
-      <td>1238569320</td>
+      <td>TA.M17A.2009-091T04-00-00.msd</td>
+      <td>1238558400</td>
+      <td>1238562120</td>
       <td>0</td>
       <td>3</td>
       <td>3</td>
@@ -434,18 +440,6 @@ ind
     <tr>
       <th>8</th>
       <td>[0, 1, 0, 0]</td>
-      <td>TA.M18A.2009-091T01-00-00.msd</td>
-      <td>1238547600</td>
-      <td>1238551320</td>
-      <td>0</td>
-      <td>3</td>
-      <td>3</td>
-      <td>3720.000000</td>
-      <td>TA.M18A</td>
-    </tr>
-    <tr>
-      <th>9</th>
-      <td>[0, 1, 0, 0]</td>
       <td>TA.M18A.2009-091T02-00-00.msd</td>
       <td>1238551200</td>
       <td>1238554920</td>
@@ -456,31 +450,7 @@ ind
       <td>TA.M18A</td>
     </tr>
     <tr>
-      <th>10</th>
-      <td>[0, 1, 0, 0]</td>
-      <td>TA.M18A.2009-091T03-00-00.msd</td>
-      <td>1238554800</td>
-      <td>1238558520</td>
-      <td>0</td>
-      <td>3</td>
-      <td>3</td>
-      <td>3720.000000</td>
-      <td>TA.M18A</td>
-    </tr>
-    <tr>
-      <th>11</th>
-      <td>[0, 1, 0, 0]</td>
-      <td>TA.M18A.2009-091T04-00-00.msd</td>
-      <td>1238558400</td>
-      <td>1238562120</td>
-      <td>0</td>
-      <td>3</td>
-      <td>3</td>
-      <td>3720.000000</td>
-      <td>TA.M18A</td>
-    </tr>
-    <tr>
-      <th>12</th>
+      <th>9</th>
       <td>[0, 1, 0, 0]</td>
       <td>TA.M18A.2009-091T05-00-00.msd</td>
       <td>1238562000</td>
@@ -492,11 +462,47 @@ ind
       <td>TA.M18A</td>
     </tr>
     <tr>
-      <th>13</th>
+      <th>10</th>
+      <td>[0, 1, 0, 0]</td>
+      <td>TA.M18A.2009-091T04-00-00.msd</td>
+      <td>1238558400</td>
+      <td>1238562120</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M18A</td>
+    </tr>
+    <tr>
+      <th>11</th>
       <td>[0, 1, 0, 0]</td>
       <td>TA.M18A.2009-091T06-00-00.msd</td>
       <td>1238565600</td>
       <td>1238569320</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M18A</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>[0, 1, 0, 0]</td>
+      <td>TA.M18A.2009-091T03-00-00.msd</td>
+      <td>1238554800</td>
+      <td>1238558520</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M18A</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>[0, 1, 0, 0]</td>
+      <td>TA.M18A.2009-091T01-00-00.msd</td>
+      <td>1238547600</td>
+      <td>1238551320</td>
       <td>0</td>
       <td>3</td>
       <td>3</td>
@@ -547,7 +553,7 @@ print("There are %d files with less than %d channels" % (len(ind_missing), expec
     There are 0 files with gaps
     There are 0 files with shorter than expected durations
     There are 0 files with less than 3 channels
-    
+
 
 
 ### Initiate DataFetcher
@@ -587,7 +593,7 @@ st.plot()
 ```
 
     Populating the interactive namespace from numpy and matplotlib
-    
+
 
 
 ![png](output_15_1.png)
@@ -641,14 +647,18 @@ st.plot()
 ```
 
     The max sta/lta was 3.73 occured at 2009-04-01T01:44:09.950001Z
-    
 
 
-![png](output_16_1.png)
+    /home/derrick/anaconda/lib/python2.7/site-packages/obspy/signal/trigger.py:348: VisibleDeprecationWarning: boolean index did not match indexed array along dimension 0; dimension is 435 but corresponding boolean dimension is 434
+      of.extend(ind2[np.diff(ind2) > 1].tolist())
 
 
 
 ![png](output_16_2.png)
+
+
+
+![png](output_16_3.png)
 
 
 
@@ -717,7 +727,12 @@ st.filter('bandpass', freqmin=1, freqmax=10, corners=2, zerophase=True)
 st.plot()
 ```
 
-    Populating the interactive namespace from numpy and matplotlib 
+    Populating the interactive namespace from numpy and matplotlib
+
+
+    WARNING: pylab import has clobbered these variables: ['trace']
+    `%matplotlib` prevents importing * from pylab and numpy
+
 
 
 ![png](output_19_2.png)
@@ -729,5 +744,13 @@ The other methods demonstrated in previous sections also work with the DataFetch
 
 It should be noted that by default the instrument responses have been removed. This can be controlled with the removeResponse input argument which is either set to True or False. 
 
-This should give you all the information you need on how detex gets its data and how to set up a custom DataFetcher to be used by other detex classes. The next section ([clustering](../Clustering/clustering.md)) covers how to perform waveform similarity analysis in preparation for subspace detection. 
+This should give you all the information you need on how detex gets its data and how to set up a custom DataFetcher to be used by other detex classes. 
 
+# Next Section
+The [next section](../Clustering/clustering.md) covers how to perform waveform similarity analysis in preparation for subspace detection. 
+
+
+
+```python
+
+```
