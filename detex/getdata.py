@@ -692,6 +692,7 @@ def _loadFromFDSN(fet, start, end, net, sta, chan, loc):
         (net + '.' + sta, startstr, endstr))
         detex.log(__name__, msg, level='warning', pri=False)
         st = None
+        detex.deb([client, net, sta ,loc, chan, start, end, fet])
     return st
 
 
