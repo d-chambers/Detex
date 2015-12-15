@@ -40,10 +40,10 @@ class ClusterStream(object):
     detex.construct.createCluster
     """
 
-    def __init__(self, trdf, temkey, stakey, fetcher, eventList, CCreq, filt,
+    def __init__(self, trdf, temkey, stakey, fetcher, eventList, ccReq, filt,
                  decimate, trim, fileName, eventsOnAllStations, enforceOrigin):
         self.__dict__.update(locals())  # Instantiate all input variables
-        self.CCreq = None  # set to None because it can vary between stations
+        self.ccReq = None  # set to None because it can vary between stations
         self.clusters = [0] * len(trdf) 
         self.stalist = trdf.Station.values.tolist()  # station lists 
         self.stalist2 = [x.split('.')[1] for x in self.stalist]
@@ -55,7 +55,7 @@ class ClusterStream(object):
             else:
                 evlist = eventList
             self.clusters[num] = Cluster(self, row.Station, temkey, evlist, 
-                                         row.Link, CCreq, filt, decimate, trim, 
+                                         row.Link, ccReq, filt, decimate, trim, 
                                          row.CCs)
 
     def writeSimpleHypoDDInput(self, fileName='dt.cc', coef=1, minCC=.35):
@@ -132,9 +132,11 @@ class ClusterStream(object):
                     if cc < minCC:
                         continue
                     lagsamps = trdf.Lags[ind2][ind1]
+                    subsamps = trdf.Subsamp[ind2][ind1]
                     if np.isnan(lagsamps): # if lag from other end of mat
                         lagsamps = -trdf.Lags[ind1][ind2]
-                    lags = lagsamps / (sr * Nc)
+                        subsamps = trdf.Subsamp[ind1][ind2]
+                    lags = lagsamps / (sr * Nc) + subsamps
                     obsline = self._makeObsLine(sta, lags, cc**coef)
                     if isinstance(obsline, str):
                         count += 1
@@ -193,12 +195,12 @@ class ClusterStream(object):
         for cl in self.clusters:
             cl.printAtr()
 
-    def dendro(self):
+    def dendro(self, **kwargs):
         """
         Create dendrograms for each station
         """
         for cl in self.clusters:
-            cl.dendro()
+            cl.dendro(**kwargs)
 
     def simMatrix(self, groupClusts=False, savename=False, returnMat=False,
                   **kwargs):
@@ -222,7 +224,7 @@ class ClusterStream(object):
             dout = cl.simMatrix(groupClusts, savename, returnMat, **kwargs)
             out.append(dout)
 
-    def plotEvents(self, projection='merc', plotNonClusts=True):
+    def plotEvents(self, projection='merc', plotNonClusts=True, **kwargs):
         """
         Plot the event locations for each station
 
@@ -234,7 +236,7 @@ class ClusterStream(object):
             If true also plot the singletons (events that dont cluster)
         """
         for cl in self.clusters:
-            cl.plotEvents(projection=projection, plotNonClusts=plotNonClusts)
+            cl.plotEvents(projection, plotNonClusts, **kwargs)
 
     def write(self):  # uses pickle to write class to disk
         """
@@ -267,7 +269,7 @@ class ClusterStream(object):
 
 class Cluster(object):
 
-    def __init__(self, clustStream, station, temkey, eventList, link, CCreq,
+    def __init__(self, clustStream, station, temkey, eventList, link, ccReq,
                  filt, decimate, trim, DFcc):
 
         # instantiate a few needed varaibles (not all to save space)
@@ -276,25 +278,25 @@ class Cluster(object):
         self.station = station
         self.temkey = temkey
         self.key = eventList
-        self.updateReqCC(CCreq)
+        self.updateReqCC(ccReq)
         self.nonClustColor = '0.6'  # use a grey of 0.6 for singletons
 
-    def updateReqCC(self, newCCreq):
+    def updateReqCC(self, newccReq):
         """
         Function to update the required correlation coeficient for 
         this station
         Parameters
         -------------
-        newCCreq : float (between 0 and 1)
+        newccReq : float (between 0 and 1)
             Required correlation coef
         """
-        if newCCreq < 0. or newCCreq > 1.:
-            msg = 'Parameter CCreq must be between 0 and 1'
+        if newccReq < 0. or newccReq > 1.:
+            msg = 'Parameter ccReq must be between 0 and 1'
             detex.log(__name__, msg, level='error')
-        self.CCreq = newCCreq
+        self.ccReq = newccReq
         self.dflink, serclus = self._makeDFLINK(truncate=False)
         # get events that actually cluster (filter out singletons)
-        dfcl = self.dflink[self.dflink.disSim <= 1 -self.CCreq]  
+        dfcl = self.dflink[self.dflink.disSim <= 1 -self.ccReq]  
         # sort putting highest links in cluster on top
         dfcl.sort_values(by='disSim', inplace=True, ascending=False)
         dfcl.reset_index(inplace=True, drop=True)
@@ -318,8 +320,8 @@ class Cluster(object):
         self.singles = list(keyset.difference(clustset))
         self.clustcount = np.sum([len(x) for x in self.clusts])
         self.clustColors = self._getColors(len(self.clusts))
-        msg = ('CCreq for station %s updated to CCreq=%1.3f' % 
-              (self.station, newCCreq))
+        msg = ('ccReq for station %s updated to ccReq=%1.3f' % 
+              (self.station, newccReq))
         detex.log(__name__,msg ,level='info', pri=True)
 
     def _getColors(self, numClusts):
@@ -364,10 +366,10 @@ class Cluster(object):
         # append cluster numbers to link array
         link = np.append(self.link, np.arange(N+1,N+N+1).reshape(N, 1), 1)
         if truncate: # truncate after required coeficient
-            linkup = link[link[:, 2] <= 1 - self.CCreq]
+            linkup = link[link[:, 2] <= 1 - self.ccReq]
         else:
             linkup = link
-        T = fcluster(link[:, 0:4], 1 - self.CCreq, criterion='distance')
+        T = fcluster(link[:, 0:4], 1 - self.ccReq, criterion='distance')
         serclus = pd.Series(T)
 
         clusdict = pd.Series([np.array([x]) for x in np.arange(
@@ -380,7 +382,7 @@ class Cluster(object):
         if len(dflink) > 0:
             dflink['II'] = list
         else:
-            msg = 'No events cluster with corr coef = %1.3f' % self.CCreq
+            msg = 'No events cluster with corr coef = %1.3f' % self.ccReq
             detex.log(__name__, msg, level='info', pri=True)
         for a in dflink.iterrows():  # enumerate cluster contents
             ar1 = list(np.array(clusdict[int(a[1].i1)]))
@@ -416,7 +418,7 @@ class Cluster(object):
         for a in range(len(self.clusts)):
             plt.plot([], [], '-', color=self.clustColors[a])
         plt.plot([], [], '-', color=self.nonClustColor)
-        dendrogram(self.link, color_threshold=1 - self.CCreq, count_sort=True,
+        dendrogram(self.link, color_threshold=1 - self.ccReq, count_sort=True,
                    link_color_func=lambda x: color_list[x], **kwargs)
         ax = plt.gca()
         if legend:
@@ -448,7 +450,6 @@ class Cluster(object):
             detex.log(__name__, msg, level='error', e=ImportError)
 
         # TODO make dot size scale with magnitudes
-        self.dendro()
         plt.figure()
         # plt.subplot(1,3,1)
 
@@ -555,10 +556,9 @@ class Cluster(object):
         if groupClusts:  # if grouping clusters together
             clusts = copy.deepcopy(self.clusts)  # get cluster list
             clusts.append(self.singles)  # add singles list at end
-            eveOrder = list(itertools.chain.from_iterable(
-                clusts))  # Flatten cluster list
+            eveOrder = list(itertools.chain.from_iterable(clusts))
             indmask = {
-                num: self.key.index(eve) for num,
+                num: list(self.key).index(eve) for num,
                 eve in enumerate(eveOrder)}  # create a mask forthe order
         else:
             # blank index mask if not
@@ -605,7 +605,7 @@ class Cluster(object):
         print ('%d Events cluster out of %d' %
                (self.clustcount, len(self.singles) + self.clustcount))
         print('Total number of clusters = %d' % len(self.clusts))
-        print ('Required Cross Correlation Coeficient = %.3f' % self.CCreq)
+        print ('Required Cross Correlation Coeficient = %.3f' % self.ccReq)
 
     def __getitem__(self, index):  # allow indexing
         return self.clusts[index]
@@ -745,8 +745,8 @@ class SubSpace(object):
                 self.subspaces[station].FracEnergy[ind] = fracEnergy
                 self.subspaces[station].UsedSVDKeys[ind] = usedBasis
                 self.subspaces[station].SVDdefined[ind] = True
-                self.subspaces[station].NumBasis[ind] = len(
-                    self.subspaces[station].UsedSVDKeys[ind])
+                numBas =  len(self.subspaces[station].UsedSVDKeys[ind])
+                self.subspaces[station].NumBasis[ind] = numBas
         if len(self.ssStations) > 0:
             self._setThresholds(selectCriteria, selectValue, conDatNum, 
                                 threshold, basisLength, kwargs)
@@ -807,24 +807,25 @@ class SubSpace(object):
         calculates the % energy capture for each stubspace for each possible
         dimension of rep. (up to # of events that go into the subspace)
         """
+        #detex.deb([self, ind, row, svdDict, U])
         fracDict = {}
         keys = row.Events
         svales = svdDict.keys()
         svales.sort(reverse=True)
         stkeys = row.SampleTrims.keys() # dict defining sample trims
         for key in keys:
-            aliTD = row.AlignedTD[key] # aligned waveform for event "key"
+            aliTD = row.AlignedTD[key] # aligned waveform for event key
             if 'Starttime' in stkeys and 'Endtime' in stkeys:
                 start = row.SampleTrims['Starttime'] # start of trim in samps
                 end = row.SampleTrims['Endtime'] # end of trim in samps
-                aliwf = aliTD[start:end]
+                aliwf = aliTD[start : end]
             else:
                 aliwf = aliTD
             Ut = np.transpose(U) # transpose of basis vects
             # normalized dot product (mat. mult.) 
             normUtAliwf = scipy.dot(Ut, aliwf) / scipy.linalg.norm(aliwf)
             # add 0% energy capture for dim of 0
-            repvect = np.insert(normUtAliwf, 0 , 0) 
+            repvect = np.insert(np.square(normUtAliwf), 0 , 0) 
             # cumul. energy captured for increasing dim. reps
             cumrepvect = [np.sum(repvect[:x+1]) for x in range(len(repvect))]
             fracDict[key] = cumrepvect # add cumul. to keys

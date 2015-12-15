@@ -139,7 +139,7 @@ Changed the name of writeTemplateKeyFromEQSearchSum to eqSearch2TemplateKey, and
 
 Changed the name of several arguments slightly to be more consistent, should be mostly backward compatible
 
-added the NumStations to results tables
+Added the NumStations to results tables
 
 Version 1.0.4
 -------------
@@ -147,4 +147,13 @@ Fixed bug in detex.results._deleteDups where detections from different stations 
 
 Changed the intro tutorial slightly
 
+Version 1.0.5
+-------------
+Removed consisLen argument from createCluster, fillZeros=True will produce approximately the same behavior as consisLen = False
+
+Changed input of __init__.deb from varlist to *varlist
+
+Removed subSamp parameter from createCluster. Will by default calculate subsamples but store the decimal sample in a separate DataFrame.
+
+Fxed issues 15, 16, 17, 18, 19. 
 

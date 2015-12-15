@@ -164,29 +164,34 @@ def _makePfKey(ss_info, sg_info, Pf):
     """
     if not Pf:  # if no Pf value passed simply return none
         return None, None
-    else:
-        ss_df = pd.DataFrame(columns=['Sta', 'Name', 'DS', 'betadist'])
-        sg_df = pd.DataFrame(columns=['Sta', 'Name', 'DS', 'betadist'])
-        if isinstance(ss_info, pd.DataFrame):
-            for num, row in ss_info.iterrows():
-                TH = scipy.stats.beta.isf(Pf, row.beta1, row.beta2, 0, 1)
-                # if isf gives unrealistic pf, initiated forward grid serach
-                if TH > .94:  
-                    TH, Pftemp = _approximateThreshold(
-                        row.beta1, row.beta2, Pf, 1000, 3)
-                ss_df.loc[len(ss_df)] = [row.Sta, row.Name,
-                                         TH, [row.beta1, row.beta2, 0, 1]]
-        if isinstance(sg_info, pd.DataFrame):
-            for num, row in sg_info.iterrows():
-                TH = scipy.stats.beta.isf(Pf, row.beta1, row.beta2, 0, 1)
-                if TH > .94:  
-                    TH, Pftemp = _approximateThreshold(
-                        row.beta1, row.beta2, Pf, 1000, 3)
-                sg_df.loc[len(sg_df)] = [row.Sta, row.Name,
-                                         TH, [row.beta1, row.beta2, 0, 1]]
-        sg_df.reset_index(drop=True, inplace=True)
+
+    ss_df = pd.DataFrame(columns=['Sta', 'Name', 'DS', 'betadist'])
+    sg_df = pd.DataFrame(columns=['Sta', 'Name', 'DS', 'betadist'])
+    if isinstance(ss_info, pd.DataFrame):
+        for num, row in ss_info.iterrows():
+            TH = scipy.stats.beta.isf(Pf, row.beta1, row.beta2, 0, 1)
+            # if isf gives unrealistic pf, initiated forward grid serach
+            if TH > .94:  
+                TH, Pftemp = _approximateThreshold(
+                    row.beta1, row.beta2, Pf, 1000, 3)
+            ss_df.loc[len(ss_df)] = [row.Sta, row.Name,
+                                     TH, [row.beta1, row.beta2, 0, 1]]
         ss_df.reset_index(drop=True, inplace=True)
-        return ss_df, sg_df
+    else:
+        ss_df = None
+        
+    if isinstance(sg_info, pd.DataFrame):
+        for num, row in sg_info.iterrows():
+            TH = scipy.stats.beta.isf(Pf, row.beta1, row.beta2, 0, 1)
+            if TH > .94:  
+                TH, Pftemp = _approximateThreshold(
+                    row.beta1, row.beta2, Pf, 1000, 3)
+            sg_df.loc[len(sg_df)] = [row.Sta, row.Name,
+                                     TH, [row.beta1, row.beta2, 0, 1]]
+        sg_df.reset_index(drop=True, inplace=True)
+    else:
+        sg_df = None
+    return ss_df, sg_df
 
 
 def _approximateThreshold(beta_a, beta_b, target, numintervals, numloops):

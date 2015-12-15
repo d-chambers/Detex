@@ -64,7 +64,7 @@ def writeKMLFromTemplateKey(df='TemplateKey.csv', outname='templates.kml'):
 
 def writeKMLFromStationKey(df='StationKey.csv', outname='stations.kml'):
     """
-    Write a KML file from a tempalteKey
+    Write a KML file from a station key
 
     Parameters
     -------------
@@ -824,7 +824,12 @@ def loadSQLite(corDB, tableName, sql=None, readExcpetion=False, silent=True,
     if sql is None:
         sql = 'SELECT %s FROM %s' % ('*', tableName)
     with connect(corDB, detect_types=PARSE_DECLTYPES) as con:
-        df = psql.read_sql(sql, con)
+        try:
+            df = psql.read_sql(sql, con)
+        except pd.io.sql.DatabaseError:
+            msg = "Table %s not found in %s" % (tableName, corDB)
+            detex.log(__name__, msg, level='warning', pri=True)
+            return None
         if convertNumeric:
             for item, ser in df.iteritems():
                 try:
@@ -887,7 +892,19 @@ def readLog(logpath='detex_log.log'):
     df = pd.read_table(logpath, names=['Time','Mod','Level','Msg'])           
     return df
 
-
+def templateKey2Catalog(temkey):
+    """
+    Function to create an obspy.Catalog instance from a template key
+    """
+    temkey = readKey(temkey, 'template')
+    cat = obspy.Catalog()
+    for ind, row in temkey.iterrows():
+        orig = obspy.core.event.Origin(time=obspy.UTCDateTime(row.TIME), longitude=row.LON, latitude=row.LAT, depth=row.DEPTH)
+        mag = obspy.core.event.Magnitude(mag = row.MAG)
+        eve = obspy.core.event.Event(origins=[orig], magnitudes=[mag])
+        cat.append(eve)
+    return cat
+    
 ###################### Data processing functions ###########################
 
 def get_number_channels(st):

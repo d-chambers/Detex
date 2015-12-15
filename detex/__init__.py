@@ -30,7 +30,7 @@ logging.basicConfig()
 # import all modules in detex directory
 #modules = glob.glob(os.path.dirname(__file__)+"/*.py")
 #__all__ = [os.path.basename(f)[:-3] for f in modules if os.path.isfile(f)]
-#warnings.filterwarnings('error') #uncomment this to make all warnings errors
+warnings.filterwarnings('error') #uncomment this to make all warnings errors
 
 # Imports for lazy people (ie make detex.createCluster callable) 
 from construct import createCluster, createSubSpace
@@ -41,7 +41,7 @@ from util import loadClusters, loadSubSpace
 maxSize = 10 * 1024*1024 # max size log file can be in bytes (10 mb defualt)
 verbose = True # set to false to avoid printing to screen
 makeLog = False # set to false to not make log file
-__version__='1.0.4' # current detex version
+__version__ = '1.0.5' # current detex version
 
 ## Configure logger to be used across all of Detex
 def setLogger(filename='detex_log.log'):
@@ -69,7 +69,8 @@ def setLogger(filename='detex_log.log'):
     fh.setLevel(logging.DEBUG)
     fmat = '%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s'
     formatter = logging.Formatter(fmat)
-    fh.setFormatter(formatter)    
+    fh.setFormatter(formatter)
+    global logger    
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     logger.addHandler(fh)
@@ -137,11 +138,10 @@ def closeLogger():
         handler.close()
         logger.removeHandler(handler)
         
-def deb(varlist):
+def deb(*varlist):
     global de
     de = varlist
     sys.exit(1)
-
 
 if makeLog:
     logger, lpath = setLogger()
