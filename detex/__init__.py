@@ -30,7 +30,7 @@ logging.basicConfig()
 # import all modules in detex directory
 #modules = glob.glob(os.path.dirname(__file__)+"/*.py")
 #__all__ = [os.path.basename(f)[:-3] for f in modules if os.path.isfile(f)]
-warnings.filterwarnings('error') #uncomment this to make all warnings errors
+# warnings.filterwarnings('error') #uncomment this to make all warnings errors
 
 # Imports for lazy people (ie make detex.createCluster callable) 
 from construct import createCluster, createSubSpace
