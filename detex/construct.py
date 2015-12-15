@@ -27,8 +27,7 @@ def createCluster(CCreq=0.5,
                   fileName='clust.pkl', 
                   decimate=None, 
                   dtype='double', 
-                  eventsOnAllStations=False,
-                  subSamp=True, 
+                  eventsOnAllStations=False, 
                   enforceOrigin=False,
                   fillZeros=False):
     """ 
