@@ -566,7 +566,7 @@ def readKey(dfkey, key_type='template'):
     req_temkey = set(['TIME', 'NAME', 'LAT', 'LON', 'MAG', 'DEPTH'])
     req_stakey = set(['NETWORK', 'STATION', 'STARTTIME', 'ENDTIME', 'LAT', 
                       'LON', 'ELEVATION', 'CHANNELS'])
-    req_phases = set(['TimeStamp', 'Event', 'Station', 'Phase', 'Channel'])
+    req_phases = set(['TimeStamp', 'Event', 'Station', 'Phase'])
     req_columns = {'template': req_temkey, 'station': req_stakey, 
                    'phases':req_phases}
     key_types = req_columns.keys()

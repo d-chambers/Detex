@@ -29,7 +29,8 @@ def createCluster(CCreq=0.5,
                   dtype='double', 
                   eventsOnAllStations=False, 
                   enforceOrigin=False,
-                  fillZeros=False):
+                  fillZeros=False,
+                  phases=None):
     """ 
     Function to create an instance of the ClusterStream class 
     
@@ -50,7 +51,8 @@ def createCluster(CCreq=0.5,
         Path to the template key or loaded template key in DataFrame.
     trim : list 
         A list with seconds to trim from events with respect to the origin 
-        time reported in the template key. The default value of [10, 120] 
+        time reported in the template key (or optionally a first arivial time,
+        see phases param for details). The default value of [10, 120] 
         means each event will be trimmed to only contain 10 seconds before 
         its origin time and 120 seconds after. The larger the values of this 
         argument the longer the computation time and chance of misalignment,
@@ -83,6 +85,11 @@ def createCluster(CCreq=0.5,
     fillZeros : bool
         If True fill zeros from trim[0] to trim[1]. Suggested for older 
         data or if only triggered data are available.
+    phases : None, str, or instance of DataFrame
+        If not None a path to phase picks or a DataFrame of phase picks that
+        will be used for trim values rather than referencing the origin time
+        of each event. See issue 25 on detex github page for why this
+        might be useful. 
         
     Returns
     ---------
@@ -93,6 +100,9 @@ def createCluster(CCreq=0.5,
     temkey = detex.util.readKey(templateKey, key_type='template')
     _checkClusterInputs(filt, dtype, trim, decimate)
     
+    if phases is not None:
+        phases = detex.util.readKey(phases, "phases")
+    
     # get a data fetcher
     fetcher = detex.getdata.quickFetch(fetch_arg, fillZeros=fillZeros)
 
@@ -100,7 +110,7 @@ def createCluster(CCreq=0.5,
     msg = 'Starting IO operations and data checks'
     detex.log(__name__, msg, level='info', pri=True)
     TRDF = _loadEvents(fetcher, filt, trim, stakey, temkey, decimate,
-                       dtype, enforceOrigin=enforceOrigin)
+                       dtype, enforceOrigin=enforceOrigin, phases=phases)
     if len(TRDF) < 1: # if no events survive
         msg = ('No events survived pre-processing, check DataFetcher and event\
                 quality')
@@ -144,6 +154,7 @@ def createCluster(CCreq=0.5,
     colstk = ['Station', 'Link', 'CCs', 'Lags','Subsamp', 'Events', 'Stats']
     trdf = TRDF[colstk]
     eventListAll = list(set.union(*[set(x) for x in TRDF.Events]))
+    eventListAll.sort()
     #try:
     clust = detex.subspace.ClusterStream(trdf, temkey, stakey, fetcher, 
                                          eventListAll, CCreq, filt, decimate, 
@@ -215,7 +226,7 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
         cl = clust
     else:
         msg = 'Invalid clust type, must be a path or ClusterStream instance.'
-        detex.log(__name__, msg, level='error')
+        detex.log(__name__, msg, level='error', e=ValueError)
     # Get info from cluster, load fetchers
     temkey = cl.temkey
     stakey = cl.stakey
@@ -241,14 +252,15 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
     msg = 'Starting Subspace Construction'
     detex.log(__name__, msg, pri=True)   
     ssDict = {} # dict to store subspaces in
-    for num, row in TRDF.iterrows(): # Loop through each cluster
+    for num, row in TRDF.iterrows(): # Loop through each station
         staSS = _makeSSDF(row, minEvents)
         if len(staSS) < 1: #if no clusters form on current station
             msg = 'No events grouped into subspaces on %s' % row.Station
             detex.log(__name__, msg, level='warning', pri=True)
             continue
-        for sind, srow in staSS.iterrows(): 
+        for sind, srow in staSS.iterrows(): # loop each cluster
             eventList = srow.Events
+
             # get correlation values from cl object
             DFcc, DFlag = _getInfoFromClust(cl, srow)
             staSS['Lags'][sind] = DFlag
@@ -261,7 +273,7 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
             staSS.loc[sind, 'Link'] = link
             # get lag times and align waveforms
             CCtoLag = _makeCC2LagMap(cx, lags) # a map from cc to lag times
-            delays = _getDelays(link, CCtoLag, cx, lags, cxdf)
+            delays, dflink = _getDelays(link, CCtoLag, cx, lags, cxdf)
             delayNP = -1 * np.min(delays)
             delayDF = pd.DataFrame(delays + delayNP, columns=['SampleDelays'])
             delayDF['Events'] = [eventList[x] for x in delayDF.index]
@@ -279,6 +291,8 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
     
     substream = detex.subspace.SubSpace(singDic, ssDict, cl, dtype, Pf, 
                                               cfetcher)
+    msg = "Finished CreateSubSpace call"
+    detex.log(__name__, msg, level='info', pri=True)
     return substream
     
 def _getInfoFromClust(cl, srow):
@@ -353,7 +367,7 @@ def _makeDFcclags(eventList, row):
     
     # Loop over indicies and fill in cc and lags
     for b in DFcc.index.values:
-        for c in range(b+1,len(DFcc)+1):
+        for c in range(b + 1, len(DFcc) + 1):
             rev = 1 #if order is switched multiply lags by -1
             mptd1 = row.loc['MPtd'][eventList[b]]
             mptd2 = row.loc['MPtd'][eventList[c]]
@@ -363,7 +377,6 @@ def _makeDFcclags(eventList, row):
             Nc2 = row.loc['Channels'][eventList[c]]
             maxcc, sampleLag, subsamp = _CCX2(mpfd1, mpfd2, mptd1, mptd2, Nc1, 
                                               Nc2)
-            # if all the templates are not the same length use slower method
             DFcc.loc[b, c] = maxcc
             DFlag.loc[b, c] = sampleLag
             DFsubsamp.loc[b, c] = subsamp
@@ -399,7 +412,7 @@ def _subSamp(Ceval, ind):
 def _CCX2(mpfd1, mpfd2, mptd1, mptd2, Nc1, Nc2):
     """
     Function find max correlation coeficient and corresponding lag time
-    between 2 traces. fft should have previously been performed
+    between 2 traces. fft should already have been calculated
     """
     if len(Nc1) != len(Nc2): #make sure there are the same number of channels
         msg = 'Number of Channels not equal, cannot perform correlation'
@@ -409,15 +422,22 @@ def _CCX2(mpfd1, mpfd2, mptd1, mptd2, Nc1, Nc2):
         msg = 'Lengths not equal on multiplexed data, cannot correlate'
         detex.log(__name__, msg, level='error')
     n = len(mptd1)
+    
+    trunc = n // (2 * Nc) - 1 # truncate value
+    #trunc = n - 1
+    #n = trunc + 1
+    
     mptd2Temp = mptd2.copy()
-    mptd2Temp = np.lib.pad(mptd2Temp, (n-1,n-1), 'constant', 
+    mptd2Temp = np.lib.pad(mptd2Temp, (n - 1, n - 1), 'constant', 
                            constant_values=(0,0))
     a = pd.rolling_mean(mptd2Temp, n)[n-1:]
     b = pd.rolling_std(mptd2Temp, n)[n-1:]
     b *= np.sqrt((n - 1.0) / n)
     c = np.real(scipy.fftpack.ifft(np.multiply(np.conj(mpfd1), mpfd2)))    
-    c1 = np.concatenate([c[-n + 1:], c[:n]])
+    c1 = np.concatenate([c[-(n - 1):], c[:n]]) #swap end to start
+    # slice by # of channels as not to mix match chans in multplexed stream
     result = ((c1 - mptd1.sum() * a) / (n * b * np.std(mptd1)))[Nc - 1::Nc]
+    result = result[trunc : -trunc]
     try:
         maxcc = np.nanmax(result)
         mincc = np.nanmin(result)
@@ -430,7 +450,7 @@ def _CCX2(mpfd1, mpfd2, mptd1, mptd2, Nc1, Nc2):
     except ValueError: # if fails skip
         return 0.0, 0.0, 0.0
     subsamp = _subSamp(result, maxind)
-    return maxcc, (maxind + 1) * Nc - n, subsamp
+    return maxcc, (maxind + 1 + trunc) * Nc - (n), subsamp
     
 def fast_normcorr(t, s): 
     """
@@ -465,7 +485,6 @@ def _alignTD(delayDF, srow):
             msg = ('Alignment of multiplexed stream failing on %s, \
                    try raising ccreq or widenning trim window' % srow.Station)
             detex.log(__name__, msg, level='error')
-        
     return aligned
 
 def _makeSingleEventDict(cl, TRDF, temkey): 
@@ -555,8 +574,8 @@ def _trimDict(row, column, evelist):
 
 ############## Shared Subspace and Cluster Functions #####################
         
-def _loadEvents(fetcher, filt, trim, stakey, temkey,
-                decimate, dtype, enforceOrigin=False):
+def _loadEvents(fetcher, filt, trim, stakey, temkey, decimate, dtype,
+                enforceOrigin=False, phases=None):
     """
     Initialize TRDF, a container for a great many things including 
     event templates, multiplexed data, obspy traces etc.   
@@ -576,7 +595,8 @@ def _loadEvents(fetcher, filt, trim, stakey, temkey,
         TRDF['MPfd'][ind] = {}  
         sts, eves, chans, stats = _loadStream(fetcher, filt, trim, decimate,
                                               row.Station, dtype, temkey, 
-                                              stakey, enforceOrigin)                  
+                                              stakey, enforceOrigin, 
+                                              phases=phases)                  
         TRDF['Events'][ind] = eves
         TRDF['Channels'][ind] = chans
         TRDF['Stats'][ind] = stats
@@ -664,10 +684,10 @@ def _getDelays(link, CCtoLag, cx, lags, cxdf):
         #get a dataframe with only index as ev1 and column as ev2
         tempdf = cxdf[cxdf == row.cc].dropna(how='all').dropna(axis=1) 
         dflink.loc[ind, 'ev1'] = tempdf.index[0]
-        dflink.loc[ind, 'ev2'] = tempdf.columns[0]   
+        dflink.loc[ind, 'ev2'] = tempdf.columns[0] 
     lags = _traceEventDendro(dflink, cx, lags, CCtoLag, clustDict, 
                              clustDict.iloc[-1])
-    return lags
+    return lags, dflink
     #return clusts,lagByClust   
         
 def _traceEventDendro(dflink, x, lags, CCtoLag, clustDict, clus):
@@ -779,7 +799,7 @@ def _makeCC2LagMap(x, lags):
     return LS        
     
 def _loadStream(fetcher, filt, trim, decimate, station, dtype,
-                temkey, stakey, enforceOrigin=False): 
+                temkey, stakey, enforceOrigin=False, phases=None): 
     """
     loads all traces into stream object and applies filters and trims
     """
@@ -793,7 +813,7 @@ def _loadStream(fetcher, filt, trim, decimate, station, dtype,
     
     # load waveforms
     for st, evename in fetcher.getTemData(temkey, csta, trim[0], trim[1], 
-                                          returnName=True):
+                                          returnName=True, phases=phases):
         if st is None or len(st) < 1:
             continue #skip if stream empty
         st = _applyFilter(st, filt, decimate, dtype)
@@ -831,22 +851,22 @@ def _loadStream(fetcher, filt, trim, decimate, station, dtype,
     for key in keysToRemove: # Remove fractured or very short waveforms
         msg = '%s is fractured or missing data, removing' % key
         detex.log(__name__, msg, level='warning', pri=True)
-        StreamDict.pop(key,None)
-        channelDict.pop(key,None)
-        stats.pop(key,None)
+        StreamDict.pop(key, None)
+        channelDict.pop(key, None)
+        stats.pop(key, None)
         
     for key in set(allzeros): # remove waveforms with channels filled with 0s
         msg = '%s has at least one channel that is all zeros, deleting' % key
         detex.log(__name__, msg, level='warning', pri=True)
-        StreamDict.pop(key,None)
-        channelDict.pop(key,None)
-        stats.pop(key,None)    
+        StreamDict.pop(key, None)
+        channelDict.pop(key, None)
+        stats.pop(key, None)    
     
     if len(StreamDict.keys())<2:
         msg = ('Less than 2 events survived preprocessing for station' 
                '%s Check input parameters, especially trim' % station)
         detex.log(__name__, msg, level='warning', pri=True)        
-        return None,None,None,None
+        return None, None, None, None
     evlist = StreamDict.keys()
     evlist.sort()
     #if 'IMU' in station:

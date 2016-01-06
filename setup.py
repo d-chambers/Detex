@@ -13,7 +13,7 @@ from setuptools import setup, find_packages
 setup(
     name='detex',
 
-    version = '1.0.5',
+    version = '1.0.5b',
 
     description = 'A package for performing subspace and correlation detections on seismic data',
     
