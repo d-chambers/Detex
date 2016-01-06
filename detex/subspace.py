@@ -1871,7 +1871,7 @@ class SubSpace(object):
                         try:
                             vl = json.dumps(self.histSubSpaces[sta][skey].tolist())
                         except AttributeError:
-                            pass
+                            continue
                         dat = [[skey, sta, vl]]
                         sshists.append(pd.DataFrame(dat, columns=cols))
             sshist = pd.concat(sshists, ignore_index=True)
