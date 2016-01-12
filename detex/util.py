@@ -13,7 +13,6 @@ import simplekml
 import pandas as pd
 import detex
 import sip
-import time
 import PyQt4
 import sys
 
@@ -573,25 +572,25 @@ def readKey(dfkey, key_type='template'):
     
     if key_type not in key_types:
         msg = "unsported key type, supported types are %s" % (key_types)
-        detex.log(__name__, msg, level='error')
+        detex.log(__name__, msg, level='error', e=TypeError)
 
     if isinstance(dfkey, str):
         if not os.path.exists(dfkey):
             msg = '%s does not exists, check path' % dfkey
-            detex.log(__name__, msg, level='error')
+            detex.log(__name__, msg, level='error', e=IOError)
         else:
             df = pd.read_csv(dfkey)
     elif isinstance(dfkey, pd.DataFrame):
         df = dfkey
     else:
         msg = 'Data type of dfkey not understood'
-        detex.log(__name__, msg, level='error')
+        detex.log(__name__, msg, level='error', e=TypeError)
 
     # Check required columns
     if not req_columns[key_type].issubset(df.columns):
         msg = ('Required columns not in %s, required columns for %s key are %s'
                % (df.columns, key_type, req_columns[key_type]))
-        detex.log(__name__, msg, level='error')
+        detex.log(__name__, msg, level='error', e=ValueError)
 
     tdf = df.loc[:, list(req_columns[key_type])]
     condition = [all([x != '' for item, x in row.iteritems()])
@@ -675,52 +674,84 @@ def inventory2StationKey(inv, starttime, endtime, fileName=None):
     if isinstance(fileName, str):
         df.to_csv(fileName)
     return df
-    
-    
-def EQSearch2TemplateKey(eq='eqsrchsum', oname='eqTemplateKey.csv'):
+
+def templateKey2Catalog(temkey='TemplateKey.csv', picks='PhasePicks.csv'):
     """
-    Write a template key from the eqsearch sum file (produced by the 
-    University of Utah seismograph stations code EQsearch)
-
+    Function to convert a templatekey and optionally a phase picks file to 
+    an obspy catalog instance
+    
     Parameters
-    -------------
-    eq : str
-        eqsearch sum. file
-    oname : str
-        name of the template key
-    Notes 
-    -------------
-    Code assimes any year code above 50 belongs to 1900, and any year code
-    less than 50 belongs to 2000 (since eqsrchsum is not y2k compliant)
-   """
-    clspecs = [(0, 2), (2, 4), (4, 6), (7, 9), (9, 11), (12, 17),
-               (18, 20), (21, 26), (27, 30), (31, 36), (37, 43), (45, 50)]
-    names = ['year', 'mo', 'day', 'hr', 'min', 'sec', 'latdeg', 'latmin',
-             'londeg', 'lonmin', 'dep', 'mag']
-    df = pd.read_fwf(eq, colspecs=clspecs, header=None, names=names)
-    year = ['19%02d' % x if x > 50 else '20%02d' % x for x in df['year']]
-    month = ['%02d' % x for x in df['mo']]
-    day = ['%02d' % x for x in df['day']]
-    hr = ['%02d' % x for x in df['hr']]
-    minute = ['%02d' % x for x in df['min']]
-    second = ['%05.02f' % x for x in df['sec']]
-    TIME = [
-        '%s-%s-%sT%s-%s-%s' %
-        (x1, x2, x3, x4, x5, x6) for x1, x2, x3, x4, x5, x6 in zip(
-            year, month, day, hr, minute, second)]
-    Lat = df['latdeg'].values + df['latmin'].values / 60.0
-    Lon = -df['londeg'].values - df['lonmin'].values / 60.0
+    -----------
+    temeky : str, pd.DataFrame
+        The standard template key (or path to it)
+    picks : str, pd.DataFrame
+        A picks file in same format as created by pickPhases
+    
+    Returns
+    ---------
+    An Obspy.Catalog object
+    """
+    temkey = readKey(temkey, "template")
+    if not os.path.exists(picks):
+        msg = '%s does not exist, not using phases in catalog creation' % picks
+        detex.log(__name__, msg, level='warning', pri=True)
+        picks = None
+    else:
+        picks = readKey(picks, 'phases')
+    cat = obspy.core.event.Catalog()
+    for ind, row in temkey.iterrows():
+        cat.events.append(_getEvents(row, picks))
+    return cat
+        
+def _getEvents(row, picks):
+    eve = obspy.core.event.Event()
+    eve.magnitudes = _getMagnitudes(row)
+    eve.origins = _getOrigins(row)
+    eve.picks = _getPicks(row, picks)
+    return eve
+    
+def _getMagnitudes(row):
+    mag = obspy.core.event.Magnitude(mag=row.MAG)
+    if 'MTYPE' in row.index:
+        mag.magnitude_type = row.MTYPE
+    return [mag]
 
-    DF = pd.DataFrame()
-    DF['TIME'] = TIME
-    DF['NAME'] = TIME
-    DF['LAT'] = Lat
-    DF['LON'] = Lon
-    DF['MAG'] = df['mag']
-    DF['DEPTH'] = df['dep']
-    DF.to_csv(oname)
-    return DF
-
+def _getOrigins(row):
+    lat = row.LAT
+    lon = row.LON
+    dep = row.DEPTH
+    utctime = obspy.UTCDateTime(row.TIME)
+    ori = obspy.core.event.Origin(latitude=lat, longitude=lon, depth=dep, 
+                                  time=utctime )
+    return [ori]
+    
+def _getPicks(row, picks):
+    phases = []
+    if picks is None:
+        return phases
+    phs = picks[picks.Event==row.NAME]
+    for phnum, ph in phs.iterrows():
+        phases.append(_getPick(row, ph))
+    return phases
+    
+def _getPick(row, ph):
+    pick = obspy.core.event.Pick()
+    pick.waveform_id = _getWFID(ph)
+    pick.time = obspy.UTCDateTime(ph.TimeStamp)
+    pick.phase_hint = ph.Phase
+    return pick
+    
+def _getWFID(ph):
+    net, sta = ph.Station.split('.')
+    if 'Channel' in ph.index:
+        chan = ph.Channel
+    else:
+        chan = ''
+    loc = ''
+    seedid = '%s.%s.%s.%s' % (net, sta, loc, chan)
+    return obspy.core.event.WaveformStreamID(seed_string=seedid)
+    
+    
 def catalog2Templatekey(cat, fileName=None):
     """
     Function to get build the Detex required file TemplateKey.csv 
@@ -776,7 +807,56 @@ def catalog2Templatekey(cat, fileName=None):
         df.loc[evenum] = dat
     if isinstance(fileName, str):
         df.to_csv(fileName)
-    return df
+    return df    
+        
+    
+    
+    
+def EQSearch2TemplateKey(eq='eqsrchsum', oname='eqTemplateKey.csv'):
+    """
+    Write a template key from the eqsearch sum file (produced by the 
+    University of Utah seismograph stations code EQsearch)
+
+    Parameters
+    -------------
+    eq : str
+        eqsearch sum. file
+    oname : str
+        name of the template key
+    Notes 
+    -------------
+    Code assimes any year code above 50 belongs to 1900, and any year code
+    less than 50 belongs to 2000 (since eqsrchsum is not y2k compliant)
+   """
+    clspecs = [(0, 2), (2, 4), (4, 6), (7, 9), (9, 11), (12, 17),
+               (18, 20), (21, 26), (27, 30), (31, 36), (37, 43), (45, 50)]
+    names = ['year', 'mo', 'day', 'hr', 'min', 'sec', 'latdeg', 'latmin',
+             'londeg', 'lonmin', 'dep', 'mag']
+    df = pd.read_fwf(eq, colspecs=clspecs, header=None, names=names)
+    year = ['19%02d' % x if x > 50 else '20%02d' % x for x in df['year']]
+    month = ['%02d' % x for x in df['mo']]
+    day = ['%02d' % x for x in df['day']]
+    hr = ['%02d' % x for x in df['hr']]
+    minute = ['%02d' % x for x in df['min']]
+    second = ['%05.02f' % x for x in df['sec']]
+    TIME = [
+        '%s-%s-%sT%s-%s-%s' %
+        (x1, x2, x3, x4, x5, x6) for x1, x2, x3, x4, x5, x6 in zip(
+            year, month, day, hr, minute, second)]
+    Lat = df['latdeg'].values + df['latmin'].values / 60.0
+    Lon = -df['londeg'].values - df['lonmin'].values / 60.0
+
+    DF = pd.DataFrame()
+    DF['TIME'] = TIME
+    DF['NAME'] = TIME
+    DF['LAT'] = Lat
+    DF['LON'] = Lon
+    DF['MAG'] = df['mag']
+    DF['DEPTH'] = df['dep']
+    DF.to_csv(oname)
+    return DF
+
+
 
 def saveSQLite(DF, CorDB, Tablename, silent=True):  
     """
@@ -892,18 +972,18 @@ def readLog(logpath='detex_log.log'):
     df = pd.read_table(logpath, names=['Time','Mod','Level','Msg'])           
     return df
 
-def templateKey2Catalog(temkey):
-    """
-    Function to create an obspy.Catalog instance from a template key
-    """
-    temkey = readKey(temkey, 'template')
-    cat = obspy.Catalog()
-    for ind, row in temkey.iterrows():
-        orig = obspy.core.event.Origin(time=obspy.UTCDateTime(row.TIME), longitude=row.LON, latitude=row.LAT, depth=row.DEPTH)
-        mag = obspy.core.event.Magnitude(mag = row.MAG)
-        eve = obspy.core.event.Event(origins=[orig], magnitudes=[mag])
-        cat.append(eve)
-    return cat
+#def templateKey2Catalog(temkey):
+#    """
+#    Function to create an obspy.Catalog instance from a template key
+#    """
+#    temkey = readKey(temkey, 'template')
+#    cat = obspy.Catalog()
+#    for ind, row in temkey.iterrows():
+#        orig = obspy.core.event.Origin(time=obspy.UTCDateTime(row.TIME), longitude=row.LON, latitude=row.LAT, depth=row.DEPTH)
+#        mag = obspy.core.event.Magnitude(mag = row.MAG)
+#        eve = obspy.core.event.Event(origins=[orig], magnitudes=[mag])
+#        cat.append(eve)
+#    return cat
     
 ###################### Data processing functions ###########################
 
