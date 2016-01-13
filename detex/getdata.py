@@ -71,8 +71,8 @@ def quickFetch(fetch_arg, **kwargs):
         detex.log(__name__, msg, level='error')
     return dat_fet
     
-def makeDataDirectories(template_key='TemplateKey.csv', 
-                         station_key='StationKey.csv', 
+def makeDataDirectories(templateKey='TemplateKey.csv', 
+                         stationKey='StationKey.csv', 
                          fetch='IRIS', 
                          formatOut='mseed', 
                          templateDir=eveDirDefault, 
