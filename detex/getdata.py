@@ -143,8 +143,8 @@ def makeDataDirectories(template_key='TemplateKey.csv',
 
     """
 
-    temkey = detex.util.readKey(template_key, 'template')
-    stakey = detex.util.readKey(station_key, 'station')    
+    temkey = detex.util.readKey(templateKey, 'template')
+    stakey = detex.util.readKey(stationKey, 'station')    
     
     # Check output type
     if formatOut not in formatKey.keys():
@@ -737,7 +737,7 @@ def _getInventory(invArg):
                     'IRIS, or a path to a station xml')
             detex.log(__name__, msg, level='error')
         else:
-            return detex.read_inventory(invArg)
+            return obspy.read_inventory(invArg)
     elif invArg is None:
         return None
 
