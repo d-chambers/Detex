@@ -41,7 +41,7 @@ from util import loadClusters, loadSubSpace
 maxSize = 10 * 1024*1024 # max size log file can be in bytes (10 mb defualt)
 verbose = True # set to false to avoid printing to screen
 makeLog = False # set to false to not make log file
-__version__ = '1.0.5c' # current detex version
+__version__ = '1.0.6' # current detex version
 
 ## Configure logger to be used across all of Detex
 def setLogger(fileName='detex_log.log', deleteOld=False):

@@ -224,7 +224,7 @@ class ClusterStream(object):
             dout = cl.simMatrix(groupClusts, savename, returnMat, **kwargs)
             out.append(dout)
 
-    def plotEvents(self, **kwargs):
+    def plotEvents(self, projection='merc', plotSingles=True, **kwargs):
         """
         Plot the event locations for each station using basemap. Calls the 
         plotEvents method of the Cluster class, see its docs for accepted 
@@ -234,17 +234,20 @@ class ClusterStream(object):
         ---------
         projection : str
             The pojection type to pass to basemap
-        plotNonClusts : bool
-            If true also plot the singletons (events that dont cluster)
+        plotSingles : bool
+            If True also plot the singletons (events that dont cluster)
         
         Notes
         -------
+        
+        kwargs are passed to basemap
+        
         If no working installation of basemap is found an ImportError will 
         be raised. See the following URL for tips on installing it:
-        http://matplotlib.org/basemap/users/installing.html
+        http://matplotlib.org/basemap/users/installing.html, good luck!
         """
         for cl in self.clusters:
-            cl.plotEvents(projection, plotNonClusts, **kwargs)
+            cl.plotEvents(projection, plotSingles, **kwargs)
 
     def write(self):  # uses pickle to write class to disk
         """
@@ -446,104 +449,171 @@ class Cluster(object):
         if show:
             plt.show()
 
-    def plotEvents(self, projection='merc', plotSingles=True):
+    def plotEvents(self, projection='merc', plotSingles=True, **kwargs):
         """
-        Function to plot epicenters, and optionally hypocenters, of the events
-        in the same color as their as their respective clusters as rendered by
-        the dendro method of 
+        Plot the event locations for each station using basemap. Calls the 
+        plotEvents method of the Cluster class, see its docs for accepted 
+        kwargs.
+
         Parameters
+        ---------
+        projection : str
+            The pojection type to pass to basemap
+        plotSingles : bool
+            If True also plot the singletons (events that dont cluster)
+        
+        Notes
+        -------
+        kwargs are passed to basemap
+        If no working installation of basemap is found an ImportError will 
+        be raised. See the following URL for tips on installing it:
+        http://matplotlib.org/basemap/users/installing.html, good luck!
         """
+        # TODO make dot size scale with magnitudes
+        # make sure basemap is installed
         try:
             from mpl_toolkits.basemap import Basemap
         except ImportError:
             msg = 'mpl_toolskits basemap not installed, cant plot'
             detex.log(__name__, msg, level='error', e=ImportError)
+        # init figures and get limits
+        fig_map, emap, horrange = self._init_map(Basemap, projection, kwargs)
+        zmin, zmax, zscale = self._get_z_scaling(horrange)
+        fig_lat = self._init_profile_figs(zmin, zmax, zscale)
+        fig_lon = self._init_profile_figs(zmin, zmax, zscale) 
+        # seperate singletons from clustered events
+        cl_dfs, sing_df = self._get_singletons_and_clusters()
+        self._plot_map_view(emap, fig_map, horrange, cl_dfs, sing_df)
+        self._plot_profile_view(zmin, zmax, zscale, fig_lat, fig_lon, cl_dfs, 
+                                sing_df, emap)
 
-        # TODO make dot size scale with magnitudes
-        plt.figure()
-        # plt.subplot(1,3,1)
-
-        latmin, latmax, lonmin, lonmax = self.temkey.LAT.min(
-        ), self.temkey.LAT.max(), self.temkey.LON.min(), self.temkey.LON.max()
+    def _init_map(self, Basemap, projection, kwargs):
+        """
+        Function to setup the map figure with basemap returns the 
+        figure instance and basemap instance and horizontal range of plot
+        """
+        map_fig = plt.figure()
+       
+        # get map bounds       
+        latmin = self.temkey.LAT.min()
+        latmax = self.temkey.LAT.max()
+        lonmin = self.temkey.LON.min()
+        lonmax = self.temkey.LON.max()
         # create buffers so there is a slight border with no events around map
         latbuff = abs((latmax - latmin) * 0.1)
         lonbuff = abs((lonmax - lonmin) * 0.1)
-        # get the total x distance of plot in km
+        # get the total horizontal distance of plot in km
         totalxdist = obspy.core.util.geodetics.gps2DistAzimuth(
             latmin, lonmin, latmin, lonmax)[0] / 1000  
-        emap = Basemap(projection='merc',
-                       lat_0=np.mean([latmin,
-                                      latmax]),
-                       lon_0=np.mean([lonmin,
-                                      lonmax]),
+        # init projection
+        emap = Basemap(projection=projection,
+                       lat_0=np.mean([latmin, latmax]),
+                       lon_0=np.mean([lonmin, lonmax]),
                        resolution='h',
                        area_thresh=0.1,
                        llcrnrlon=lonmin - lonbuff,
                        llcrnrlat=latmin - latbuff,
                        urcrnrlon=lonmax + lonbuff,
-                       urcrnrlat=latmax + latbuff)
+                       urcrnrlat=latmax + latbuff,
+                       **kwargs)
+        # draw scale
         emap.drawmapscale(lonmin, latmin, lonmin, latmin, totalxdist / 4.5)
 
-        temDFs = [self.temkey[self.temkey.NAME.isin(x)] for x in self.clusts]
-        nocldf = self.temkey[self.temkey.NAME.isin([x for x in self.singles])]
+        # get limits in projection
         xmax, xmin, ymax, ymin = emap.xmax, emap.xmin, emap.ymax, emap.ymin
         horrange = max((xmax - xmin), (ymax - ymin))  # horizontal range
-        zmin, zmax = self.temkey.DEPTH.min(), self.temkey.DEPTH.max()
-        zscaleFactor = horrange / (zmax - zmin)
 
-        x, y = emap(nocldf.LON.values, nocldf.LAT.values)
-        emap.plot(x, y, '.', color=self.nonClustColor, ms=6.0)
         # get maximum degree distance for setting scalable ticks
         latdi, londi = [abs(latmax - latmin), abs(lonmax - lonmin)]
         maxdeg = max(latdi, londi)
         parallels = np.arange(0., 80, maxdeg / 4)
         emap.drawparallels(parallels, labels=[1, 0, 0, 1])
         meridians = np.arange(10., 360., maxdeg / 4)
-        emap.drawmeridians(meridians, labels=[1, 0, 0, 1])
-        plt.figure()
-        plt.plot(x, nocldf.DEPTH * zscaleFactor, '.', color=self.nonClustColor,
-                 ms=6.0)
-        z1 = zmin * zscaleFactor
-        z2 = zmax * zscaleFactor
+        mers = emap.drawmeridians(meridians, labels=[1, 0, 0, 1])
+        for m in mers: # rotate meridian labels
+            try:
+                mers[m][1][0].set_rotation(90)
+            except:
+                pass
+        
+        plt.title('Clusters on %s' % self.station)
+        return map_fig, emap, horrange
+        
+    def _init_profile_figs(self, zmin, zmax, zscale):
+        """
+        init figs for plotting the profiles of the events
+        """
+        # init profile figures
+        profile_fig = plt.figure() 
+        z1 = zmin * zscale
+        z2 = zmax * zscale
         tickfor = ['%0.1f' % x1 for x1 in np.linspace(zmin, zmax, 10)]
         plt.yticks(np.linspace(z1, z2, 10), tickfor)
         plt.gca().invert_yaxis()
         plt.xticks([])
         plt.ylabel('Depth (km)')
-        plt.xlabel('Longitude')
+        return profile_fig
 
-        plt.figure()
-        plt.plot(
-            y,
-            nocldf.DEPTH *
-            zscaleFactor,
-            '.',
-            color=self.nonClustColor,
-            ms=6.0)
-        for a in range(len(self.clusts)):
-            plt.figure(1)
-            x, y = emap(temDFs[a].LON.values, temDFs[a].LAT.values)
-            emap.plot(x, y, '.', color=self.clustColors[a])
-            plt.figure(2)
-            plt.plot(
-                x,
-                temDFs[a].DEPTH *
-                zscaleFactor,
-                '.',
-                color=self.clustColors[a])
-            plt.figure(3)
-            plt.plot(
-                y,
-                temDFs[a].DEPTH *
-                zscaleFactor,
-                '.',
-                color=self.clustColors[a])
-        # make labels
-        plt.yticks(np.linspace(z1, z2, 10), tickfor)
-        plt.gca().invert_yaxis()
-        plt.xticks([])
-        plt.ylabel('Depth (km)')
-        plt.xlabel('Lattitude')
+    def _get_z_scaling(self, horrange):
+        """
+        Return z limits and scale factors
+        """
+        zmin, zmax = self.temkey.DEPTH.min(), self.temkey.DEPTH.max()
+        zscale = horrange / (zmax - zmin)
+        return zmin, zmax, zscale  
+
+    def _get_singletons_and_clusters(self):
+        """        
+        get dataframes of clustered events and singletons
+        Note: cl_dfs is a list of dfs whereas sing_df is just a df
+        """
+        cl_dfs = [self.temkey[self.temkey.NAME.isin(x)] for x in self.clusts]
+        sing_df = self.temkey[self.temkey.NAME.isin([x for x in self.singles])]
+        return cl_dfs, sing_df
+
+    def _plot_map_view(self, emap, map_fig, horrange, cl_dfs, sing_df):
+        """
+        plot the map figure
+        """
+        plt.figure(map_fig.number) # set to map figure
+        # plot singles
+        x, y = emap(sing_df.LON.values, sing_df.LAT.values)
+        emap.plot(x, y, '.', color=self.nonClustColor, ms=6.0)
+        for clnum, cl in enumerate(cl_dfs):
+            x, y = emap(cl.LON.values, cl.LAT.values)
+            emap.plot(x, y, '.', color=self.clustColors[clnum])
+        
+    def _plot_profile_view(self, zmin, zmax, zscale, fig_lat, fig_lon, cl_df, 
+                           sing_df, emap):
+        """
+        plot the profile view
+        """
+        x_sing, y_sing = emap(sing_df.LON.values, sing_df.LAT.values)
+        # plot singletons
+        nccolor = self.nonClustColor
+        plt.figure(fig_lon.number)
+        plt.plot(x_sing, sing_df.DEPTH * zscale, '.', color=nccolor, ms=6.0)
+        plt.xlabel('Longitude')
+        plt.figure(fig_lat.number)
+        plt.plot(y_sing, sing_df.DEPTH * zscale, '.', color=nccolor, ms=6.0)
+        plt.xlabel('Latitude')
+        # plot clusters
+        for clnum, cl in enumerate(cl_df):
+            ccolor = self.clustColors[clnum]
+            x, y = emap(cl.LON.values, cl.LAT.values)
+            plt.figure(fig_lon.number)
+            plt.plot(x, cl.DEPTH * zscale, '.', color=ccolor)
+            plt.figure(fig_lat.number)
+            plt.plot(y, cl.DEPTH * zscale, '.', color=ccolor)
+        # set buffers so nothing plots right on edge
+        for fig in [fig_lat, fig_lon]:
+            plt.figure(fig.number)
+            xlim = plt.xlim()
+            xdist = abs(max(xlim) - min(xlim))
+            plt.xlim(xlim[0] - xdist*.1, xlim[1] + xdist*.1)
+            ylim = plt.ylim()
+            ydist = abs(max(xlim) - min(xlim))
+            plt.ylim(ylim[0] - ydist*.1, ylim[1] + ydist*.1)
 
     def simMatrix(self, groupClusts=False, savename=False, returnMat=False,
                   **kwargs):
@@ -1139,6 +1209,7 @@ class SubSpace(object):
                 plt.title('Station %s, %s, %d events' % (station, row.Name, len(events)))
                 plt.show()
 
+
     def plotBasisVectors(self, onlyused=False):
         """
         Plots the basis vectors selected after performing the SVD
@@ -1161,12 +1232,13 @@ class SubSpace(object):
                 num_wfs = len(row.UsedSVDKeys) if onlyused else len(row.SVD)
                 keyz = row.SVD.keys()
                 keyz.sort(reverse=True)
-                keyz = keyz[:len(num_wfs)]
-                plt.figure(figsize=[10, .9 * len(num_wfs)])
+                keyz = keyz[:num_wfs]
+                plt.figure(figsize=[10, .9 * num_wfs])
                 for keynum, key in enumerate(keyz):
-                    wf = row.SVD[key]/(2 * max(row.SVD[key])) - keynum
+                    wf = row.SVD[key]/(2 * max(row.SVD[key])) - 1.5 * keynum
                     c = 'b' if keynum < len(row.UsedSVDKeys) else '.5'
-                    plt.plot(w, c=c)
+                    plt.plot(wf, c=c)
+                plt.ylim(-1.5 * keynum - 1, 1)
                 plt.yticks([])
                 plt.xticks([])
                 plt.title('%s station %s' % (row.Name, row.Station))

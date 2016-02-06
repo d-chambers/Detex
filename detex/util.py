@@ -675,6 +675,86 @@ def inventory2StationKey(inv, starttime, endtime, fileName=None):
     if isinstance(fileName, str):
         df.to_csv(fileName)
     return df
+
+def templateKey2Catalog(temkey='TemplateKey.csv', picks=None):
+    """
+    Function to convert a templatekey and optionally a phase picks file to 
+    an obspy catalog instance
+    
+    Parameters
+    -----------
+    temeky : str, pd.DataFrame
+        The standard template key (or path to it)
+    picks : str, pd.DataFrame
+        A picks file in same format as created by pickPhases
+    
+    Returns
+    ---------
+    An Obspy.Catalog object
+    """
+    temkey = readKey(temkey, "template")
+    picks = readKey(picks, 'phases')
+    cat = obspy.core.event.Catalog()
+    for ind, row in temkey.iterrows():
+        cat.events.append(_getEvents(row, picks))
+    return cat
+        
+def _getEvents(row, picks):
+    eve = obspy.core.event.Event()
+    eve.magnitudes = _getMagnitudes(row)
+    eve.origins = _getOrigins(row)
+    eve.picks = _getPicks(row, picks)
+    return eve
+    
+def _getMagnitudes(row):
+    mag = obspy.core.event.Magnitude()
+    mag.mag = row.MAG
+    if 'MTYPE' in row.index:
+        mag.magnitude_type = row.MTYPE
+    return [mag]
+
+def _getOrigins(row):
+    lat = row.LAT
+    lon = row.LON
+    dep = row.DEPTH
+    ori = obspy.core.event.Origin
+    ori.lattitude = lat
+    ori.longitude = lon
+    ori.depth = dep
+    return [ori]
+    
+def _getPicks(row, picks):
+    phases = []
+    if picks is None:
+        return phases
+    phs = picks[picks.Event==row.NAME]
+    for phind, ph in phs.iterrows():
+        phases.append(_getPick(row, ph))
+    return phases
+    
+def _getPick(row, ph):
+    pick = obspy.core.event.Pick()
+    #pick.waveform_id = _getWFID(ph)
+#    import ipdb
+#    ipdb.set_trace()
+    pick.time = obspy.UTCDateTime(ph.TimeStamp)
+    pick.phase_hint = ph.Phase
+    return pick
+    
+#def _getWFID(ph):
+#    net, sta = ph.Station.split('.')
+#    if 'Channel' in ph.index:
+#        chan = ph.Channel
+#    else:
+#        chan = ''
+#    loc = ''
+#    seedid = '%s.%s.%s.%s' % (net, sta, loc, chan)
+#    return obspy.core.event.WaveformStreamID(seed_string=seedid)
+    
+    
+    
+        
+    
     
     
 def EQSearch2TemplateKey(eq='eqsrchsum', oname='eqTemplateKey.csv'):
@@ -891,19 +971,6 @@ def readLog(logpath='detex_log.log'):
     """
     df = pd.read_table(logpath, names=['Time','Mod','Level','Msg'])           
     return df
-
-def templateKey2Catalog(temkey):
-    """
-    Function to create an obspy.Catalog instance from a template key
-    """
-    temkey = readKey(temkey, 'template')
-    cat = obspy.Catalog()
-    for ind, row in temkey.iterrows():
-        orig = obspy.core.event.Origin(time=obspy.UTCDateTime(row.TIME), longitude=row.LON, latitude=row.LAT, depth=row.DEPTH)
-        mag = obspy.core.event.Magnitude(mag = row.MAG)
-        eve = obspy.core.event.Event(origins=[orig], magnitudes=[mag])
-        cat.append(eve)
-    return cat
     
 ###################### Data processing functions ###########################
 
