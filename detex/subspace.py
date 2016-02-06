@@ -224,19 +224,30 @@ class ClusterStream(object):
             dout = cl.simMatrix(groupClusts, savename, returnMat, **kwargs)
             out.append(dout)
 
-    def plotEvents(self, projection='merc', plotNonClusts=True, **kwargs):
+    def plotEvents(self, projection='merc', plotSingles=True, **kwargs):
         """
-        Plot the event locations for each station
+        Plot the event locations for each station using basemap. Calls the 
+        plotEvents method of the Cluster class, see its docs for accepted 
+        kwargs.
 
         Parameters
         ---------
         projection : str
             The pojection type to pass to basemap
-        plotNonClusts : bool
-            If true also plot the singletons (events that dont cluster)
+        plotSingles : bool
+            If True also plot the singletons (events that dont cluster)
+        
+        Notes
+        -------
+        
+        kwargs are passed to basemap
+        
+        If no working installation of basemap is found an ImportError will 
+        be raised. See the following URL for tips on installing it:
+        http://matplotlib.org/basemap/users/installing.html, good luck!
         """
         for cl in self.clusters:
-            cl.plotEvents(projection, plotNonClusts, **kwargs)
+            cl.plotEvents(projection, plotSingles, **kwargs)
 
     def write(self):  # uses pickle to write class to disk
         """
@@ -438,102 +449,171 @@ class Cluster(object):
         if show:
             plt.show()
 
-    def plotEvents(self, projection='merc', plotNonClusts=True):
+    def plotEvents(self, projection='merc', plotSingles=True, **kwargs):
         """
-        Function to use basemap to plot the physical locations of the events 
-        in the same color as their respective clusters
+        Plot the event locations for each station using basemap. Calls the 
+        plotEvents method of the Cluster class, see its docs for accepted 
+        kwargs.
+
+        Parameters
+        ---------
+        projection : str
+            The pojection type to pass to basemap
+        plotSingles : bool
+            If True also plot the singletons (events that dont cluster)
+        
+        Notes
+        -------
+        kwargs are passed to basemap
+        If no working installation of basemap is found an ImportError will 
+        be raised. See the following URL for tips on installing it:
+        http://matplotlib.org/basemap/users/installing.html, good luck!
         """
+        # TODO make dot size scale with magnitudes
+        # make sure basemap is installed
         try:
             from mpl_toolkits.basemap import Basemap
         except ImportError:
             msg = 'mpl_toolskits basemap not installed, cant plot'
             detex.log(__name__, msg, level='error', e=ImportError)
+        # init figures and get limits
+        fig_map, emap, horrange = self._init_map(Basemap, projection, kwargs)
+        zmin, zmax, zscale = self._get_z_scaling(horrange)
+        fig_lat = self._init_profile_figs(zmin, zmax, zscale)
+        fig_lon = self._init_profile_figs(zmin, zmax, zscale) 
+        # seperate singletons from clustered events
+        cl_dfs, sing_df = self._get_singletons_and_clusters()
+        self._plot_map_view(emap, fig_map, horrange, cl_dfs, sing_df)
+        self._plot_profile_view(zmin, zmax, zscale, fig_lat, fig_lon, cl_dfs, 
+                                sing_df, emap)
 
-        # TODO make dot size scale with magnitudes
-        plt.figure()
-        # plt.subplot(1,3,1)
-
-        latmin, latmax, lonmin, lonmax = self.temkey.LAT.min(
-        ), self.temkey.LAT.max(), self.temkey.LON.min(), self.temkey.LON.max()
+    def _init_map(self, Basemap, projection, kwargs):
+        """
+        Function to setup the map figure with basemap returns the 
+        figure instance and basemap instance and horizontal range of plot
+        """
+        map_fig = plt.figure()
+       
+        # get map bounds       
+        latmin = self.temkey.LAT.min()
+        latmax = self.temkey.LAT.max()
+        lonmin = self.temkey.LON.min()
+        lonmax = self.temkey.LON.max()
         # create buffers so there is a slight border with no events around map
         latbuff = abs((latmax - latmin) * 0.1)
         lonbuff = abs((lonmax - lonmin) * 0.1)
-        # get the total x distance of plot in km
+        # get the total horizontal distance of plot in km
         totalxdist = obspy.core.util.geodetics.gps2DistAzimuth(
             latmin, lonmin, latmin, lonmax)[0] / 1000  
-        emap = Basemap(projection='merc',
-                       lat_0=np.mean([latmin,
-                                      latmax]),
-                       lon_0=np.mean([lonmin,
-                                      lonmax]),
+        # init projection
+        emap = Basemap(projection=projection,
+                       lat_0=np.mean([latmin, latmax]),
+                       lon_0=np.mean([lonmin, lonmax]),
                        resolution='h',
                        area_thresh=0.1,
                        llcrnrlon=lonmin - lonbuff,
                        llcrnrlat=latmin - latbuff,
                        urcrnrlon=lonmax + lonbuff,
-                       urcrnrlat=latmax + latbuff)
+                       urcrnrlat=latmax + latbuff,
+                       **kwargs)
+        # draw scale
         emap.drawmapscale(lonmin, latmin, lonmin, latmin, totalxdist / 4.5)
 
-        temDFs = [self.temkey[self.temkey.NAME.isin(x)] for x in self.clusts]
-        nocldf = self.temkey[self.temkey.NAME.isin([x for x in self.singles])]
+        # get limits in projection
         xmax, xmin, ymax, ymin = emap.xmax, emap.xmin, emap.ymax, emap.ymin
         horrange = max((xmax - xmin), (ymax - ymin))  # horizontal range
-        zmin, zmax = self.temkey.DEPTH.min(), self.temkey.DEPTH.max()
-        zscaleFactor = horrange / (zmax - zmin)
 
-        x, y = emap(nocldf.LON.values, nocldf.LAT.values)
-        emap.plot(x, y, '.', color=self.nonClustColor, ms=6.0)
         # get maximum degree distance for setting scalable ticks
         latdi, londi = [abs(latmax - latmin), abs(lonmax - lonmin)]
         maxdeg = max(latdi, londi)
         parallels = np.arange(0., 80, maxdeg / 4)
         emap.drawparallels(parallels, labels=[1, 0, 0, 1])
         meridians = np.arange(10., 360., maxdeg / 4)
-        emap.drawmeridians(meridians, labels=[1, 0, 0, 1])
-        plt.figure()
-        plt.plot(x, nocldf.DEPTH * zscaleFactor, '.', color=self.nonClustColor,
-                 ms=6.0)
-        z1 = zmin * zscaleFactor
-        z2 = zmax * zscaleFactor
+        mers = emap.drawmeridians(meridians, labels=[1, 0, 0, 1])
+        for m in mers: # rotate meridian labels
+            try:
+                mers[m][1][0].set_rotation(90)
+            except:
+                pass
+        
+        plt.title('Clusters on %s' % self.station)
+        return map_fig, emap, horrange
+        
+    def _init_profile_figs(self, zmin, zmax, zscale):
+        """
+        init figs for plotting the profiles of the events
+        """
+        # init profile figures
+        profile_fig = plt.figure() 
+        z1 = zmin * zscale
+        z2 = zmax * zscale
         tickfor = ['%0.1f' % x1 for x1 in np.linspace(zmin, zmax, 10)]
         plt.yticks(np.linspace(z1, z2, 10), tickfor)
         plt.gca().invert_yaxis()
         plt.xticks([])
         plt.ylabel('Depth (km)')
-        plt.xlabel('Longitude')
+        return profile_fig
 
-        plt.figure()
-        plt.plot(
-            y,
-            nocldf.DEPTH *
-            zscaleFactor,
-            '.',
-            color=self.nonClustColor,
-            ms=6.0)
-        for a in range(len(self.clusts)):
-            plt.figure(1)
-            x, y = emap(temDFs[a].LON.values, temDFs[a].LAT.values)
-            emap.plot(x, y, '.', color=self.clustColors[a])
-            plt.figure(2)
-            plt.plot(
-                x,
-                temDFs[a].DEPTH *
-                zscaleFactor,
-                '.',
-                color=self.clustColors[a])
-            plt.figure(3)
-            plt.plot(
-                y,
-                temDFs[a].DEPTH *
-                zscaleFactor,
-                '.',
-                color=self.clustColors[a])
-        # make labels
-        plt.yticks(np.linspace(z1, z2, 10), tickfor)
-        plt.gca().invert_yaxis()
-        plt.xticks([])
-        plt.ylabel('Depth (km)')
-        plt.xlabel('Lattitude')
+    def _get_z_scaling(self, horrange):
+        """
+        Return z limits and scale factors
+        """
+        zmin, zmax = self.temkey.DEPTH.min(), self.temkey.DEPTH.max()
+        zscale = horrange / (zmax - zmin)
+        return zmin, zmax, zscale  
+
+    def _get_singletons_and_clusters(self):
+        """        
+        get dataframes of clustered events and singletons
+        Note: cl_dfs is a list of dfs whereas sing_df is just a df
+        """
+        cl_dfs = [self.temkey[self.temkey.NAME.isin(x)] for x in self.clusts]
+        sing_df = self.temkey[self.temkey.NAME.isin([x for x in self.singles])]
+        return cl_dfs, sing_df
+
+    def _plot_map_view(self, emap, map_fig, horrange, cl_dfs, sing_df):
+        """
+        plot the map figure
+        """
+        plt.figure(map_fig.number) # set to map figure
+        # plot singles
+        x, y = emap(sing_df.LON.values, sing_df.LAT.values)
+        emap.plot(x, y, '.', color=self.nonClustColor, ms=6.0)
+        for clnum, cl in enumerate(cl_dfs):
+            x, y = emap(cl.LON.values, cl.LAT.values)
+            emap.plot(x, y, '.', color=self.clustColors[clnum])
+        
+    def _plot_profile_view(self, zmin, zmax, zscale, fig_lat, fig_lon, cl_df, 
+                           sing_df, emap):
+        """
+        plot the profile view
+        """
+        x_sing, y_sing = emap(sing_df.LON.values, sing_df.LAT.values)
+        # plot singletons
+        nccolor = self.nonClustColor
+        plt.figure(fig_lon.number)
+        plt.plot(x_sing, sing_df.DEPTH * zscale, '.', color=nccolor, ms=6.0)
+        plt.xlabel('Longitude')
+        plt.figure(fig_lat.number)
+        plt.plot(y_sing, sing_df.DEPTH * zscale, '.', color=nccolor, ms=6.0)
+        plt.xlabel('Latitude')
+        # plot clusters
+        for clnum, cl in enumerate(cl_df):
+            ccolor = self.clustColors[clnum]
+            x, y = emap(cl.LON.values, cl.LAT.values)
+            plt.figure(fig_lon.number)
+            plt.plot(x, cl.DEPTH * zscale, '.', color=ccolor)
+            plt.figure(fig_lat.number)
+            plt.plot(y, cl.DEPTH * zscale, '.', color=ccolor)
+        # set buffers so nothing plots right on edge
+        for fig in [fig_lat, fig_lon]:
+            plt.figure(fig.number)
+            xlim = plt.xlim()
+            xdist = abs(max(xlim) - min(xlim))
+            plt.xlim(xlim[0] - xdist*.1, xlim[1] + xdist*.1)
+            ylim = plt.ylim()
+            ydist = abs(max(xlim) - min(xlim))
+            plt.ylim(ylim[0] - ydist*.1, ylim[1] + ydist*.1)
 
     def simMatrix(self, groupClusts=False, savename=False, returnMat=False,
                   **kwargs):
@@ -640,11 +720,63 @@ class SubSpace(object):
         self.Stations.sort()
         self._stakey2 = {x: x for x in self.ssStations}
         self._stakey1 = {x.split('.')[1]: x for x in self.ssStations}
+    
+    ################################ Validate Cluster functions
+    
+    def validateClusters(self):
+        """
+        Method to check for misaligned waveforms and discard those that no 
+        longer meet the required correlation coeficient for each cluster. 
+        See Issue 25 (www.github.com/d-chambers/detex) for why this might 
+        be useful.
+        """
+        msg = 'Validating aligned (and trimmed) waveforms in each cluster'
+        detex.log(__name__, msg, level='info', pri=True)
+        for sta in self.subspaces.keys():
+            subs = self.subspaces[sta]
+            c = self.clusters[sta]
+            ccreq = c.ccReq
+            for clustNum, row in subs.iterrows():
+                stKeys = row.SampleTrims.keys()
+                # get trim times if defined
+                if 'Starttime' in stKeys and 'Endtime' in stKeys:
+                    start = row.SampleTrims['Starttime']
+                    stop = row.SampleTrims['Endtime']
+                else:
+                    start = 0
+                    stop = -1
+                for ev1num, ev1 in enumerate(row.Events[:-1]):
+                    ccs = [] # blank list for storing ccs of aligned WFs
+                    for ev2 in row.Events[ev1num + 1:]:
+                        t = row.AlignedTD[ev1][start : stop]
+                        s = row.AlignedTD[ev2][start : stop]
+                        maxcc = detex.construct.fast_normcorr(t, s)
+                        ccs.append(maxcc)
+                    if len(ccs) > 0 and max(ccs) < ccreq:
+                        msg = (('%s fails validation check or is ill-aligned '
+                               'on station %s, removing') % (ev1, row.Station))
+                        detex.log(__name__, msg, pri=True)
+                        self._removeEvent(sta, ev1, clustNum)
+        msg = 'Finished validateCluster call'
+        detex.log(__name__, msg, level='info', pri=True)
+
+    def _removeEvent(self, sta, event, clustNum):
+        """
+        Function to remove an event from a SubSpace instance
+        """
+        # remove from eventList
+        srow = self.subspaces[sta].loc[clustNum]
+        srow.Events.remove(event)
+        srow.AlignedTD.pop(event, None)
+                
+        
+        
 
     ################################ SVD Functions
                 
     def SVD(self, selectCriteria=2, selectValue=0.9, conDatNum=100,
-            threshold=None, normalize=False, useSingles=True, **kwargs):
+            threshold=None, normalize=False, useSingles=True,
+            validateWaveforms=True, **kwargs):
         """
         Function to perform SVD on the alligned waveforms and select which 
         of the SVD basis are to be used in event detection. Also assigns 
@@ -705,15 +837,20 @@ class SubSpace(object):
             avoids estimating the effective dimension of representation or 
             distribution of the null space. Can be useful if problems arise
             in the false alarm statistic calculation
-        normalize : boolean
+        normalize : bool
             If true normalize the amplitude of all the training events before 
             preforming the SVD. Keeps higher amplitude events from dominating
             the SVD vectors but can over emphasize noise. Haris 2006 recomends
             using normalization but the personal experience of the author has
             found normalization can increase the detector's propensity to 
             return false detections.
-        useSingles : boolean
-            If true also calculate the thresholds for singles
+        useSingles : bool
+            If True also calculate the thresholds for singles
+        validateWaveforms : bool
+            If True call the validateClusters method before the performing SVD
+            to make sure each trimed aligned waveform still meets the
+            required correlation coeficient. Any waveforms that do not will
+            be discarded. 
             
         kwargs are passed to the getFAS call (if used)
         """
@@ -786,12 +923,12 @@ class SubSpace(object):
             if selectValue > 1 or selectValue < 0:
                 msg = ('When selectCriteria==%d selectValue must be a float'
                        ' between 0 and 1' % selectCriteria)
-                detex.log(__name__, msg, level='error')
+                detex.log(__name__, msg, level='error', e=ValueError)
         elif selectCriteria == 4:
             if selectValue < 0 or not isinstance(selectValue, int):
                 msg =  ('When selectCriteria==3 selectValue must be an'
                         'integer greater than 0')
-                detex.log(__name__, msg, level='error')
+                detex.log(__name__, msg, level='error', e=ValueError)
         else:
             msg = 'selectCriteria of %s is not supported' % selectCriteria
             detex.log(__name__, msg, level='error')
@@ -800,14 +937,13 @@ class SubSpace(object):
         if threshold is not None:
             if not isinstance(threshold, numbers.Number) or threshold < 0:
                 msg = 'Unsupported type for threshold, must be None or float'
-                detex.log(__name__, msg, level='error')
+                detex.log(__name__, msg, level='error', e=ValueError)
                 
     def _getFracEnergy(self, ind, row, svdDict, U):
         """
         calculates the % energy capture for each stubspace for each possible
         dimension of rep. (up to # of events that go into the subspace)
         """
-        #detex.deb([self, ind, row, svdDict, U])
         fracDict = {}
         keys = row.Events
         svales = svdDict.keys()
@@ -860,7 +996,7 @@ class SubSpace(object):
         
         elif selectCriteria == 1:
             msg = 'selectCriteria 1 currently not supported'
-            detex.log(__name__, msg, level='error')
+            detex.log(__name__, msg, level='error', e=ValueError)
         
         elif selectCriteria in [2, 4]:
             # call getFAS to estimate null space dist.
@@ -927,10 +1063,7 @@ class SubSpace(object):
                 if threshold:
                     th = threshold
                 else:
-                    try:
-                        beta_a, beta_b = row.FAS[0]['betadist'][0:2]
-                    except:
-                        detex.deb([self, row])
+                    beta_a, beta_b = row.FAS[0]['betadist'][0:2]
                     th = scipy.stats.beta.isf(self.Pf, beta_a, beta_b, 0, 1)
                     if th > .9:
                         th, Pftemp = self._approxThreshold(beta_a, beta_b, 
@@ -1053,13 +1186,14 @@ class SubSpace(object):
         are defined.
         """
         for a, station in enumerate(self.ssStations):
-            f = plt.figure(a)
-            f.set_figheight(1.85 * len(self.subspaces[station]))
             for ind, row in self.subspaces[station].iterrows():
-                plt.subplot(len(self.subspaces[station]), 1, row[0] + 1)
+                plt.figure(figsize=[10, .9 * len(row.Events)])
+                #f.set_figheight(1.85 * len(row.Events))
+                #plt.subplot(len(self.subspaces[station]), 1, ind + 1)
                 events = row.Events
                 stKeys = row.SampleTrims.keys() # sample trim keys
                 for evenum, eve in enumerate(events):
+                    #plt.subplot(len(self.subspaces[station]), 1, evenum + 1)
                     aliTD = row.AlignedTD[eve] # aligned wf for event eve
                     if 'Starttime' in stKeys and 'Endtime' in stKeys:
                         start = row.SampleTrims['Starttime']
@@ -1067,22 +1201,23 @@ class SubSpace(object):
                         aliwf = aliTD[start : stop]
                     else:
                         aliwf = row.AlignedTD[eve]
-                    plt.plot(aliwf / (2 * max(aliwf)) + 2 * evenum)
+                    plt.plot(aliwf / (2 * max(aliwf)) + 1.5 * evenum, c='k')
                     plt.xlim([0, len(aliwf)])
-                plt.title(row.Station)
+                plt.ylim(-1, 1.5 * evenum + 1)
                 plt.xticks([])
                 plt.yticks([])
-                plt.title('Station %s, %d' % (station, row.Name))
-            plt.show()
+                plt.title('Station %s, %s, %d events' % (station, row.Name, len(events)))
+                plt.show()
 
-    def plotBasisVectors(self, onlyused=True):
+
+    def plotBasisVectors(self, onlyused=False):
         """
         Plots the basis vectors selected after performing the SVD
         If SVD has not been called will throw error
 
         Parameters
         ------------
-        onlyUsed : boolean
+        onlyUsed : bool
             If true only the selected basis vectors will be plotted. See
             SVD for how detex selects basis vectors.
             If false all will be plotted (used in blue, unused in red)
@@ -1092,21 +1227,22 @@ class SubSpace(object):
             detex.log(__name__, msg, level='error')
         for subnum, station in enumerate(self.ssStations):
             subsp = self.subspaces[station]
-            plt.figure(subnum + 1)
+            
             for ind, row in subsp.iterrows():
-                plt.subplot(len(subsp), 1, ind + 1)
+                num_wfs = len(row.UsedSVDKeys) if onlyused else len(row.SVD)
+                keyz = row.SVD.keys()
+                keyz.sort(reverse=True)
+                keyz = keyz[:num_wfs]
+                plt.figure(figsize=[10, .9 * num_wfs])
+                for keynum, key in enumerate(keyz):
+                    wf = row.SVD[key]/(2 * max(row.SVD[key])) - 1.5 * keynum
+                    c = 'b' if keynum < len(row.UsedSVDKeys) else '.5'
+                    plt.plot(wf, c=c)
+                plt.ylim(-1.5 * keynum - 1, 1)
+                plt.yticks([])
+                plt.xticks([])
                 plt.title('%s station %s' % (row.Name, row.Station))
-                if not onlyused:
-                    keyz = row.SVD.keys()
-                    keyz.sort(reverse=True)
-                    for keynum, key in enumerate(keyz):
-                        plt.plot(row.SVD[key] /
-                                 (2 * max(row.SVD[key])) - keynum, 'r')
-                for keynum, key in enumerate(row.UsedSVDKeys):
-                    plt.plot(row.SVD[key] /
-                             (2 * max(row.SVD[key])) - keynum, 'b')
-            plt.tight_layout()
-            plt.yticks([])
+
 
     def plotOffsetTimes(self):
         """
@@ -1456,7 +1592,10 @@ class SubSpace(object):
         d = np.abs(offsets - np.median(offsets))
         mdev = np.median(d)
         s = d / mdev if mdev else 0.
-        offs = offsets[s < m]
+        if isinstance(s, float):
+            offs = offsets
+        else:
+            offs = offsets[s < m]
         return [np.min(offs), np.median(offs), np.max(offs)]
 
     def getFAS(
@@ -1754,13 +1893,10 @@ class SubSpace(object):
                 events = ','.join(ss.Events)
                 numbasis = ss.NumBasis
                 thresh = ss.Threshold
-                try:
-                    if isinstance(ss.FAS, dict) and len(ss.FAS.keys()) > 1:
-                        b1, b2 = ss.FAS['betadist'][0], ss.FAS['betadist'][1]
-                    else:
-                        b1, b2 = np.nan, np.nan
-                except:
-                    detex.deb(ss)
+                if isinstance(ss.FAS, dict) and len(ss.FAS.keys()) > 1:
+                    b1, b2 = ss.FAS['betadist'][0], ss.FAS['betadist'][1]
+                else:
+                    b1, b2 = np.nan, np.nan
                 cols = ['Name', 'Sta', 'Events', 'Threshold', 'NumBasisUsed',
                         'beta1', 'beta2']
                 dat = [[name, station, events, thresh, numbasis, b1, b2]]
@@ -1804,7 +1940,10 @@ class SubSpace(object):
             for sta in self.Stations:
                 if sta in self.histSubSpaces.keys():
                     for skey in self.histSubSpaces[sta]:
-                        vl = json.dumps(self.histSubSpaces[sta][skey].tolist())
+                        try:
+                            vl = json.dumps(self.histSubSpaces[sta][skey].tolist())
+                        except AttributeError:
+                            continue
                         dat = [[skey, sta, vl]]
                         sshists.append(pd.DataFrame(dat, columns=cols))
             sshist = pd.concat(sshists, ignore_index=True)
@@ -1818,7 +1957,10 @@ class SubSpace(object):
             for sta in self.Stations:
                 if sta in self.histSingles.keys():
                     for skey in self.histSingles[sta]:
-                        vl = json.dumps(self.histSingles[sta][skey].tolist())
+                        try:
+                            vl = json.dumps(self.histSingles[sta][skey].tolist())
+                        except AttributeError:
+                            pass
                         dat = [[skey, sta, vl]]
                         sghists.append(pd.DataFrame(dat, columns=cols))
             sghist = pd.concat(sghists, ignore_index=True)

@@ -30,7 +30,7 @@ logging.basicConfig()
 # import all modules in detex directory
 #modules = glob.glob(os.path.dirname(__file__)+"/*.py")
 #__all__ = [os.path.basename(f)[:-3] for f in modules if os.path.isfile(f)]
-# warnings.filterwarnings('error') #uncomment this to make all warnings errors
+#warnings.filterwarnings('error') #uncomment this to make all warnings errors
 
 # Imports for lazy people (ie make detex.createCluster callable) 
 from construct import createCluster, createSubSpace
@@ -41,30 +41,32 @@ from util import loadClusters, loadSubSpace
 maxSize = 10 * 1024*1024 # max size log file can be in bytes (10 mb defualt)
 verbose = True # set to false to avoid printing to screen
 makeLog = False # set to false to not make log file
-__version__ = '1.0.5' # current detex version
+__version__ = '1.0.6' # current detex version
 
 ## Configure logger to be used across all of Detex
-def setLogger(filename='detex_log.log'):
+def setLogger(fileName='detex_log.log', deleteOld=False):
     """
     Function to set up the logger used across Detex
     
     Parameters
     ----------
-    makeLog : boolean
-        If True write log events to file
-    filename : str
+    fileName : str
         Path to log file to be created
+    deleteOld : bool
+        If True, delete any file of fileName if exists
     """
     reload(logging) # reload to reconfigure default ipython log
     # set makeLog to True
     global makeLog
     makeLog = True
-    cwd=os.getcwd()
-    fil = os.path.join(cwd, filename)
+    cwd = os.getcwd()
+    fil = os.path.join(cwd, fileName)
     if os.path.exists(fil):
         if os.path.getsize(fil) > maxSize:
             print ('old log file %s exceeds size limit, deleting' % fil) 
             os.path.remove(fil)
+        elif deleteOld:
+            os.path.realpath(fil)
     fh = logging.FileHandler(fil)
     fh.setLevel(logging.DEBUG)
     fmat = '%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s'
@@ -74,9 +76,8 @@ def setLogger(filename='detex_log.log'):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     logger.addHandler(fh)
-    lpath = os.path.abspath(filename)
-    logger.info('Starting logging, path to log file: %s' % fil)
-    return logger, lpath
+    lpath = os.path.abspath(fileName)
+    logger.info('Starting logging, path to log file: %s' % fil) 
     
 
 #define basic logging function
@@ -144,7 +145,7 @@ def deb(*varlist):
     sys.exit(1)
 
 if makeLog:
-    logger, lpath = setLogger()
+    setLogger()
     
 
 

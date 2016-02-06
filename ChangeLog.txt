@@ -157,3 +157,11 @@ Removed subSamp parameter from createCluster. Will by default calculate subsampl
 
 Fxed issues 15, 16, 17, 18, 19. 
 
+Version 1.0.6
+-------------
+Fixed issues 25, 24, 23, 21, 20
+experimental fixes for issue 25
+
+Added some tests for getdata method, working on more tests and finishing tutorials. 
+
+
