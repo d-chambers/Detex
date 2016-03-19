@@ -19,7 +19,10 @@ from __future__ import print_function, absolute_import, unicode_literals
 from __future__ import with_statement, nested_scopes, generators, division
 
 import numpy as np
-import cStringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 import pandas.io.sql as psql
 from dateutil import parser
 
@@ -155,7 +158,7 @@ def postgresql_copy_from(df, name, con ):
     # append data into existing postgresql table using COPY
     
     # 1. convert df to csv no header
-    output = cStringIO.StringIO()
+    output = StringIO()
     
     # deal with datetime64 to_csv() bug
     have_datetime64 = False

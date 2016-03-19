@@ -20,7 +20,10 @@ import json
 import matplotlib as mpl
 import detex
 import scipy
-import cPickle
+try: # python 2/3 compat
+    import cPickle
+except ImportError:
+    import pickle as cPickle
 import itertools
 import copy
 import colorsys

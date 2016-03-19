@@ -749,7 +749,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         Open existing QuakeML catalog
         '''
         try:
-            print 'Opening QuakeML Catalog %s' % filename
+            print ('Opening QuakeML Catalog %s' % filename)
             cat = event.readEvents(filename)
             self._picks = cat[0].picks
             self._drawPicks()

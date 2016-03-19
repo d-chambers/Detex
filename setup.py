@@ -24,10 +24,10 @@ setup(
         'Intended Audience :: Geo-scientists',
         'Topic :: Earthquake detection',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 2.7, 3.5',
     ],
     keywords = 'seismology signal detection',
     packages = find_packages(exclude=['contrib', 'docs', 'tests*']),
-    install_requires = ['obspy', 'basemap', 'numpy', 'pandas >= 0.17.0', 
-                        'scipy', 'matplotlib', 'multiprocessing', 'glob2'],
+    install_requires = ['obspy', 'numpy', 'pandas >= 0.17.0', 
+                        'scipy', 'matplotlib', 'glob2'],
 )

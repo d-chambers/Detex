@@ -164,4 +164,10 @@ experimental fixes for issue 25
 
 Added some tests for getdata method, working on more tests and finishing tutorials. 
 
+Version 1.0.7
+--------------
+Added python 3 support
+Changed _mergeChannels method to account for more edge cases
+
+
 
