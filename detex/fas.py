@@ -14,7 +14,7 @@ import detex
 import scipy
 
 from scipy.fftpack import fft
-from obspy.signal.trigger import classicSTALTA
+from obspy.signal.trigger import classic_sta_lta
 from itertools import chain #from_iterable
 
 ############## Subspace Detex and FAS #######################
@@ -52,11 +52,10 @@ def _initFAS(TRDF, conDatNum, cluster, fetcher, LTATime=5,
         # get processing params from cluster instance
         filt = cluster.filt
         deci = cluster.decimate
-        
         dsvec, count, scount = _getDSVect(fetcher, stakey, utc1, utc2, 
                                           filt, deci, dtype, conDatNum, Nc, 
                                           reqlen, STATime, LTATime, 
-                                          ssArrayTD, ssArrayFD, staltalimit)       
+                                          ssArrayTD, ssArrayFD, staltalimit)  
         if count != conDatNum:
             msg = '%d samps not avaliable, using all avaliable' %(conDatNum)
             detex.log(__name__, msg, level='warn')
@@ -98,11 +97,9 @@ def _getDSVect(fetcher, stakey, utc1, utc2, filt, deci, dtype,
             if st is None or len(st) < 1:
                 continue # no need to log, fetcher will do it
             count += 1
-            stt = st.copy()
-            try:
-                st = detex.construct._applyFilter(st, filt, deci, dtype)
-            except:
-                detex.deb([stt, filt, deci, dtype])
+            st = detex.construct._applyFilter(st, filt, deci, dtype)
+            if st is None or len(st) < 1:
+                continue # no need to log, fetcher will do it
             passSTALTA = _checkSTALTA(st, filt, sta, lta, limit)
             if not passSTALTA:
                 continue
@@ -114,7 +111,7 @@ def _getDSVect(fetcher, stakey, utc1, utc2, filt, deci, dtype,
             scount += 1 
         if count == 0:
             msg = 'Could not get any data for %s' %(stakey.STATION.loc[0])
-            detex.log(__name__, msg, level='error')
+            detex.log(__name__, msg, level='error')        
         return DSmat, count, scount
        
 def _MPXSSCorr(MPcon, reqlen, ssArrayTD, ssArrayFD, Nc): 
@@ -178,7 +175,12 @@ def _checkSTALTA(st, filt, STATime, LTATime, limit):
     """
     if limit is None:
         return True
-    stz = st.select(component='Z')[0]
+    if len(st) < 1:
+        return None
+    try:
+        stz = st.select(component='Z')[0]
+    except IndexError: # if no Z found on trace
+        return None
     if len(stz) < 1:
         stz = st[0]
     sz = stz.copy()
@@ -186,7 +188,7 @@ def _checkSTALTA(st, filt, STATime, LTATime, limit):
     ltaSamps = LTATime * sr
     staSamps = STATime * sr
     try:
-        cft = classicSTALTA(sz.data, staSamps, ltaSamps)
+        cft = classic_sta_lta(sz.data, staSamps, ltaSamps)
     except:
         return False
         detex.deb([sz, staSamps, ltaSamps])

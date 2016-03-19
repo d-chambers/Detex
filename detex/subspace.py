@@ -5,6 +5,11 @@ Created on Tue Jul 08 21:24:18 2014
 @author: Derrick
 Module containing import detex classes
 """
+# python 2 and 3 compatibility imports
+from __future__ import print_function, absolute_import, unicode_literals
+from __future__ import with_statement, nested_scopes, generators, division
+from six import text_type, string_types
+
 import pandas as pd
 import numpy as np
 import obspy
@@ -138,7 +143,7 @@ class ClusterStream(object):
                         subsamps = trdf.Subsamp[ind1][ind2]
                     lags = lagsamps / (sr * Nc) + subsamps
                     obsline = self._makeObsLine(sta, lags, cc**coef)
-                    if isinstance(obsline, str):
+                    if isinstance(obsline, string_types):
                         count += 1
                         if count == 1:
                             fil.write(header + '\n')
@@ -260,7 +265,7 @@ class ClusterStream(object):
     def __getitem__(self, key): # allows indexing of children Cluster objects
         if isinstance(key, int):
             return self.clusters[key]
-        elif isinstance(key, str):
+        elif isinstance(key, string_types):
             if len(key.split('.')) == 1:
                 return self.clusters[self.stalist2.index(key)]
             elif len(key.split('.')) == 2:
@@ -776,7 +781,7 @@ class SubSpace(object):
                 
     def SVD(self, selectCriteria=2, selectValue=0.9, conDatNum=100,
             threshold=None, normalize=False, useSingles=True,
-            validateWaveforms=True, **kwargs):
+            validateWaveforms=True, backupThreshold=None, **kwargs):
         """
         Function to perform SVD on the alligned waveforms and select which 
         of the SVD basis are to be used in event detection. Also assigns 
@@ -851,6 +856,10 @@ class SubSpace(object):
             to make sure each trimed aligned waveform still meets the
             required correlation coeficient. Any waveforms that do not will
             be discarded. 
+        backupThreshold : None or float
+            A backup threshold to use if approximation fails. Typically,
+            using the default detex settings, a reasonable value would be
+            0.25
             
         kwargs are passed to the getFAS call (if used)
         """
@@ -864,6 +873,12 @@ class SubSpace(object):
                 svdDict = {}  # initialize dict to put SVD vectors in
                 keys = sorted(row.Events)
                 arr, basisLength = self._trimGroups(ind, row, keys, station)
+                if basisLength == 0:
+                    msg = (('subspace %d on %s is failing alignment and '
+                            'trimming, deleting it') % (ind, station))
+                    detex.log(__name__, msg, level='warn')
+                    self._drop_subspace(station, ind)
+                    continue
                 if normalize:
                     arr = np.array([x / np.linalg.norm(x) for x in arr])
                 tparr = np.transpose(arr)
@@ -886,11 +901,19 @@ class SubSpace(object):
                 self.subspaces[station].NumBasis[ind] = numBas
         if len(self.ssStations) > 0:
             self._setThresholds(selectCriteria, selectValue, conDatNum, 
-                                threshold, basisLength, kwargs)
-        if len(self.singStations) > 0:
+                                threshold, basisLength, backupThreshold, kwargs)
+        if len(self.singStations) > 0 and useSingles:
             self.setSinglesThresholds(conDatNum=conDatNum, threshold=threshold,
+                                      backupThreshold=backupThreshold, 
                                       kwargs=kwargs)
 
+    def _drop_subspace(self, station, ssnum):
+        """
+        Drop a subspace that is misbehaving
+        """
+        space = self.subspaces[station]
+        self.subspaces[station] = space[space.index != int(ssnum)]
+        
     def _trimGroups(self, ind, row, keys, station):  
         """
         function to get trimed subspaces if trim times are defined, and 
@@ -987,7 +1010,7 @@ class SubSpace(object):
         return selKeys
 
     def _setThresholds(self, selectCriteria, selectValue, conDatNum, 
-                       threshold, basisLength, kwargs={}):
+                       threshold, basisLength, backupThreshold, kwargs={}):
         if threshold > 0:
             for station in self.ssStations:
                 subspa = self.subspaces[station]
@@ -1009,8 +1032,10 @@ class SubSpace(object):
                     # TODO consider implementing other dist. options as well
                     th = scipy.stats.beta.isf(self.Pf, beta_a, beta_b, 0, 1) 
                     if th > .9:
-                        th, Pftemp = self._approxThreshold(beta_a, beta_b,
-                                                           self.Pf, 1000, 3)
+                        th, Pftemp = self._approxThld(beta_a, beta_b, station,
+                                                      row, self.Pf, 1000, 3, 
+                                                      backupThreshold)
+                                                           
                         msg = ('Scipy.stats.beta.isf failed with pf=%e, '
                                'approximated threshold to %f with a Pf of %e '
                                'for station %s %s using forward grid search' %
@@ -1026,7 +1051,7 @@ class SubSpace(object):
                     self.subspaces[station].Threshold[ind] = th
 
     def setSinglesThresholds(self, conDatNum=50, recalc=False, 
-                             threshold=None, kwargs={}):
+                             threshold=None, backupThreshold=None, kwargs={}):
         """
         Set thresholds for the singletons (unclustered events) by fitting 
         a beta distribution to estimation of null space
@@ -1039,6 +1064,9 @@ class SubSpace(object):
             If true recalculate the the False Alarm Statistics
         threshold : None or float between 0 and 1
             If number, don't call getFAS simply use given threshold
+        backupThreshold : None or float
+            If approximate a threshold fails then use backupThreshold. If None
+            then raise. 
         Note 
         ----------
         Any singles without pick times will not be used. In this way singles 
@@ -1066,8 +1094,9 @@ class SubSpace(object):
                     beta_a, beta_b = row.FAS[0]['betadist'][0:2]
                     th = scipy.stats.beta.isf(self.Pf, beta_a, beta_b, 0, 1)
                     if th > .9:
-                        th, Pftemp = self._approxThreshold(beta_a, beta_b, 
-                                                           self.Pf, 1000, 3)
+                        th, Pftemp = self._approxThld(beta_a, beta_b, sta,
+                                                      row, self.Pf, 1000, 3, 
+                                                      backupThreshold)
                         msg = ('Scipy.stats.beta.isf failed with pf=%e, '
                                'approximated threshold to %f with a Pf of %e '
                                'for station %s %s using forward grid search' %
@@ -1075,7 +1104,8 @@ class SubSpace(object):
                         detex.log(__name__, msg, level='warning')
                 self.singles[sta]['Threshold'][ind] = th
 
-    def _approxThreshold(self, beta_a, beta_b, target, numint, numloops):
+    def _approxThld(self, beta_a, beta_b, sta, row, target, numint, numloops, 
+                    backupThreshold):
         """
         Because scipy.stats.beta.isf can break, if it returns a value near 1 
         when this is obviously wrong initialize grid search algorithm to get 
@@ -1087,17 +1117,23 @@ class SubSpace(object):
         loops = 0
         while loops < numloops:
             Xs = np.linspace(startVal, stopVal, numint)
-            pfs = np.array([scipy.stats.beta.sf(x, beta_a, beta_b)
-                            for x in Xs])
+            pfs = np.array([scipy.stats.beta.sf(x, beta_a, beta_b) for x in Xs])
             resids = abs(pfs - target)
             minind = resids.argmin()
+            if minind == 0 or minind == numint - 1:
+                msg1 = (('Grid search for threshold failing for %s on %s, '
+                        'set it manually or use default') % (sta, row.name))
+                msg2 = (('Grid search for threshold failing for %s on %s, '
+                        'using backup %.2f') % (sta, row.name, backupThreshold))
+                if backupThreshold is None:
+                    detex.log(__name__, msg1, level='error', e=ValueError)
+                else:
+                    detex.log(__name__, msg2, level='warn', pri=True)
+                    return backupThreshold, target
             bestPf = pfs[minind]
             bestX = Xs[minind]
             startVal, stopVal = Xs[minind - 1], Xs[minind + 1]
             loops += 1
-            if minind == 0 or minind == numint - 1:
-                msg = 'Grid search for threshold failing, set it manually'
-                detex.log(__name__, msg, level='error')
         return bestX, bestPf
 
     ########################### Visualization Methods
@@ -1463,7 +1499,7 @@ class SubSpace(object):
                         % pksFile)
                 detex.log(__name__, msg, level='error')
 
-        # get appropriate function according to ssmode
+        # get appropriate function according to ssmod
         if function == 'mean':
             fun = np.mean
         elif function == 'max':
@@ -1491,8 +1527,8 @@ class SubSpace(object):
                     eves, starttimes, Nc, Sr = self._getStats(row)
                     if len(pk) > 0:
                         trims = self._getSampTrim(eves, starttimes, Nc, Sr, pk,
-                                                  defaultDuration, fun,
-                                                  ind, self.singles[sta])
+                                                  defaultDuration, fun, sta,
+                                                  ind, self.singles[sta], row)
                         if isinstance(trims, dict):
                             self.singles[sta].SampleTrims[ind] = trims
                 self._updateOffsets()
@@ -1507,15 +1543,16 @@ class SubSpace(object):
                     pk = pks[(con1) & (con2)]
                     eves, starttimes, Nc, Sr = self._getStats(row)
                     if len(pk) > 0:
+                        
                         trims = self._getSampTrim(eves, starttimes, Nc, Sr, pk,
-                                                  defaultDuration, fun,
-                                                  ind, self.subspaces[sta])
+                                                  defaultDuration, fun, sta,
+                                                  ind, self.subspaces[sta], row)
                         if isinstance(trims, dict):
                             self.subspaces[sta].SampleTrims[ind] = trims
                 self._updateOffsets()
                 
     def _getSampTrim(self, eves, starttimes, Nc, Sr, pk, defaultDuration, 
-                     fun, num, DF):
+                     fun, sta, num, DF, row):
         """
         Determine sample trims for each single or subspace
         """
@@ -1530,6 +1567,20 @@ class SubSpace(object):
                 continue
             start = p.TimeStamp.min()
             startsampsEve = (start - starttimes[ev]) * (Nc * Sr)
+            # see if any of the samples would be trimmed too much
+            try: # assume is single
+                len_test = len(row.MPtd[ev]) < startsampsEve 
+            except AttributeError: # this is really a subspace
+                len_test = len(row.AlignedTD[ev]) < startsampsEve 
+            if len_test:
+                utc_start = obspy.UTCDateTime(start)
+                msg = (('Start samples for %s on %s exceeds avaliable data,'  
+                        'check waveform quality and ensure phase pick is for '
+                        'the correct event. The origin time is %s and the '
+                        'pick time is %s, Skipping attaching pick. '
+                        ) % (ev, sta, ev, str(utc_start)))
+                detex.log(__name__, msg, level='warn')
+                return
             # make sure starting time is not less than 0 else set to zero
             if startsampsEve < 0:  
                 startsampsEve = 0
@@ -1703,7 +1754,6 @@ class SubSpace(object):
             useSubSpaces=True,
             useSingles=False,
             estimateMags=True,
-            pks=None,
             classifyEvents=None,
             eventCorFile='EventCors',
             utcSaves=None,
@@ -1811,47 +1861,19 @@ class SubSpace(object):
                 msg = 'call SVD before running subspace detectors'
                 detex.log(__name__, msg, level='error')
                     
-            Det = _SSDetex(
-                TRDF,
-                utcStart,
-                utcEnd,
-                self.cfetcher,
-                self.clusters,
-                subspaceDB,
-                trigCon,
-                triggerLTATime,
-                triggerSTATime,
-                multiprocess,
-                calcHist,
-                self.dtype,
-                estimateMags,
-                classifyEvents,
-                eventCorFile,
-                utcSaves,
-                fillZeros)
+            Det = _SSDetex(TRDF, utcStart, utcEnd, self.cfetcher, self.clusters, 
+                           subspaceDB, trigCon, triggerLTATime, triggerSTATime, 
+                           multiprocess, calcHist, self.dtype, estimateMags, 
+                           classifyEvents, eventCorFile, utcSaves, fillZeros)
             self.histSubSpaces = Det.hist
 
         if useSingles: # run singletons
             TRDF = self.singles
-            Det = _SSDetex(
-                TRDF,
-                utcStart,
-                utcEnd,
-                self.cfetcher,
-                self.clusters,
-                subspaceDB,
-                trigCon,
-                triggerLTATime,
-                triggerSTATime,
-                multiprocess,
-                calcHist,
-                self.dtype,
-                estimateMags,
-                classifyEvents,
-                eventCorFile,
-                utcSaves,
-                fillZeros,
-                issubspace=False)
+            Det = _SSDetex(TRDF, utcStart, utcEnd, self.cfetcher, self.clusters, 
+                           subspaceDB, trigCon, triggerLTATime, triggerSTATime, 
+                           multiprocess, calcHist, self.dtype, estimateMags, 
+                           classifyEvents, eventCorFile, utcSaves, fillZeros, 
+                           issubspace=False)
             self.histSingles = Det.hist
 
         # save addational info to sql database
@@ -1911,7 +1933,7 @@ class SubSpace(object):
                 station = ss.Station
                 events = ','.join(ss.Events)
                 thresh = ss.Threshold
-                if isinstance(ss.FAS, dict) and len(ss.FAS[0].keys()) > 1:
+                if isinstance(ss.FAS, list) and len(ss.FAS[0].keys()) > 1:
                     b1, b2 = ss.FAS[0]['betadist'][0], ss.FAS[0]['betadist'][1]
                 else:
                     b1, b2 = np.nan, np.nan
@@ -1975,7 +1997,7 @@ class SubSpace(object):
     def __getitem__(self, key):  # make object indexable
         if isinstance(key, int):
             return self.subspaces[self.ssStations[key]]
-        elif isinstance(key, str):
+        elif isinstance(key, string_types):
             if len(key.split('.')) == 2:
                 return self.subspaces[self._stakey2[key]]
             elif len(key.split('.')) == 1:

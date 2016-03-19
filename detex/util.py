@@ -4,6 +4,11 @@ Created on Thu May 29 16:41:48 2014
 
 @author: Derrick
 """
+# python 2 and 3 compatibility imports
+from __future__ import print_function, absolute_import, unicode_literals
+from __future__ import with_statement, nested_scopes, generators, division
+from six import string_types
+
 import numpy as np
 import obspy
 import os
@@ -47,7 +52,7 @@ def writeKMLFromTemplateKey(df='TemplateKey.csv', outname='templates.kml'):
     outname : str
         path of the kml file
     """
-    if isinstance(df, str):
+    if isinstance(df, string_types):
         df = pd.read_csv(df)
     elif not isinstance(df, pd.DataFrame):
         msg = ('Input type not understood, must be path to template key or '
@@ -74,7 +79,7 @@ def writeKMLFromStationKey(df='StationKey.csv', outname='stations.kml'):
     outname : str
         name of the kml file
     """
-    if isinstance(df, str):
+    if isinstance(df, string_types):
         df = pd.read_csv(df)
     elif not isinstance(df, pd.DataFrame):
         msg = ('Input type not understood, must be path to station key or '
@@ -210,7 +215,7 @@ def writeHypoDDStationInput(stakey, fileName='station.dat', useElevations=True,
     inFt : boolean
         If true elevations in station key are in ft, convert to meters
     """
-    if isinstance(stakey, str):
+    if isinstance(stakey, string_types):
         stakey = readKey(stakey, key_type='station')
     fil = open(fileName, 'wb')
     conFact = 0.3048 if inFt else 1  # ft to meters if needed
@@ -230,7 +235,7 @@ def writeHypoDDEventInput(temkey, fileName='event.dat'):
     temkey : str or pandas DataFrame
         If str then path to template key, else loaded template key
     """
-    if isinstance(temkey, str):
+    if isinstance(temkey, string_types):
         temkey = readKey(temkey, key_type='template')
     fil = open(fileName, 'wb')
     reqZeros = int(np.ceil(np.log10(len(temkey))))
@@ -322,7 +327,7 @@ def _checkLens(net, chan, sta):
                   
 def _makeSHypStationLine(sta, cha, net, ts, pha):
     Ptime = obspy.core.UTCDateTime(ts)
-    datestring = _killChars(Ptime.formatIRISWebService())
+    datestring = _killChars(Ptime.format_iris_web_service())
     YYYYMMDDHHMM = datestring[0:12]
     secs = float(datestring[12:])
     ssss = '%5.2f' % secs
@@ -343,7 +348,7 @@ def _makeHypTermLine(pha, everow, fix, fixFirstStation):
     elif fix == 3:
         fixchar = 'O'
     UTC=obspy.core.UTCDateTime(everow.TIME)
-    iws = UTC.formatIRISWebService()
+    iws = UTC.format_iris_web_service()
     hhmmssss = _killChars(iws)[8:16]
     if fixFirstStation:
         lat, latmin, latchar = ' ', ' ', ' '
@@ -461,7 +466,7 @@ def readHypo71Sum(sumfile):
     lonmul = [1 if x else -1 for x in df['lonc'].isnull()]
     df['lon'] = np.multiply((df['lond'] + df['lonm']/60.), lonmul)
     utcs = [obspy.UTCDateTime(x.replace(' ','')) for x in df.ds]
-    irisws = [x.formatIRISWebService().replace(':','-') for x in utcs]
+    irisws = [x.format_iris_web_service().replace(':','-') for x in utcs]
     times = [x.timestamp for x in utcs]
     names = [x.split('.')[0] for x in irisws]
     df['times'] = times
@@ -575,7 +580,7 @@ def readKey(dfkey, key_type='template'):
         msg = "unsported key type, supported types are %s" % (key_types)
         detex.log(__name__, msg, level='error')
 
-    if isinstance(dfkey, str):
+    if isinstance(dfkey, string_types):
         if not os.path.exists(dfkey):
             msg = '%s does not exists, check path' % dfkey
             detex.log(__name__, msg, level='error')
@@ -614,7 +619,7 @@ def inventory2StationKey(inv, starttime, endtime, fileName=None):
     
     Parameters
     ----------
-    inv : an obspy.station.inventory.Inventory instance
+    inv : an obspy.core.inventory.Inventory instance
         The inventory to use to create the station key, level of inventory
         must be at least "channel"
     starttime : obspy.UTCDateTime instance
@@ -630,7 +635,7 @@ def inventory2StationKey(inv, starttime, endtime, fileName=None):
 
     """
     # input checks
-    if not isinstance(inv, obspy.station.inventory.Inventory):
+    if not isinstance(inv, obspy.core.inventory.Inventory):
         msg = 'inv must be an obspy Inventory instance'
         detex.log(__name__, msg, level='error')
     if not isinstance(starttime, obspy.UTCDateTime):
@@ -672,7 +677,7 @@ def inventory2StationKey(inv, starttime, endtime, fileName=None):
             dat = np.array([nc, sc, stime, etime, lat, lon, ele, cs])
             df.loc[count] = dat
             count += 1
-    if isinstance(fileName, str):
+    if isinstance(fileName, string_types):
         df.to_csv(fileName)
     return df
 
@@ -734,28 +739,9 @@ def _getPicks(row, picks):
     
 def _getPick(row, ph):
     pick = obspy.core.event.Pick()
-    #pick.waveform_id = _getWFID(ph)
-#    import ipdb
-#    ipdb.set_trace()
     pick.time = obspy.UTCDateTime(ph.TimeStamp)
     pick.phase_hint = ph.Phase
-    return pick
-    
-#def _getWFID(ph):
-#    net, sta = ph.Station.split('.')
-#    if 'Channel' in ph.index:
-#        chan = ph.Channel
-#    else:
-#        chan = ''
-#    loc = ''
-#    seedid = '%s.%s.%s.%s' % (net, sta, loc, chan)
-#    return obspy.core.event.WaveformStreamID(seed_string=seedid)
-    
-    
-    
-        
-    
-    
+    return pick 
     
 def EQSearch2TemplateKey(eq='eqsrchsum', oname='eqTemplateKey.csv'):
     """
@@ -846,7 +832,7 @@ def catalog2Templatekey(cat, fileName=None):
         lat = origin.latitude
         lon = origin.longitude
         dep = origin.depth / 1000.0
-        time = origin.time.formatIRISWebService().replace(':', '-')
+        #time = str(origin.time).replace(':', '-')
         name = time.split('.')[0]
         magnitude = event.preferred_magnitude() or event.magnitudes[0]
         mag = magnitude.mag
@@ -854,7 +840,7 @@ def catalog2Templatekey(cat, fileName=None):
         auth = origin.creation_info.author
         dat = np.array([name, time, lat, lon, dep, mag, magty, auth])
         df.loc[evenum] = dat
-    if isinstance(fileName, str):
+    if isinstance(fileName, string_types):
         df.to_csv(fileName)
     return df
 
@@ -906,8 +892,8 @@ def loadSQLite(corDB, tableName, sql=None, readExcpetion=False, silent=True,
     with connect(corDB, detect_types=PARSE_DECLTYPES) as con:
         try:
             df = psql.read_sql(sql, con)
-        except pd.io.sql.DatabaseError:
-            msg = "Table %s not found in %s" % (tableName, corDB)
+        except pd.io.sql.DatabaseError as e:
+            msg = "read_sql returned the following error: %s" % (str(e))
             detex.log(__name__, msg, level='warning', pri=True)
             return None
         if convertNumeric:
@@ -950,7 +936,7 @@ def loadSubSpace(filename='subspace.pkl'):
     An instance of detex.subspace.SubSpaceStream 
     """
     ss = pd.read_pickle(filename)
-    if not isinstance(ss, detex.subspace.SubSpaceStream):
+    if not isinstance(ss, detex.subspace.SubSpace):
         msg = '%s is not a SubSpaceStream instance' % filename
         detex.log(__name__, msg, level='error')
     return ss
@@ -1012,6 +998,97 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
         If True skip any events/stations that already have any phase picks
     kwargs passed to quickFetch, see detex.getdata.quickFetch for details
     Notes
+    ----------
+    Required columns are : TimeStamp, Station, Event, Phase
+    Station field is net.sta (eg TA.M17A)
+    """
+    temkey = readKey(templatekey, key_type='template')
+    stakey = readKey(stationkey, key_type='station')
+
+    cols = ['TimeStamp', 'Station', 'Event', 'Phase', 'Channel', 'Seconds']
+    fetcher = detex.getdata.quickFetch(fetch, **kwargs)
+    
+    ets = {} # events to skip picking on
+    count = 0
+    
+    # must init the PyQt app outside of the loop or else it kills python
+    qApp = PyQt4.QtGui.QApplication(sys.argv)
+
+    # load pickfile if it exists
+    if os.path.exists(pickFile):  
+        DF = pd.read_csv(pickFile)
+        if len(DF) < 1:  # if empty then delete
+            os.remove(pickFile)
+            DF = pd.DataFrame(columns=cols)
+        else:
+            if skipIfExists:
+                for ind, row in DF.iterrows():
+                    if not row.Station in ets:
+                        ets[row.Station] = []
+                    ets[row.Station].append(row.Event)
+    else:
+        DF = pd.DataFrame(columns=cols)
+    for st, event in fetcher.getTemData(temkey, stakey, skipDict=ets):
+        if st is None or len(st) < 1: # skip if no data returned
+            continue
+        count += 1
+        #reload(detex.streamPick)
+
+        Pks = None  # needed so OS X doesn't crash
+        Pks = detex.streamPick.streamPick(st, ap=qApp)
+
+        tdict = {}
+        saveit = 0  # saveflag
+
+        for b in Pks._picks:
+            if b:
+                tstamp = b['time'].timestamp
+                chan = b['waveform_id']['channel_code']
+                tdict[b.phase_hint] = [tstamp, chan] 
+                saveit = 1
+        if saveit:
+            for key in tdict.keys():
+                stmp = tdict[key][0]
+                chan = tdict[key][1]
+                secs = '%3.5f' % stmp
+                sta = str(st[0].stats.network + '.' + st[0].stats.station)
+                di = {'TimeStamp': stmp, 'Station': sta, 'Event': event, 
+                      'Phase': key, 'Channel':chan, 'Seconds':secs}
+                DF = DF.append(pd.Series(di), ignore_index=True)
+        if not Pks.KeepGoing:
+            msg = 'Exiting picking GUI, progress saved in %s' % pickFile
+            detex.log(__name__, msg, level='info', pri=True)
+            DF.sort_values(by=['Station', 'Event'], inplace=True)
+            DF.reset_index(drop=True, inplace=True)
+            DF.to_csv(pickFile, index=False)
+            return
+        if count % 10 == 0: # save every 10 phase picks
+            DF.sort_values(by=['Station', 'Event'], inplace=True)
+            DF.reset_index(drop=True, inplace=True)
+            DF.to_csv(pickFile, index=False)
+    DF.sort_values(by=['Station', 'Event'], inplace=True)
+    DF.reset_index(drop=True, inplace=True)
+    DF.to_csv(pickFile, index=False)
+
+
+
+def seeWaveFroms(fetch='ContinuousWaveForms', templatekey='TemplateKey.csv', 
+                 outFile='PhasePicks.csv'):
+    """
+    Uses streamPicks to parse the templates and allow user to manually pick
+    phases for events. Only P,S, Pend, and Send are supported phases under 
+    the current GUI, but other phases can be manually input to this format.
+
+    Parameters
+    -------------
+    fetch : str or instance of detex.getdata.DataFetcher
+        Input to detex.getdata.quickFetch, defaults to using the default 
+        directory structure
+    templatekey : str or pandas DataFrame
+        Path to the template key or template key loaded in DataFrame
+    outFile : str
+        Path to newly created csv containing events (in df) as index and 
+        stations as columns
     ----------
     Required columns are : TimeStamp, Station, Event, Phase
     Station field is net.sta (eg TA.M17A)

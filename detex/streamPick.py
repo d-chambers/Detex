@@ -61,7 +61,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         self.savefile = None
         self.onset_types = ['emergent', 'impulsive', 'questionable']
 
-        # Load filters from pickle
+        # Load filters from pickle if they exist
         try:
             self.bpfilter = pickle.load(open('.pick_filters', 'r'))
         except:
@@ -316,7 +316,10 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         self._current_network = self._current_st[0].stats.network
         # Sort and detrend streams
         self._current_st.sort(['channel'])
-        self._current_st.detrend('linear')
+        try:
+            self._current_st.detrend('linear')
+        except:
+            pass
 
     def _setPick(self, xdata, phase, channel, polarity='undecideable'):
         '''
@@ -351,9 +354,9 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         this_pick.onset = self.onset_types[self.onsetGrp.checkedId()]
         this_pick.evaluation_status = 'preliminary'
         this_pick.polarity = polarity
-        #if self._current_filter is not None:
-        #    this_pick.comments.append(event.Comment(
-        #                text=str(self.bpfilter[self.fltrcb.currentIndex()])))
+        if self._current_filter is not None:
+            this_pick.comments.append(event.Comment(
+                        text=str(self.bpfilter[self.fltrcb.currentIndex()])))
         if overwrite:
             self._picks.append(this_pick)
 
@@ -599,10 +602,10 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         '''
         
         self.KeepGoing = True
+        pickle.dump(self.bpfilter, open('.pick_filters', 'w'))
+        #self.closeEvent()
         self.deleteLater()
     
-
-
     def _pltPrevStation(self):
         '''
         Plot previous station
@@ -889,10 +892,9 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         This function is called upon closing the PyQt4.QtGui
         '''
         # Save Picks
-        #pickle.dump(self.bpfilter, open('.pick_filters', 'w'))
         # Save Catalog
-        if len(self._picks) > 0:
-            self._saveCatalog('.picks-obspy.xml.bak')
+#        if len(self._picks) > 0:
+#            self._saveCatalog('.picks-obspy.xml.bak')
 #        if self.savefile is None and len(self._picks) > 0:
 #            ask = PyQt4.QtGui.QMessageBox.question(self, 'Save Picks?',
 #                'Do you want to save your picks?',

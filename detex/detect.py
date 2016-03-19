@@ -4,6 +4,10 @@ Created on Thu Nov 12 20:21:46 2015
 
 @author: derrick
 """
+# python 2 and 3 compatibility imports
+from __future__ import print_function, absolute_import, unicode_literals
+from __future__ import with_statement, nested_scopes, generators, division
+from six import string_types
 
 import detex
 import scipy
@@ -93,6 +97,11 @@ class _SSDetex(object):
         if isinstance(utcSaves, collections.Iterable):
             try:
                 DFutc = pd.concat(self.UTCSaveList, ignore_index=True)
+                try: # try and read, pass
+                    DFutc_current = pd.read_pickle('UTCsaves.pkl')
+                    DFutc = DFutc.append(DFutc_current, ignore_index=True)
+                except:
+                    pass
                 DFutc.to_pickle('UTCsaves.pkl')
             except ValueError:
                 msg = 'Failed to save data in utcSaves'
@@ -158,7 +167,7 @@ class _SSDetex(object):
                                                contrim, names, sta)
             # if something is broken skip hours
             if CorDF is None or MPcon is None:  
-                msg = (('failing to calc det. stat. on %s from %s to %s ') % 
+                msg = (('failing to run detector on %s from %s to %s ') % 
                       (sta, utc1, utc2))
                 detex.log(__name__, msg, level='warning', pri=True)
                 continue
@@ -186,6 +195,12 @@ class _SSDetex(object):
                                 ' %s form %s to %s perphaps minCoef is too '
                                 'low?') % (sta, utc1, utc2))
                         detex.log(__name__, msg ,level='warning', pri=True)
+                    if any(Sar.DS>1.05):
+                        msg = (('DS values above 1 found in sar, at %s on %s '
+                                'this can happen when fillZeros==True, removing'
+                                ' values above 1') % (utc1, st[0].stats.station))
+                        detex.log(__name__, msg, level='warn', pri=True)
+                        Sar = Sar[Sar.DS<=1.05]
                     if len(Sar) > 0:
                         DF = DF.append(Sar, ignore_index=True)
                     if len(DF) > 500:
@@ -218,6 +233,8 @@ class _SSDetex(object):
             msg = 'failed to filter %s, skipping' % st
             detex.log(__name__, msg ,level='warning', pri=True)
             return None, None, None
+        if len(conSt) < 1:
+            return None, None, None
         sr = conSt[0].stats.sampling_rate
         CorDF.SampRate = sr
         MPcon, ConDat, TR = multiplex(conSt, Nc, returnlist=True, retst=True)
@@ -247,7 +264,7 @@ class _SSDetex(object):
                 detex.log(__name__, msg, level='warning')
                 return None, None, None
             ssd = self._MPXDS(MPconcur, reqlen[ind], ssTD[ind], 
-                              ssFD[ind], Nc,MPconFD)
+                              ssFD[ind], Nc, MPconFD)
             CorDF.SSdetect[ind] = ssd # set detection statistic
             if len(ssd) < 10:
                 msg = ('current data block on %s ranging from %s to %s is too '
@@ -273,8 +290,8 @@ class _SSDetex(object):
                     msg = ('failing to calculate sta/lta of det. statistic'
                            ' on %s for %s start at %s') % (sta, ind, utc1)
                     detex.log(__name__, msg, level='warn')
-            else:
-                return None, None, None
+            #else:
+                #return None, None, None
         return CorDF, MPcon, ConDat
 
 

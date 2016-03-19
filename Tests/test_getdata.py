@@ -9,26 +9,26 @@ import pytest
 import detex
 import obspy
 from collections import namedtuple
-import ipdb
 
 ##### General tests on method inputs
-def test_bad_method_type():
-    with pytest.raises(TypeError):
-        fetcher = detex.getdata.DataFetcher(method=True)
-    with pytest.raises(TypeError):
-        fetcher = detex.getdata.DataFetcher(method=Exception)
-
-def test_bad_method_string():
-    with pytest.raises(ValueError):
-        fetcher = detex.getdata.DataFetcher(method='bob')
-    with pytest.raises(ValueError):
-        fetcher = detex.getdata.DataFetcher(method='IRIR')
-
-def test_bad_client_method():
-    with pytest.raises(ValueError):
-        fetcher = detex.getdata.DataFetcher(method='client')
-    with pytest.raises(TypeError):
-        fetcher = detex.getdata.DataFetcher(method='client', client='bob')
+class TestFetcherInputs():
+    def test_bad_method_type(self):
+        with pytest.raises(TypeError):
+            detex.getdata.DataFetcher(method=True)
+        with pytest.raises(TypeError):
+            detex.getdata.DataFetcher(method=Exception)
+    
+    def test_bad_method_string(self):
+        with pytest.raises(ValueError):
+            detex.getdata.DataFetcher(method='bob')
+        with pytest.raises(ValueError):
+            detex.getdata.DataFetcher(method='IRIR')
+    
+    def test_bad_client_method(self):
+        with pytest.raises(ValueError):
+            detex.getdata.DataFetcher(method='client')
+        with pytest.raises(TypeError):
+            detex.getdata.DataFetcher(method='client', client='bob')
     
 
 
@@ -69,6 +69,7 @@ def check_remove_response(st):
     return all(response_gone)
 
 ##### Test data for FDSN clients (ie IRIS)
+
 # client info
 fdsn_inf = ClientInfo(ip="IRIS", port=None)
 fdsn_net = 'TA'
@@ -98,22 +99,22 @@ def init_fdsn_getStream(init_fdsn_fetcher):
     st = fetcher.getStream(fdsn_t1, fdsn_t2, net, sta, chan)
     return st
 
-def test_fdsn_fetcher(init_fdsn_fetcher): # make sure fetcher has correct type/attrs
-    fetcher = init_fdsn_fetcher
-    assert isinstance(fetcher, detex.getdata.DataFetcher)
-    assert hasattr(fetcher, '_getStream')
-    assert isinstance(fetcher.client, obspy.fdsn.Client)
-
-def test_fdsn_getStream(init_fdsn_getStream):
-    st = init_fdsn_getStream
-    assert isinstance(st, obspy.Stream)
-    assert len(st) > 0
-    assert all([len(tr) > 0 for tr in st])
-
-def test_fdsn_remove_response(init_fdsn_getStream):
-    #ipdb.set_trace()
-    st = init_fdsn_getStream
-    assert check_remove_response(st)
+class TestIRISFetcher():
+    def test_fdsn_fetcher(self, init_fdsn_fetcher): # make sure fetcher has correct type/attrs
+        fetcher = init_fdsn_fetcher
+        assert isinstance(fetcher, detex.getdata.DataFetcher)
+        assert hasattr(fetcher, '_getStream')
+        assert isinstance(fetcher.client, obspy.fdsn.Client)
+    
+    def test_fdsn_getStream(self, init_fdsn_getStream):
+        st = init_fdsn_getStream
+        assert isinstance(st, obspy.Stream)
+        assert len(st) > 0
+        assert all([len(tr) > 0 for tr in st])
+    
+    def test_fdsn_remove_response(self, init_fdsn_getStream):
+        st = init_fdsn_getStream
+        assert check_remove_response(st)
 
 
 #class Test_Iris:
@@ -156,43 +157,44 @@ def init_ew_getStream(get_avail, init_ew_fetcher):
     st = fetcher.getStream(t1, t2, net, sta, chan)
     return st
 
-def test_ew_fetcher(init_ew_fetcher): # make sure fetcher has correct type/attrs
-    fetcher = init_ew_fetcher
-    assert isinstance(fetcher, detex.getdata.DataFetcher)
-    assert hasattr(fetcher, '_getStream')
-    assert isinstance(fetcher.client, obspy.earthworm.Client)
-
-def test_ew_getStream(init_ew_getStream):
-    st = init_ew_getStream
-    assert isinstance(st, obspy.Stream)
-    assert len(st) > 0
-    assert all([len(tr) > 0 for tr in st])
-
-def test_ew_remove_response(init_fdsn_client, init_ew_fetcher, get_avail):
-    fdsn_client = init_fdsn_client
-    fetcher = init_ew_fetcher
-    avail = get_avail
-    t1 = avail[0][4] + 100
-    t2 = t1 + 4
-    inv = get_station_inventory(fdsn_client, ew_st_info, t1, t2)
-    fetcher.removeResponse = True
-    fetcher.inventory = inv
-    net, sta, chan = get_short_names(ew_st_info)
-    st = fetcher.getStream(t1, t2, net, sta, chan)
-    assert check_remove_response(st)
-    fetcher.removeResponse = False
-
-def test_ew_iris_remove_response(init_ew_fetcher, get_avail):
-    fetcher = init_ew_fetcher
-    avail = get_avail
-    t1 = avail[0][4] + 100
-    t2 = t1 + 4
-    net, sta, chan = get_short_names(ew_st_info)
-    #st1 = fetcher.getStream(t1, t2, net, sta, chan)
-    fetcher.removeResponse = True
-    fetcher.inventoryArg = obspy.fdsn.Client('IRIS')
-    st = fetcher.getStream(t1, t2, net, sta, chan)
-    assert check_remove_response(st)
+class TestEWFetcher():
+    def test_ew_fetcher(self, init_ew_fetcher): 
+        fetcher = init_ew_fetcher
+        assert isinstance(fetcher, detex.getdata.DataFetcher)
+        assert hasattr(fetcher, '_getStream')
+        assert isinstance(fetcher.client, obspy.earthworm.Client)
+    
+    def test_ew_getStream(self, init_ew_getStream):
+        st = init_ew_getStream
+        assert isinstance(st, obspy.Stream)
+        assert len(st) > 0
+        assert all([len(tr) > 0 for tr in st])
+    
+    def test_ew_remove_response(self, init_fdsn_client, init_ew_fetcher, get_avail):
+        fdsn_client = init_fdsn_client
+        fetcher = init_ew_fetcher
+        avail = get_avail
+        t1 = avail[0][4] + 100
+        t2 = t1 + 4
+        inv = get_station_inventory(fdsn_client, ew_st_info, t1, t2)
+        fetcher.removeResponse = True
+        fetcher.inventory = inv
+        net, sta, chan = get_short_names(ew_st_info)
+        st = fetcher.getStream(t1, t2, net, sta, chan)
+        assert check_remove_response(st)
+        fetcher.removeResponse = False
+    
+    def test_ew_iris_remove_response(self, init_ew_fetcher, get_avail):
+        fetcher = init_ew_fetcher
+        avail = get_avail
+        t1 = avail[0][4] + 100
+        t2 = t1 + 4
+        net, sta, chan = get_short_names(ew_st_info)
+        #st1 = fetcher.getStream(t1, t2, net, sta, chan)
+        fetcher.removeResponse = True
+        fetcher.inventoryArg = obspy.fdsn.Client('IRIS')
+        st = fetcher.getStream(t1, t2, net, sta, chan)
+        assert check_remove_response(st)
 
 
 ##### Test data for NEIC clients
@@ -226,41 +228,43 @@ def init_neic_getStream(init_neic_fetcher):
     net, sta, chan = get_short_names(neic_st_info)
     st = fetcher.getStream(t1, t2, net, sta, chan)
     return st
-
-def test_neic_fetcher(init_neic_fetcher): # make sure fetcher has correct type/attrs
-    fetcher = init_neic_fetcher
-    assert isinstance(fetcher, detex.getdata.DataFetcher)
-    assert hasattr(fetcher, '_getStream')
-    assert isinstance(fetcher.client, obspy.neic.Client)
-
-def test_neic_getStream(init_neic_getStream):
-    st = init_neic_getStream
-    assert isinstance(st, obspy.Stream)
-    assert len(st) > 0
-    assert all([len(tr) > 0 for tr in st])
-
-def test_neic_remove_response(init_fdsn_client, init_neic_fetcher):
-    fdsn_client = init_fdsn_client
-    fetcher = init_neic_fetcher
-    t1 = neic_t1
-    t2 = neic_t2
-    inv = get_station_inventory(fdsn_client, neic_st_info, t1, t2)
-    fetcher.removeResponse = True
-    fetcher.inventory = inv
-    net, sta, chan = get_short_names(neic_st_info)
-    st = fetcher.getStream(t1, t2, net, sta, chan)
-    assert check_remove_response(st)
-    fetcher.removeResponse = False
     
-def test_neic_iris_remove_response(init_neic_fetcher):
-    fetcher = init_neic_fetcher
-    fetcher.removeResponse = True
-    fetcher.inventoryArg = 'iris'
-    t1 = neic_t1
-    t2 = neic_t2
-    net, sta, chan = get_short_names(neic_st_info)
-    st = fetcher.getStream(t1, t2, net, sta, chan)
-    assert check_remove_response(st)
+class TestNEICFetcher():
+    # make sure fetcher has correct type/attrs
+    def test_neic_fetcher(self, init_neic_fetcher): 
+        fetcher = init_neic_fetcher
+        assert isinstance(fetcher, detex.getdata.DataFetcher)
+        assert hasattr(fetcher, '_getStream')
+        assert isinstance(fetcher.client, obspy.neic.Client)
+    
+    def test_neic_getStream(self, init_neic_getStream):
+        st = init_neic_getStream
+        assert isinstance(st, obspy.Stream)
+        assert len(st) > 0
+        assert all([len(tr) > 0 for tr in st])
+    
+    def test_neic_remove_response(self, init_fdsn_client, init_neic_fetcher):
+        fdsn_client = init_fdsn_client
+        fetcher = init_neic_fetcher
+        t1 = neic_t1
+        t2 = neic_t2
+        inv = get_station_inventory(fdsn_client, neic_st_info, t1, t2)
+        fetcher.removeResponse = True
+        fetcher.inventory = inv
+        net, sta, chan = get_short_names(neic_st_info)
+        st = fetcher.getStream(t1, t2, net, sta, chan)
+        assert check_remove_response(st)
+        fetcher.removeResponse = False
+        
+    def test_neic_iris_remove_response(self, init_neic_fetcher):
+        fetcher = init_neic_fetcher
+        fetcher.removeResponse = True
+        fetcher.inventoryArg = 'iris'
+        t1 = neic_t1
+        t2 = neic_t2
+        net, sta, chan = get_short_names(neic_st_info)
+        st = fetcher.getStream(t1, t2, net, sta, chan)
+        assert check_remove_response(st)
 
     
 ####### Genral get data tests

@@ -1,5 +1,14 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Nov 10 20:21:46 2015
+
+@author: derrick
+"""
+from __future__ import print_function, absolute_import, unicode_literals
+from __future__ import with_statement, nested_scopes, generators, division
+from six import text_type, string_types
+
 import os
-import sys
 import glob
 import obspy
 import pandas as pd
@@ -8,12 +17,11 @@ import numpy as np
 import itertools
 import json
 import random
-import ipdb
 
 #client imports
-import obspy.fdsn
-import obspy.neic
-import obspy.earthworm
+import obspy.clients.fdsn
+import obspy.clients.neic
+import obspy.clients.earthworm
 
 conDirDefault = 'ContinuousWaveForms'
 eveDirDefault = 'EventWaveForms'
@@ -21,6 +29,21 @@ eveDirDefault = 'EventWaveForms'
 # extension key to map obspy output type to extension. Add more here
 formatKey = {'mseed': 'msd', 'pickle': 'pkl', 'sac': 'sac', 'Q': 'Q'}
 
+def read(path):
+    """
+    function to read a file from a path. If IOError or TypeError simply try
+    appending os.set to start
+    """
+    try:
+        st = obspy.read(path)
+    except (IOError, TypeError):
+        try:
+            st = obspy.read(os.path.join(os.path.sep, path))
+        except (IOError, TypeError):
+            msg = 'Cannot read %s, the file may be corrupt, skipping it' % path
+            detex.log(__name__, msg, level='warn', pri=True)    
+            return None
+    return st
 
 
 
@@ -56,7 +79,7 @@ def quickFetch(fetch_arg, **kwargs):
     
     if isinstance(fetch_arg, DataFetcher):
         dat_fet = fetch_arg
-    elif isinstance(fetch_arg, str):
+    elif isinstance(fetch_arg, string_types):
         if fetch_arg in DataFetcher.supMethods:
             if fetch_arg == 'dir':
                 msg = 'If using method dir you must pass a path to directory'
@@ -288,7 +311,7 @@ class DataFetcher(object):
                 self.removeResponse = False
     
     def _checkInputs(self):
-        if not isinstance (self.method, str):
+        if not isinstance (self.method, string_types):
             msg = 'method must be a string. options:\n %s' % self.supMethods
             detex.log(__name__, msg, level='error', e=TypeError)
         self.method = self.method.lower() # parameter to lowercase
@@ -316,13 +339,13 @@ class DataFetcher(object):
             self._getStream = _assignClientFunction(self.client)
             
         elif self.method == "iris":
-            self.client = obspy.fdsn.Client("IRIS")
+            self.client = obspy.clients.fdsn.Client("IRIS")
             self._getStream = _assignClientFunction(self.client)
             
         elif self.method == 'uuss': # uuss setting 
             self.client = obspy.neic.Client('128.110.129.227')
             self._getStream = _assignClientFunction(self.client)
-            self.inventory = obspy.fdsn.Client('iris') # use iris for resps
+            self.inventory = obspy.clients.fdsn.Client('iris') # use iris for resps
     
     def getTemData(self, temkey, stakey, tb4=None, taft=None, returnName=True,
                    temDir=None, skipIfExists=False, skipDict=None, 
@@ -391,7 +414,7 @@ class DataFetcher(object):
                 pfile = glob.glob(os.path.join(temDir, ser.NAME, netsta + '*'))
                 if len(pfile) > 0:
                     continue
-            if isinstance(ser.TIME, str) and 'T' in ser.TIME:
+            if isinstance(ser.TIME, string_types) and 'T' in ser.TIME:
                 time = ser.TIME
             else:
                 time = float(ser.TIME)
@@ -467,7 +490,6 @@ class DataFetcher(object):
         Obspy trace and other requested parameters
         """
         stakey = detex.util.readKey(stakey, 'station')
-        
         if secBuff is None:
             secBuff = self.conBuff
         if duration is None:
@@ -497,9 +519,13 @@ class DataFetcher(object):
                 sta = ser.STATION
                 chan = ser.CHANNELS.split('-')
                 st = self.getStream(start, end, net, sta, chan, '*')
-                if st is None:
+                if st is None or len(st) < 1:
                     continue
-                #ipdb.set_trace()
+                if not utcend is None:
+                    if utcend.timestamp < st[0].stats.endtime.timestamp: # trim if needed
+                        st.trim(endtime=utcend)
+                if len(st) < 1:
+                    continue
                 if returnName and returnTimes:
                     path, fname = _makePathFile(conDir, netsta, utc)
                     yield st, path, fname, start, end
@@ -542,7 +568,7 @@ class DataFetcher(object):
         
         # check that chan input is ok
         if not isinstance(chan, (list, tuple)):
-            if not isinstance(chan, str):
+            if not isinstance(chan, string_types):
                 msg = 'chan must be a string or list of strings'
                 detex.log(__name__, msg, level='error')
             chan = [chan]
@@ -625,14 +651,12 @@ def _loadDirectoryData(fet, start, end, net, sta, chan, loc):
         return None
     for path, fname in zip(df.Path, df.FileName):
         fil = os.path.join(path, fname)
-        try:
-            st += obspy.read(fil)
-        except:
-            msg = 'Cannot read %s, the file may be corrupt, skipping it' % fil
-            detex.log(__name__, msg, level='warn', pri=True)    
+        st1 = read(fil)
+        if not st1 is None:
+            st += st1
     #st.trim(starttime=start, endtime=end)
     # check if chan variable is string else iterate
-    if isinstance(chan, str):
+    if isinstance(chan, string_types):
         stout = st.select(channel=chan)
     else:
         stout = obspy.core.Stream()
@@ -648,11 +672,11 @@ def _assignClientFunction(client):
     function to take an obspy client FDSN, NEIC, EW, etc. return the 
     correct loadFromClient function for getting data.
     """
-    if isinstance(client, obspy.fdsn.Client):
+    if isinstance(client, obspy.clients.fdsn.Client):
         return _loadFromFDSN
-    elif isinstance(client, obspy.neic.Client):
+    elif isinstance(client, obspy.clients.neic.Client):
         return _loadFromNEIC
-    elif isinstance(client, obspy.earthworm.Client):
+    elif isinstance(client, obspy.clients.earthworm.Client):
         return _loadFromEarthworm
     else:
         msg = 'Client type not supported'
@@ -666,12 +690,12 @@ def _loadFromNEIC(fet, start, end, net, sta, chan, loc):
     """
     client = fet.client
     # str reps of utc objects for error messages
-    startstr = start.formatIRISWebService()
-    endstr = end.formatIRISWebService()
+    startstr = str(start)
+    endstr = str(end)
     st = obspy.Stream()
     for cha in chan:
         try: #try neic client
-            st += client.getWaveform(net, sta, loc, cha, start, end)
+            st += client.get_waveforms(net, sta, loc, cha, start, end)
         except: 
             msg = ('Could not fetch data on %s from %s to %s' % 
             (net + '.' + sta, startstr, endstr))
@@ -681,15 +705,14 @@ def _loadFromNEIC(fet, start, end, net, sta, chan, loc):
 
 def _loadFromEarthworm(fet, start, end, net, sta, chan, loc):
     client = fet.client
-    startstr = start.formatIRISWebService()
-    endstr = end.formatIRISWebService()
+    startstr = str(start)
+    endstr = str(end)
     st = obspy.Stream()
     if '*' in loc or '?' in loc: #adjust for earthworm loc codes
         loc = '--'
-    #detex.deb(fet, start, end, net, sta, chan, loc)
     for cha in chan:
         try: #try neic client
-            st += client.getWaveform(net, sta, loc, cha, start, end)
+            st += client.get_waveforms(net, sta, loc, cha, start, end)
         except: 
             
             msg = ('Could not fetch data on %s from %s to %s' % 
@@ -700,14 +723,14 @@ def _loadFromEarthworm(fet, start, end, net, sta, chan, loc):
 
 def _loadFromFDSN(fet, start, end, net, sta, chan, loc):
     """
-    Use obspy.fdsn.Client to fetch waveforms
+    Use obspy.clients.fdsn.Client to fetch waveforms
     """
     client = fet.client
     # str reps of utc objects for error messages
-    startstr = start.formatIRISWebService()
-    endstr = end.formatIRISWebService()
+    startstr = str(start)
+    endstr = str(end)
     # convert channels to correct format (list seperated by ,)
-    if not isinstance(chan, str): 
+    if not isinstance(chan, string_types): 
         chan = ','.join(chan)
     else:
         if '-' in chan:
@@ -732,16 +755,18 @@ def _attachResponse(fet, st, start, end, net, sta, loc, chan):
     """
     if not fet.removeResponse or fet.inventory is None:
         return st
-    if isinstance(fet.inventory, obspy.station.inventory.Inventory):
+    if isinstance(fet.inventory, obspy.core.inventory.Inventory):
         st.attach_response(fet.inventory)
     else:
-        inv = fet.inventory.get_stations(starttime=start,
-                                         endtime=end,
-                                         network=net,
-                                         station=sta,
-                                         loc=loc,
-                                         channel=chan,
-                                         level="response")
+        inv = obspy.core.inventory.Inventory([], 'detex')
+        for cha in chan:
+            inv += fet.inventory.get_stations(starttime=start,
+                                          endtime=end,
+                                          network=net,
+                                          station=sta,
+                                          loc=loc,
+                                          channel=cha,
+                                          level="response")
         st.attach_response(inv)
     return st
         
@@ -751,18 +776,18 @@ def _getInventory(invArg):
     object used to attach responses to stream objects for response removal
     """
 
-    if isinstance(invArg, str):
+    if isinstance(invArg, string_types):
         if invArg.lower() == 'iris':
-            invArg = obspy.fdsn.Client('IRIS')
+            invArg = obspy.clients.fdsn.Client('IRIS')
         elif not os.path.exists(invArg):
             msg = ('if inventoryArg is str then it must be a client name, ie  '
                     'IRIS, or a path to a station xml')
             detex.log(__name__, msg, level='error')
         else:
             return detex.read_inventory(invArg)
-    elif isinstance(invArg, obspy.station.inventory.Inventory):
+    elif isinstance(invArg, obspy.core.inventory.Inventory):
         return invArg
-    elif isinstance (invArg, obspy.fdsn.Client):
+    elif isinstance (invArg, obspy.clients.fdsn.Client):
         return invArg
     elif invArg is None:
         return None
@@ -773,7 +798,7 @@ def _dataCheck(st, start, end):
     if st is None or len(st) < 1:
         return None
     netsta = st[0].stats.network + '.' + st[0].stats.station
-    time = st[0].stats.starttime.formatIRISWebService().split('.')[0]
+    time = str(st[0].stats.starttime).split('.')[0]
     
     # check if data range is way off what was requested
     utcmin = min([x.stats.starttime for x in st])
@@ -898,7 +923,7 @@ def indexDirectory(dirPath):
     # Create a list of possible path permutations to save space in database
     pathList = [] # A list of lists with different path permutations
     for dirpath, dirname, filenames in  os.walk(dirPath):
-        dirList = os.path.normpath(dirpath).split(os.path.sep)
+        dirList = os.path.abspath(dirpath).split(os.path.sep)
         # Expand pathList if needed
         while len(dirList) > len(pathList):
             pathList.append([])
@@ -952,12 +977,11 @@ def _checkQuality(stPath):
     """
     load a path to an obspy trace and check quality
     """
-    try:
-        st = obspy.read(stPath)
-    except (TypeError, IOError): # if object is not obspy-readable
+    st = read(stPath)
+    if st is None:
         return None
     lengthStream = len(st)
-    gaps = st.getGaps()
+    gaps = st.get_gaps()
     gapsum = np.sum([x[-2] for x in gaps])
     starttime = min([x.stats.starttime.timestamp for x in st])
     endtime = max([x.stats.endtime.timestamp for x in st])
@@ -967,7 +991,7 @@ def _checkQuality(stPath):
     outDict = {'Gaps': gapsum, 'Starttime' : starttime, 'Endtime' : endtime,
                'Duration' : duration, 'Nc' : nc, 'Nt':lengthStream,
                'Station' : netsta}
-    return outDict  
+    return outDict      
 
 def _loadIndexDb(dirPath, station, t1, t2):
     indexFile = glob.glob(os.path.join(dirPath, '.index.db'))

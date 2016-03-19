@@ -1,0 +1,11 @@
+These are scripts and old parts of detex that some people might find useful. I don't maintain them and some of them are a bit ugly so poke around at your own risk. 
+
+ANF.py - Code to read Array Network Facilities (ANF) catalogs
+
+arc.py - Simple parser for hypoinverse arc files
+
+tearDown.py - A script for bumping version and cleaning up tests and tutorials. No longer needed because gitignore is used now
+
+xcorr.py - old module of detex that did cross correlation. Its functionality has since been incorporated into the subspace module of detex. 
+
+

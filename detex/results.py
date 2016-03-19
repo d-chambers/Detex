@@ -4,6 +4,10 @@ Created on Fri May 23 17:55:01 2014
 
 @author: Derrick
 """
+from __future__ import print_function, absolute_import, unicode_literals
+from __future__ import with_statement, nested_scopes, generators, division
+from six import text_type, string_types
+
 import os
 import numpy as np
 import obspy
@@ -19,7 +23,7 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
                templateKey='TemplateKey.csv', stationKey='StationKey.csv',
                veriFile=None, includeAllVeriColumns=True, reduceDets=True, 
                Pf=False, stations=None, starttime=None, endtime=None,
-               fetch='ContinuousWaveForms'):
+               fetch='ContinuousWaveForms', exceptionalThreshold=None):
     """
     Function to create an instance of the CorResults class. Used to associate 
     detections across multiple stations into coherent events. CorResults class 
@@ -98,8 +102,12 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
     fetch : str or instance of detex.getdata.DataFetcher
         Used to determine where to get waveforms, fed into 
         detex.getdata.quickfetch
+    exceptionalThreshold : None, float, or dict
+        If float the threshold required for a detection to be considered legit
+        regardless of the number of stations. Can also be a dict where the 
+        keys are the stations (net.station) and the values are the thresholds
+        to consider exceptional for that station. 
     """
-    # Make sure all inputs exist and are kosher
     _checkExistence([ssDB, templateKey, stationKey])
     _checkInputs(trigCon, trigParameter, associateReq,
                  ss_associateBuffer, requiredNumStations)
@@ -108,8 +116,8 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
         raise detex.log(__name__, msg, level='error')
 
     # Try to read in all input files and dataframes needed
-    temkey = pd.read_csv(templateKey)  # load template key
-    stakey = pd.read_csv(stationKey)  # load station key
+    temkey = detex.util.readKey(templateKey, 'template')  # load template key
+    stakey = detex.util.readKey(stationKey, 'station')  # load station key
 
     ss_info, sg_info = _loadInfoDataFrames(ssDB)  # load info DataFrames
     fetcher = detex.getdata.quickFetch(fetch)
@@ -147,7 +155,8 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
         
     # Associate detections on different stations together
     Dets, Autos = _associateDetections(df, associateReq, requiredNumStations, 
-                                       ss_associateBuffer, ss_info, temkey)
+                                       ss_associateBuffer, ss_info, temkey, 
+                                       exceptionalThreshold)
 
     # Make a dataframe of verified detections if applicable
     Vers = _verifyEvents(Dets, Autos, veriFile, veriBuffer, 
@@ -178,8 +187,7 @@ def _makePfKey(ss_info, sg_info, Pf):
                                      TH, [row.beta1, row.beta2, 0, 1]]
         ss_df.reset_index(drop=True, inplace=True)
     else:
-        ss_df = None
-        
+        ss_df = None    
     if isinstance(sg_info, pd.DataFrame):
         for num, row in sg_info.iterrows():
             TH = scipy.stats.beta.isf(Pf, row.beta1, row.beta2, 0, 1)
@@ -214,31 +222,55 @@ def _approximateThreshold(beta_a, beta_b, target, numintervals, numloops):
         startVal, stopVal = Xs[minind - 1], Xs[minind + 1]
         loops += 1
         if minind == 0 or minind == numintervals - 1:
-            raise Exception('Grind search failing, set threshold manually')
+            raise ValueError('Grind search failing, set threshold manually')
     return bestX, bestPf
 
 
 def _verifyEvents(Dets, Autos, veriFile, veriBuffer, includeAllVeriColumns):
-    if not veriFile or not os.path.exists(veriFile):
-        msg = 'No veriFile passed or it does not exist, skipping verification'
-        detex.log(__name__, msg, pri=True)
+    if veriFile is None:
         return
-    else:
-        vertem = _readVeriFile(veriFile)
-        tstmp = [obspy.UTCDateTime(x).timestamp for x in vertem['TIME']]
-        vertem['STMP'] = tstmp
-        verlist = []
-        cols = ['TIME', 'LAT', 'LON', 'MAG', 'ProEnMag', 'DEPTH', 'NAME']
-        additionalColumns = list(set(vertem.columns) - set(cols))
+    if isinstance(veriFile, string_types):
+        if not veriFile or not os.path.exists(veriFile):
+            msg = 'No veriFile passed or it does not exist, skipping verification'
+            detex.log(__name__, msg, pri=True, level='warn')
+            return
+    elif not isinstance(veriFile, pd.DataFrame):
+        msg = 'verifile type not supported, must be string or df'
+        detex.log(__name__, msg, level='warn', pri=True)
 
-        for vernum, verrow in vertem.iterrows():
-            con1 = Dets.MSTAMPmin - veriBuffer / 2.0 < verrow.STMP
-            con2 = Dets.MSTAMPmax + veriBuffer / 2.0 > verrow.STMP
-            con3 = [not x for x in Dets.Verified]
-            temDets = Dets[(con1) & (con2) & (con3)]
-            if len(temDets) > 0:  #TODO handle multiple verification situations
-                trudet = temDets[temDets.DSav == temDets.DSav.max()]
-                Dets.loc[trudet.index[0], 'Verified'] = True
+    vertem = _readVeriFile(veriFile)
+    tstmp = [obspy.UTCDateTime(x).timestamp for x in vertem['TIME']]
+    vertem['STMP'] = tstmp
+    verlist = []
+    cols = ['TIME', 'LAT', 'LON', 'MAG', 'ProEnMag', 'DEPTH', 'NAME']
+    additionalColumns = list(set(vertem.columns) - set(cols))
+
+    for vernum, verrow in vertem.iterrows():
+        con1 = Dets.MSTAMPmin - veriBuffer / 2.0 < verrow.STMP
+        con2 = Dets.MSTAMPmax + veriBuffer / 2.0 > verrow.STMP
+        con3 = [not x for x in Dets.Verified]
+        temDets = Dets[(con1) & (con2) & (con3)]
+        if len(temDets) > 0:  #TODO handle multiple verification situations
+            trudet = temDets[temDets.DSav == temDets.DSav.max()]
+            Dets.loc[trudet.index[0], 'Verified'] = True
+            if includeAllVeriColumns:
+                for col in additionalColumns:
+                    if not col in trudet.columns:
+                        trudet[col] = verrow[col]
+            trudet['VerMag'] = verrow.MAG
+            trudet['VerLat'] = verrow.LAT
+            trudet['VerLon'] = verrow.LON
+            trudet['VerDepth'] = verrow.DEPTH 
+            trudet['VerName'] = verrow.NAME
+            verlist.append(trudet)
+        else:
+            con1 = Autos.MSTAMPmin - veriBuffer / 2.0 < verrow.STMP
+            con2 = Autos.MSTAMPmax + veriBuffer / 2.0 > verrow.STMP
+            con3 = [not x for x in Autos.Verified]
+            temAutos = Autos[(con1) & (con2) & (con3)]
+            if len(temAutos) > 0:   #TODO same as above
+                trudet = temAutos[temAutos.DSav == temAutos.DSav.max()]
+                Autos.loc[trudet.index[0], 'Verified'] = True
                 if includeAllVeriColumns:
                     for col in additionalColumns:
                         if not col in trudet.columns:
@@ -246,37 +278,19 @@ def _verifyEvents(Dets, Autos, veriFile, veriBuffer, includeAllVeriColumns):
                 trudet['VerMag'] = verrow.MAG
                 trudet['VerLat'] = verrow.LAT
                 trudet['VerLon'] = verrow.LON
-                trudet['VerDepth'] = verrow.DEPTH 
+                trudet['VerDepth'] = verrow.DEPTH
                 trudet['VerName'] = verrow.NAME
                 verlist.append(trudet)
-            else:
-                con1 = Autos.MSTAMPmin - veriBuffer / 2.0 < verrow.STMP
-                con2 = Autos.MSTAMPmax + veriBuffer / 2.0 > verrow.STMP
-                con3 = [not x for x in Autos.Verified]
-                temAutos = Autos[(con1) & (con2) & (con3)]
-                if len(temAutos) > 0:   #TODO same as above
-                    trudet = temAutos[temAutos.DSav == temAutos.DSav.max()]
-                    Autos.loc[trudet.index[0], 'Verified'] = True
-                    if includeAllVeriColumns:
-                        for col in additionalColumns:
-                            if not col in trudet.columns:
-                                trudet[col] = verrow[col]
-                    trudet['VerMag'] = verrow.MAG
-                    trudet['VerLat'] = verrow.LAT
-                    trudet['VerLon'] = verrow.LON
-                    trudet['VerDepth'] = verrow.DEPTH
-                    trudet['VerName'] = verrow.NAME
-                    verlist.append(trudet)
-        if len(verlist) > 0:
-            verifs = pd.concat(verlist, ignore_index=True)
-            # sort and drop duplicates so each verify event is verified only
-            # once
-            verifs.sort_values(by=['Event', 'DSav'])
-            verifs.drop_duplicates(subset='Event')
-            verifs.drop('Verified', axis=1, inplace=True)
-        else:
-            verifs = pd.DataFrame()
-        return verifs
+    if len(verlist) > 0:
+        verifs = pd.concat(verlist, ignore_index=True)
+        # sort and drop duplicates so each verify event is verified only
+        # once
+        verifs.sort_values(by=['Event', 'DSav'])
+        verifs.drop_duplicates(subset='Event')
+        verifs.drop('Verified', axis=1, inplace=True)
+    else:
+        verifs = pd.DataFrame()
+    return verifs
 
 
 def _readVeriFile(veriFile):
@@ -384,7 +398,7 @@ def _deleteDetDups(ssDB, trigCon, trigParameter, associateBuffer, starttime,
 
 
 def _associateDetections(ssdf, associateReq, requiredNumStations, 
-                         associateBuffer, ss_info, temkey):
+                         associateBuffer, ss_info, temkey, exceptionalThreshold):
     """
     Associate detections together using pandas groupby return dataframe of 
     detections and autocorrelations
@@ -399,7 +413,7 @@ def _associateDetections(ssdf, associateReq, requiredNumStations,
     groups = ssdf.groupby(gs)
     autolist = [pd.DataFrame(columns=cols)]
     detlist = [pd.DataFrame(columns=cols)]
-    temkey['STMP'] = np.array([obspy.core.UTCDateTime(x) for x in temkey.TIME])
+    temkey['STMP'] = np.array([obspy.core.UTCDateTime(x).timestamp for x in temkey.TIME])
     temcop = temkey.copy()
 
     # if there is a required number of shared events
@@ -417,24 +431,39 @@ def _associateDetections(ssdf, associateReq, requiredNumStations,
     else:
         for num, g in groups:
             # Make sure detections occur on the required number of stations
-            if len(set(g.Sta)) >= requiredNumStations:
+            con1 = len(set(g.Sta)) >= requiredNumStations
+            if not con1 and isinstance(exceptionalThreshold, float):
+                con2 = g.DS.max() >= exceptionalThreshold
+                con1 = con1 or con2
+            elif not con1 and isinstance(exceptionalThreshold, dict):
+                con2 = _check_if_exceptional(g, exceptionalThreshold)
+                con1 = con1 or con2
+            if con1:
                 # If there is more than one single or subpspace representing a
                 # station on each event only keep the one with highest DS
                 if len(set(g.Sta)) < len(g.Sta):
                     g = g.sort_values(by='DS').drop_duplicates(
                         subset='Sta', keep='last').sort_values('MSTAMPmin')
-                isauto, autoDF = _createAutoTable(g, temcop, cols)
+                isauto, autoDF = _createAutoTable(g, temcop, cols, associateBuffer)
                 if isauto:
                     autolist.append(autoDF)
                     # temcop=temcop[temcop.NAME!=autoDF.iloc[0].Event]
                 else:
                     detdf = _createDetTable(g, cols)
+#                    if any (detdf.DSmax > 1):
+#                        import ipdb; ipdb.set_trace()
                     detlist.append(detdf)
     detTable = pd.concat(detlist, ignore_index=True)
+    
     autoTable = pd.concat(autolist, ignore_index=True)
     return [detTable, autoTable]
 
-
+def _check_if_exceptional(g, exth):
+    gg = g.copy()
+    gg['exceptional'] = [exth.get(x.Sta, 100) for _,x in gg.iterrows()]
+#    if any((gg['DS'] >= gg['exceptional']) & (gg['DS'] <= 1.01)) :
+#        import ipdb; ipdb.set_trace()
+    return any((gg['DS'] >= gg['exceptional']) & (gg['DS'] <= 1.01)) 
 # Look at the union of the events and delete those that do not meet the
 # requirements
 def _checkSharedEvents(g):
@@ -444,17 +473,18 @@ def _checkSharedEvents(g):
 def _createDetTable(g, cols):
     mag, proEnMag = _getMagnitudes(g)
     utc = obspy.UTCDateTime(np.mean([g.MSTAMPmin.mean(), g.MSTAMPmax.mean()]))
-    event = utc.formatIRISWebService().replace(':', '-').split('.')[0]
+    event = str(utc).replace(':', '-').split('.')[0]
     data = [event, g.DS.mean(), g.DS.max(), len(g), g.DS_STALTA.mean(), 
              g.MSTAMPmin.min(), g.MSTAMPmax.max(), mag, proEnMag, False, g]
     detDF = pd.DataFrame([data], columns=cols)
     return detDF
 
-def _createAutoTable(g, temkey, cols):
+def _createAutoTable(g, temkey, cols, associateBuffer):
     isauto = False
     for num, row in g.iterrows():  # find out if this is an auto detection
-        temtemkey = temkey[(temkey.STMP > row.MSTAMPmin) &
-                           (temkey.STMP < row.MSTAMPmax)]
+        con1 = temkey.STMP + associateBuffer > row.MSTAMPmin
+        con2 = temkey.STMP - associateBuffer < row.MSTAMPmax
+        temtemkey = temkey[con1 & con2]
         if len(temtemkey) > 0:
             isauto = True
             event = temtemkey.iloc[0].NAME
@@ -535,7 +565,7 @@ def _checkInputs(trigCon, trigParameter, associateReq,
 def _checkExistence(existList):
     for fil in existList:
         if not os.path.exists(fil):
-            raise Exception('%s does not exists' % fil)
+            raise IOError('%s does not exists' % fil)
 
 
 def _loadInfoDataFrames(ssDB):
@@ -620,7 +650,7 @@ class SSResults(object):
 
         for num, row in dets.iterrows():  # loop through detections and save
             origin = obspy.UTCDateTime(np.mean([row.MSTAMPmax, row.MSTAMPmin]))
-            Evename = origin.formatIRISWebService().replace(':', '-')
+            Evename = str(origin).replace(':', '-')
             eveDirName = 'd' + Evename
             
             # if the directory doesnt exists create it

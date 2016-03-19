@@ -6,6 +6,10 @@
 deTex: A Python Toolbox for running subspace detections.
 ==================================================================
 """
+# python 2 and 3 compatibility imports
+from __future__ import print_function, absolute_import, unicode_literals
+from __future__ import with_statement, nested_scopes, generators, division
+
 # General imports
 import os
 import inspect
@@ -14,16 +18,17 @@ import logging.handlers
 import sys
 
 # Detex imports
-import getdata
-import util
-import subspace
-import fas
-import construct
-import results
-import streamPick
-import pandas_dbms
-import detect
-import warnings
+import detex
+import detex.getdata
+import detex.util
+import detex.subspace
+import detex.fas
+import detex.construct
+import detex.results
+import detex.streamPick
+import detex.pandas_dbms
+import detex.detect
+#import warnings
 
 logging.basicConfig()
 
@@ -33,10 +38,14 @@ logging.basicConfig()
 #warnings.filterwarnings('error') #uncomment this to make all warnings errors
 
 # Imports for lazy people (ie make detex.createCluster callable) 
-from construct import createCluster, createSubSpace
-from util import loadClusters, loadSubSpace
+from detex.construct import createCluster, createSubSpace
+from detex.util import loadClusters, loadSubSpace
 
-#detResults=results.detResults
+# load clusters
+version = os.path.join(os.path.dirname(detex.__file__), 'version.py')
+with open(version) as vfil:
+    __version__ = vfil.read().strip()
+# detResults=results.detResults
 
 maxSize = 10 * 1024*1024 # max size log file can be in bytes (10 mb defualt)
 verbose = True # set to false to avoid printing to screen
@@ -82,7 +91,7 @@ def setLogger(fileName='detex_log.log', deleteOld=False):
 
 #define basic logging function
 
-def log(name, msg, level='info', pri=False, close=False, e=Exception):
+def log(name, msg, level='info', pri=False, close=False, e=None):
     """
     Function to log important events as detex runs
     Parameters
@@ -99,7 +108,7 @@ def log(name, msg, level='info', pri=False, close=False, e=Exception):
         If true print msg to screen without entire log info
     close : bool
         If true close the logger so the log file can be opened
-    e : Exception class
+    e : Exception class or None
         If level == "error" and Exception is raised, e is the type of 
         exception
     """
@@ -118,18 +127,20 @@ def log(name, msg, level='info', pri=False, close=False, e=Exception):
         log.warning(msg)
     elif level == 'critical' and makeLog:
         log.critical(msg)
-    elif level == 'error':
+    elif level == 'error' or e is not None:
         if makeLog:
             log.error(msg)
         if makeLog:
             closeLogger()
+        if e is None:
+            e = Exception
         raise e(msg)
     else:
         if makeLog:
             raise Exception('level input not understood, acceptable values are' 
                         ' "debug","info","warning","error","critical"')
     if pri:
-        print msg
+        print (msg)
     if close and makeLog: #close logger
         closeLogger()
     

@@ -4,6 +4,10 @@ Created on Thu Oct 29 18:39:50 2015
 
 @author: derrick
 """
+# python 2 and 3 compatibility imports
+from __future__ import print_function, absolute_import, unicode_literals
+from __future__ import with_statement, nested_scopes, generators, division
+from six import string_types
 
 import pandas as pd
 import numpy as np
@@ -220,7 +224,7 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
     defined in the cluster (ClusterStream) instance.     
     """
     # Read in cluster instance
-    if isinstance (clust, str): #if no cluster object passed read a pickled one
+    if isinstance (clust, string_types): #if no cluster object passed read a pickled one
         cl = detex.subspace.loadClusters(clust)
     elif isinstance(clust, detex.subspace.ClusterStream):
         cl = clust
@@ -233,7 +237,7 @@ def createSubSpace(Pf=10**-12, clust='clust.pkl', minEvents=2, dtype='double',
     efetcher = cl.fetcher
     if isinstance(conDatFetcher, detex.getdata.DataFetcher):
         cfetcher = conDatFetcher
-    elif isinstance(conDatFetcher, str):
+    elif isinstance(conDatFetcher, string_types):
         cfetcher = detex.getdata.quickFetch(conDatFetcher)
     elif conDatFetcher is None:
          if efetcher.method == 'dir':
@@ -428,7 +432,7 @@ def _CCX2(mpfd1, mpfd2, mptd1, mptd2, Nc1, Nc2):
     #n = trunc + 1
     
     mptd2Temp = mptd2.copy()
-    mptd2Temp = np.lib.pad(mptd2Temp, (n - 1, n - 1), 'constant', 
+    mptd2Temp = np.lib.pad(mptd2Temp, (n - 1, n - 1), str('constant'), 
                            constant_values=(0,0))
     a = pd.rolling_mean(mptd2Temp, n)[n-1:]
     b = pd.rolling_std(mptd2Temp, n)[n-1:]
@@ -484,8 +488,26 @@ def _alignTD(delayDF, srow):
         if len(orig) == 0:
             msg = ('Alignment of multiplexed stream failing on %s, \
                    try raising ccreq or widenning trim window' % srow.Station)
-            detex.log(__name__, msg, level='error')
+            msg2 = _idAlignProblems(delayDF)
+            detex.log(__name__, msg + msg2, level='error')
     return aligned
+
+def _idAlignProblems(delayDF, m=7):
+    """
+    Function that is called when alignment fails, trys to ID which events
+    are causing problems and append this info to the message that is sent to
+    the logger
+    """
+    msg = ''
+    offsets = delayDF.SampleDelays
+    d = np.abs(offsets - np.median(offsets))
+    mdev = np.median(d)
+    s = d / mdev if mdev else 0.
+    offs = offsets[s > m]  # events that are potentially causing problems
+    for ind, off in offs.iteritems():
+        msg += (('\nAlignment shift for event %s is an outlier '
+                'consider removing it') % delayDF.loc[ind].Events)
+    return msg
 
 def _makeSingleEventDict(cl, TRDF, temkey): 
     """
@@ -654,7 +676,6 @@ def _testStreamLengths(TRDF, row, ind):
               (key, row.Station))
         detex.log(__name__, msg, level='warn', pri=True)
         TRDF.MPtd[ind].pop(key,None)
-
     return TRDF
 
 def _flatNoNan(df):
@@ -814,17 +835,18 @@ def _loadStream(fetcher, filt, trim, decimate, station, dtype,
     # load waveforms
     for st, evename in fetcher.getTemData(temkey, csta, trim[0], trim[1], 
                                           returnName=True, phases=phases):
+
+        st = _applyFilter(st, filt, decimate, dtype)
         if st is None or len(st) < 1:
             continue #skip if stream empty
-        st = _applyFilter(st, filt, decimate, dtype)
         tem = temkey[temkey.NAME == evename]
         if len(tem) < 1: # in theory this should never happen
             msg = '%s not in template key, skipping'
             detex.log(__name__, msg, pri=True)
             continue
         originTime = obspy.UTCDateTime(tem.iloc[0].TIME)
-        Nc = detex.util.get_number_channels(st) #get number of channels
-        if Nc != len(st): 
+        Nc = len(set([x.stats.channel for x in st])) #get number of channels
+        if Nc != len(st) or len(st) ==0: 
             msg = ('%s on %s is fractured or channels are missing, consider '
                     'setting fillZeros to True in ClusterStream to try to '
                     'make it usable, skipping') % (evename, station)
@@ -905,8 +927,8 @@ def multiplex(st, Nc=None, trimTolerance=15, template=False, returnlist=False,
         minlen=np.array([len(x) for x in chans])  
         if max(minlen)-min(minlen) > trimTolerance:
             netsta = st[0].stats.network + '.' + st[0].stats.station
-            utc1 = st[0].stats.starttime.formatIRISWebService().split('.')[0]
-            utc2 = st[0].stats.endtime.formatIRISWebService().split('.')[0]
+            utc1 = str(st[0].stats.starttime).split('.')[0]
+            utc2 = str(st[0].stats.endtime).split('.')[0]
             msg = ('Channel lengths are not within %d on %s from %s to %s' %
                   (trimTolerance, netsta, utc1, utc2))
             if template:
@@ -938,7 +960,12 @@ def _applyFilter(st, filt, decimate=False, dtype='double', fillZeros=False):
     """
     Apply a filter, decimate, and trim to even start/end times 
     """
+    if st is None or len(st) < 1:
+        msg = '_applyFilter got a stream with 0 length'
+        detex.log(__name__, msg, level='warn')
+        return obspy.Stream()
     st.sort()
+    st1 = st.copy()
     if dtype == 'single': #cast into single
         for num,tr in enumerate(st):
             st[num].data = tr.data.astype(np.float32)
@@ -948,12 +975,21 @@ def _applyFilter(st, filt, decimate=False, dtype='double', fillZeros=False):
             st = _mergeChannelsFill(st)
         else:
             st = _mergeChannels(st)
+    if not len(st) == len(nc) or len(st) < 1:
+        sta = st1[0].stats.station
+        stime = str(st1[0].stats.starttime)
+        msg = 'Stream is too fractured around %s on %s' % (str(stime), sta)
+        detex.log(__name__, msg, level='warn')
+        return obspy.Stream()
+        #st1.write('failed_merge-%s-%s.pkl'%(sta, stime), 'pickle')
+        #assert len(st) == len(nc)
     if decimate:
         st.decimate(decimate)
         
     startTrim = max([x.stats.starttime for x in st])
     endTrim = min([x.stats.endtime for x in st])
-    
+    if startTrim> endTrim: # return empty string if chans dont overlap
+        return obspy.Stream()
     st.trim(starttime=startTrim, endtime=endTrim)
     st = st.split()
     st.detrend('linear')
@@ -964,15 +1000,55 @@ def _applyFilter(st, filt, decimate=False, dtype='double', fillZeros=False):
     
 def _mergeChannels(st): 
     """
-    function to find longest continuous data chucnk and discard the rest
+    function to find longest continuous data chunck and discard the rest
     """
-    channels = list(set([x.stats.channel for x in st]))
-    temst = st.select(channel=channels[0])
-    lengths = np.array([len(x.data) for x in temst])
-    lemax = lengths.argmax()
-    sttime = st[lemax].stats.starttime
-    etime = st[lemax].stats.endtime
-    st.trim(starttime=sttime, endtime=etime)
+    st1 = st.copy()
+    st1.merge(fill_value=0.0)
+    start = max([x.stats.starttime for x in st1])
+    end = min([x.stats.endtime for x in st1])
+    try:
+        st1.trim(starttime=start, endtime=end)
+    except ValueError: # if stream too factured end is larger than start
+        return obspy.Stream()
+    ar_len = min([len(x.data) for x in st1])    
+    
+    ar = np.ones(ar_len)
+    for tr in st1: 
+        ar *= tr.data
+    trace = obspy.Trace(data=np.ma.masked_where(ar==0.0, ar))
+    trace.stats.starttime = start
+    trace.stats.sampling_rate = st1[0].stats.sampling_rate
+    if (ar==0.0).any():
+            
+        try:
+            st2 = trace.split()
+        except:
+            import ipdb; ipdb.set_trace()
+            return obspy.Stream()
+        times = np.array([[x.stats.starttime, x.stats.endtime] for x in st2])
+        df = pd.DataFrame(times, columns=['start', 'stop'])
+        df['duration'] = df['stop'] - df['start']
+        max_dur = df[df.duration == df['duration'].max()].iloc[0]
+        st.trim(starttime=max_dur.start, endtime=max_dur.stop)
+    else:
+        st = st1
+    
+    
+    
+#    trim_start = st2[0].stats.starttime
+#    trim_end = st2[0].stats.endtime
+#    st.trim(starttime=trim_start, endtime=trim_end)
+    
+#    gaps = np.array(st.get_gaps())
+#    start = min([x.stats.starttime for x in st])
+#    end = max([x.stats.endtime for x in st])
+#    ar = np.array([[start, gaps[:, 4].min()],[gaps[:, 4].max(), 
+#                    gaps[:, 5].min()], [gaps[:, 5].max(), end]])
+#    df = pd.DataFrame(ar, columns=['start', 'stop'])
+#    df['dur'] = df['stop'] - df['start'] 
+#    max_dur = df[df.dur==df.dur.max()].iloc[0]
+#    st.trim(starttime=max_dur.start, endtime=max_dur.stop)   
+#    st.merge()
     return st
 
 def _mergeChannelsFill(st):
