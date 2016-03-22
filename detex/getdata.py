@@ -178,7 +178,7 @@ def makeDataDirectories(templateKey='TemplateKey.csv',
     
     
     # Configure data fetcher
-    if isinstance(fetch,DataFetcher):
+    if isinstance(fetch, detex.getdata.DataFetcher):
         fetcher = fetch
         # Make sure DataFetcher is on same page as function inputs
         fetcher.opType = opType
@@ -343,7 +343,7 @@ class DataFetcher(object):
             self._getStream = _assignClientFunction(self.client)
             
         elif self.method == 'uuss': # uuss setting 
-            self.client = obspy.neic.Client('128.110.129.227')
+            self.client = obspy.clients.neic.Client('128.110.129.227')
             self._getStream = _assignClientFunction(self.client)
             self.inventory = obspy.clients.fdsn.Client('iris') # use iris for resps
     
@@ -737,8 +737,7 @@ def _loadFromFDSN(fet, start, end, net, sta, chan, loc):
             chan = ','.join(chan.split('-'))
     # try to get waveforms, else return None
     try: 
-        st = client.get_waveforms(net, sta, loc, chan, start, end,
-                                  attach_response=fet.removeResponse)
+        st = client.get_waveforms(net, sta, loc, chan, start, end, attach_response=fet.removeResponse)
     except:
         msg = ('Could not fetch data on %s from %s to %s' % 
         (net + '.' + sta, startstr, endstr))
