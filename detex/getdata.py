@@ -40,6 +40,7 @@ def read(path):
         try:
             st = obspy.read(os.path.join(os.path.sep, path))
         except (IOError, TypeError):
+            #import ipdb; ipdb.set_trace()
             msg = 'Cannot read %s, the file may be corrupt, skipping it' % path
             detex.log(__name__, msg, level='warn', pri=True)    
             return None

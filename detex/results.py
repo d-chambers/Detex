@@ -650,7 +650,7 @@ class SSResults(object):
 
         for num, row in dets.iterrows():  # loop through detections and save
             origin = obspy.UTCDateTime(np.mean([row.MSTAMPmax, row.MSTAMPmin]))
-            Evename = str(origin).replace(':', '-')
+            Evename = row.Event
             eveDirName = 'd' + Evename
             
             # if the directory doesnt exists create it

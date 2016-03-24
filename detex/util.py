@@ -861,9 +861,13 @@ def saveSQLite(DF, CorDB, Tablename, silent=True):
     """
 
     with connect(CorDB, detect_types=PARSE_DECLTYPES) as conn:
+        
         if os.path.exists(CorDB):
-            detex.pandas_dbms.write_frame(
+            try:
+                detex.pandas_dbms.write_frame(
                 DF, Tablename, con=conn, flavor='sqlite', if_exists='append')
+            except:
+                import ipdb; ipdb.set_trace()
         else:
             detex.pandas_dbms.write_frame(
                 DF, Tablename, con=conn, flavor='sqlite', if_exists='fail')

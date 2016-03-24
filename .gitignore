@@ -14,6 +14,7 @@ SubSpace.db
 # linux garbage
 *~
 *.swp
+.DS_store*
 
 #pytest droppings
 .cache
