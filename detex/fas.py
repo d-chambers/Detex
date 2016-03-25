@@ -110,7 +110,7 @@ def _getDSVect(fetcher, stakey, utc1, utc2, filt, deci, dtype,
             DSmat.append(dsVect)
             scount += 1 
         if count == 0:
-            msg = 'Could not get any data for %s' %(stakey.STATION.loc[0])
+            msg = 'Could not get any data for %s' %(stakey.STATION.iloc[0])
             detex.log(__name__, msg, level='error')        
         return DSmat, count, scount
        

@@ -298,6 +298,8 @@ class Cluster(object):
         self.temkey = temkey
         self.key = eventList
         self.updateReqCC(ccReq)
+        self.trim = trim
+        self.decimate = decimate
         self.nonClustColor = '0.6'  # use a grey of 0.6 for singletons
 
     def updateReqCC(self, newccReq):

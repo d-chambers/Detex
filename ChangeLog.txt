@@ -168,6 +168,7 @@ Version 1.0.7
 --------------
 Added python 3 support
 Changed _mergeChannels method to account for more edge cases
-
+Changed obspy API calls to reflect version 1.0.0
+Added required obspy version >= 1.0.0
 
 

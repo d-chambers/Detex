@@ -28,6 +28,6 @@ setup(
     ],
     keywords = 'seismology signal detection',
     packages = find_packages(exclude=['contrib', 'docs', 'tests*']),
-    install_requires = ['obspy', 'numpy', 'pandas >= 0.17.0', 
+    install_requires = ['obspy >= 1.0.0', 'numpy', 'pandas >= 0.17.0',
                         'scipy', 'matplotlib', 'glob2'],
 )
