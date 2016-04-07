@@ -8,7 +8,6 @@ import numpy as np
 import itertools
 import json
 import random
-import ipdb
 
 #client imports
 import obspy.fdsn
