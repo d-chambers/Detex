@@ -8,7 +8,7 @@ deTex: A Python Toolbox for running subspace detections.
 """
 # python 2 and 3 compatibility imports
 from __future__ import print_function, absolute_import, unicode_literals
-from __future__ import with_statement, nested_scopes, generators, division
+from __future__ import division
 
 # General imports
 import os
@@ -50,7 +50,6 @@ with open(version) as vfil:
 maxSize = 10 * 1024*1024 # max size log file can be in bytes (10 mb defualt)
 verbose = True # set to false to avoid printing to screen
 makeLog = False # set to false to not make log file
-__version__ = '1.0.6' # current detex version
 
 ## Configure logger to be used across all of Detex
 def setLogger(fileName='detex_log.log', deleteOld=False):

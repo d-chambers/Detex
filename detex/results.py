@@ -450,8 +450,6 @@ def _associateDetections(ssdf, associateReq, requiredNumStations,
                     # temcop=temcop[temcop.NAME!=autoDF.iloc[0].Event]
                 else:
                     detdf = _createDetTable(g, cols)
-#                    if any (detdf.DSmax > 1):
-#                        import ipdb; ipdb.set_trace()
                     detlist.append(detdf)
     detTable = pd.concat(detlist, ignore_index=True)
     
@@ -462,7 +460,6 @@ def _check_if_exceptional(g, exth):
     gg = g.copy()
     gg['exceptional'] = [exth.get(x.Sta, 100) for _,x in gg.iterrows()]
 #    if any((gg['DS'] >= gg['exceptional']) & (gg['DS'] <= 1.01)) :
-#        import ipdb; ipdb.set_trace()
     return any((gg['DS'] >= gg['exceptional']) & (gg['DS'] <= 1.01)) 
 # Look at the union of the events and delete those that do not meet the
 # requirements

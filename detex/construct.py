@@ -1023,7 +1023,6 @@ def _mergeChannels(st):
         try:
             st2 = trace.split()
         except:
-            import ipdb; ipdb.set_trace()
             return obspy.Stream()
         times = np.array([[x.stats.starttime, x.stats.endtime] for x in st2])
         df = pd.DataFrame(times, columns=['start', 'stop'])

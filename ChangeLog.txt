@@ -170,5 +170,11 @@ Added python 3 support
 Changed _mergeChannels method to account for more edge cases
 Changed obspy API calls to reflect version 1.0.0
 Added required obspy version >= 1.0.0
+Added new module version.py which is just a version count used by setuptools and __init__
+Removed ipdb references
+
+
+
+
 
 

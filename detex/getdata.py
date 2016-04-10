@@ -4,10 +4,8 @@ Created on Thu Nov 10 20:21:46 2015
 
 @author: derrick
 """
-from __future__ import print_function, absolute_import, unicode_literals
-from __future__ import with_statement, nested_scopes, generators, division
-from six import text_type, string_types
-
+from __future__ import print_function, absolute_import, unicode_literals, division
+from six import  string_types
 import os
 import glob
 import obspy
@@ -40,14 +38,10 @@ def read(path):
         try:
             st = obspy.read(os.path.join(os.path.sep, path))
         except (IOError, TypeError):
-            #import ipdb; ipdb.set_trace()
             msg = 'Cannot read %s, the file may be corrupt, skipping it' % path
             detex.log(__name__, msg, level='warn', pri=True)    
             return None
     return st
-
-
-
 
 def quickFetch(fetch_arg, **kwargs):
     """
@@ -260,7 +254,7 @@ class DataFetcher(object):
             seismograph stations is initiated using CWB for waveforms
             and IRIS is used for station inventories
     client : An obspy client object
-        Client object used to get data, from obspy.fdsn, obspy.neic etc.
+        Client object used to get data, from obspy.clients
     removeResponse : bool
         If True remove response before returning stream.
     inventoryArg : None, obspy client object, or obspy Inventory object
