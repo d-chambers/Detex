@@ -9,30 +9,44 @@ config. file for tests
 from __future__ import print_function, absolute_import, unicode_literals, division
 
 import pytest
-import detex
 import os
-import shutil
 import glob
+import sys
+
+##### add paths so that all the detex dependents can simply be in the same dir
+## add detex path to start of python path (doesnt test installed version)
+pypo_path = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, pypo_path)
+
+## add other paths that might be in the same dir as pypo 
+git_path = os.path.dirname(pypo_path)
+def add_paths(git_path):
+    """
+    iter through paths and add all to python path for session
+    """
+    repos = glob.glob(os.path.join(git_path, '*'))
+    for repo in repos:
+        sys.path.append(os.path.abspath(repo))
+add_paths(git_path)
+# import detex here to ensure the package from the repo is imported
+import detex
+
+# add test directory to namespace for solid path in other tests 
+def pytest_namespace():
+    return {'test_directory': os.path.abspath(os.path.dirname(__file__))}
 
 # global
-default_test_cases_directory = 'test_cases'
-default_test_cases = glob.glob(os.path.join(default_test_cases_directory, '*'))
+#default_test_cases_directory = 'test_cases'
+#default_test_cases = glob.glob(os.path.join(default_test_cases_directory, '*'))
 
 
 ###### metas
-## allow the setting of the test directory (case tests)
-#def pytest_addoption(parser):
-#    parser.addoption("--test_directory", action="store", 
-#                     default=','.join(default_test_cases),
-#                     help=("A directory to run the tests on, should have keys "
-#                            "and pick files. Can pass multiple paths seperated"
-#                            " by ,"))
 
 # alow use of general tests or case tests
 def pytest_addoption(parser):
     parser.addoption("--test_case", action="store_true", default=True,
         help=("run the test case(s). Pass True to run all, or name of test case"
-                "to run only one, e.g. 'Case2' would only run case 2"))
+                "to run only one, e.g. '2' would only run case 2"))
         
     parser.addoption("--general_tests", action="store_true", default=True,
         help="run the general tests")

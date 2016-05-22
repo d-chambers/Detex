@@ -10,13 +10,13 @@ Special thanks to Tex Kubacki (whose work inspired Detex), Jared Stein, Kris Pan
 
 There are two tutorials avaliable:
 
-[The introductory tutorial](Tutorial/Intro/intro.md) - Serves to illustrate what detex does on a high level by introducing a suggested workflow. I recommend you start here. 
+[The introductory tutorial](tutorial/Intro/intro.md) - Serves to illustrate what detex does on a high level by introducing a suggested workflow. I recommend you start here. 
 
-[The advanced tutorial](Tutorial/Advanced/advanced.md) - Provides details on the important classes in detex and highlights key features. Apart from the doc strings, this tutorial serves as the main form of documentation for detex. 
+[The advanced tutorial](tutorial/Advanced/advanced.md) - Provides details on the important classes in detex and highlights key features. Apart from the doc strings, this tutorial serves as the main form of documentation for detex. 
 
 ## Contributing to detex
 
-If you would like to contribute to detex your help is much appreciated. This could include adding/requesting a feature, fixing/reporting a bug, or simply asking a question. [Here](Tutorial/ContributeToDetex/contributing.md) is a basic guide to doing so, everything should be fairly standard. 
+If you would like to contribute to detex your help is much appreciated. This could include adding/requesting a feature, fixing/reporting a bug, or simply asking a question. [Here](tutorial/ContributeToDetex/contributing.md) is a basic guide to doing so, everything should be fairly standard. 
 
 # References
 

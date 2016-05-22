@@ -1,0 +1,1 @@
+These test cases are integration tests for detex. Each one walks through a defined problem and workflow and verifies detex returns expected results along each step. These are the same datasets used in the tutorials. 
