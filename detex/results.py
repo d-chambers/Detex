@@ -296,13 +296,13 @@ def _verifyEvents(Dets, Autos, veriFile, veriBuffer, includeAllVeriColumns):
 def _readVeriFile(veriFile):
     try:
         df = pd.read_csv(veriFile)
-    except:
+    except Exception:
         try:
             df = pd.read_pickle(veriFile)
-        except:
+        except Exception:
             try:
                 df = detex.util.loadSQLite(veriFile, 'verify')
-            except:
+            except Exception:
                 msg =('%s could not be read, it must either be csv, pickled' 
                       'dataframe or sqlite database') % veriFile 
                 detex.log(__name__, msg, level='error')
@@ -665,7 +665,7 @@ class SSResults(object):
                 try:
                     st = self.fetcher.getStream(start, stop, net, sta)
                     st.write(path, waveFormat)
-                except:
+                except Exception:
                     msg = ('Could not write and save %s for station %s' % (
                             Evename, sta))
                     detex.log(__name__, msg, level='warning', pri=True)

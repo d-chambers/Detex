@@ -69,7 +69,7 @@ class ClusterStream(object):
     def writeSimpleHypoDDInput(self, fileName='dt.cc', coef=1, minCC=.35):
         """
         Create a hypoDD cross correlation file (EG dt.cc), assuming the lag 
-        times are pure S times (true if S amplitude is larger than P)
+        times are pure S times (should be true if S amplitude is dominant)
 
         Parameters
         ----------
@@ -83,7 +83,7 @@ class ClusterStream(object):
         if not self.enforceOrigin:
             msg = ('Sample Lags are not meaningful unless origin times are '
                    'enforced on each waveform. re-run detex.subspace.'
-                   'createCluster with enforceOrigins=True')
+                   'createCluster with enforceOrigin=True')
             detex.log(__name__, msg, level='error')
         fil = open(fileName, 'wb')
         # required number of zeros for numbering all events
@@ -107,7 +107,7 @@ class ClusterStream(object):
                         detex.log(__name__, msg, level='warning', pri=True)
                         continue
                     # get data specific to this station
-                    trdf = self.TRDF[self.TRDF.Station == sta].iloc[0]
+                    trdf = self.trdf[self.trdf.Station == sta].iloc[0]
                     sr1 = trdf.Stats[ev1]['sampling_rate']
                     sr2 = trdf.Stats[ev2]['sampling_rate']
                     if sr1 != sr2:
@@ -726,8 +726,8 @@ class SubSpace(object):
         self.Pf = Pf
         self.ssStations = self.subspaces.keys()
         self.singStations = self.singles.keys()
-        self.Stations = list(set(self.ssStations) | set(self.singStations))
-        self.Stations.sort()
+        self.stations = list(set(self.ssStations) | set(self.singStations))
+        self.stations.sort()
         self._stakey2 = {x: x for x in self.ssStations}
         self._stakey1 = {x.split('.')[1]: x for x in self.ssStations}
     
@@ -1909,7 +1909,7 @@ class SubSpace(object):
         """
         sslist = []  # list in which to put DFs for each subspace/station pair
         sglist = []  # list in which to put DFs for each single/station pair
-        for sta in self.Stations:
+        for sta in self.stations:
             if sta not in self.ssStations:
                 msg = 'No subspaces on station %s' % sta
                 detex.log(__name__, msg, pri=True)
@@ -1928,7 +1928,7 @@ class SubSpace(object):
                         'beta1', 'beta2']
                 dat = [[name, station, events, thresh, numbasis, b1, b2]]
                 sslist.append(pd.DataFrame(dat, columns=cols))
-        for sta in self.Stations:
+        for sta in self.stations:
             if sta not in self.singStations:
                 msg = 'No singletons on station %s' % sta
                 detex.log(__name__, msg, pri=True)
@@ -1964,7 +1964,7 @@ class SubSpace(object):
             bins = json.dumps(self.histSubSpaces['Bins'].tolist())
             dat = [['Bins', 'Bins', bins]]
             sshists = [pd.DataFrame(dat, columns=cols)]
-            for sta in self.Stations:
+            for sta in self.stations:
                 if sta in self.histSubSpaces.keys():
                     for skey in self.histSubSpaces[sta]:
                         try:
@@ -1981,7 +1981,7 @@ class SubSpace(object):
             bins = json.dumps(self.histSingles['Bins'].tolist())
             dat = [['Bins', 'Bins', bins]]
             sghists = [pd.DataFrame(dat, columns=cols)]
-            for sta in self.Stations:
+            for sta in self.stations:
                 if sta in self.histSingles.keys():
                     for skey in self.histSingles[sta]:
                         try:
@@ -2035,6 +2035,6 @@ class SubSpace(object):
         """
         for station in self.ssStations:
             for num, row in self.subspaces[station].iterrows():
-                print('%s,%s, min=%3f,max=%3f, range=%3f' %
+                print('%s, %s, min=%3f, max=%3f, range=%3f' %
                     (row.Station, row.Name, row.Offsets[0], row.Offsets[2],
                      row.Offsets[2] - row.Offsets[0]))

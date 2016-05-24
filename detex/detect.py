@@ -100,7 +100,7 @@ class _SSDetex(object):
                 try: # try and read, pass
                     DFutc_current = pd.read_pickle('UTCsaves.pkl')
                     DFutc = DFutc.append(DFutc_current, ignore_index=True)
-                except:
+                except Exception:
                     pass
                 DFutc.to_pickle('UTCsaves.pkl')
             except ValueError:
@@ -178,7 +178,7 @@ class _SSDetex(object):
                     try:
                         hg = np.histogram(row.SSdetect, bins=self.hist['Bins'])
                         histdic[name] = histdic[name] + hg[0] 
-                    except:
+                    except Exception:
                         msg = (('binning failed on %s for %s from %s to %s') %
                               (sta, name, utc1, utc2))
                         detex.log(__name__, msg, level='warning')
@@ -229,7 +229,7 @@ class _SSDetex(object):
         try:
             conSt = _applyFilter(st, self.filt, self.decimate, self.dtype, 
                                      fillZeros=self.fillZeros)
-        except:
+        except Exception:
             msg = 'failed to filter %s, skipping' % st
             detex.log(__name__, msg ,level='warning', pri=True)
             return None, None, None
@@ -286,7 +286,7 @@ class _SSDetex(object):
                         self.triggerSTATime * CorDF.SampRate[0])
                     CorDF.MaxSTALTA[ind] = CorDF.STALTA[ind].max()
                 
-                except: 
+                except Exception: 
                     msg = ('failing to calculate sta/lta of det. statistic'
                            ' on %s for %s start at %s') % (sta, ind, utc1)
                     detex.log(__name__, msg, level='warn')
@@ -411,7 +411,10 @@ class _SSDetex(object):
             if self.fillZeros:  # if zeros are being filled dont try STA/LTA
                 SLValue = 0.0
             else:
-                SLValue = corSeries.STALTA[trigIndex]
+                try:
+                    SLValue = corSeries.STALTA[trigIndex]
+                except TypeError:
+                    SLValue = 0.0
             Ceval = self._downPlayArrayAroundMax(Ceval, sr, dpv)
             # estimate mags else return NaNs as mag estimates
             if self.estimateMags:  # estimate magnitudes

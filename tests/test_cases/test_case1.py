@@ -14,7 +14,10 @@ import os
 import detex
 import obspy
 import pandas as pd
+import matplotlib.pyplot as plt
 from collections import namedtuple
+
+import pdb
 
 # mark entire module
 pytestmark = [pytest.mark.test_case, pytest.mark.case1]
@@ -46,6 +49,7 @@ con_data_args = {}
 eve_data_args = {} 
 # dict for create cluster args
 create_cluster_args = {}
+create_cluster_args2 = {'enforceOrigin': True}
 # dict for create subspace args
 create_subspace_args = {}
 # attach phases params
@@ -56,10 +60,10 @@ svd_params = {'conDatNum':100, 'threshold':None, 'normalize':False,
 # params for running detections
 detection_params = {'utcStart':None, 'utcEnd':None, 'subspaceDB':subspace_database,
                     'delOldCorrs':True, 'calcHist':True, 'useSubSpaces':True,
-                    'useSingles':False, 'estimateMags':True, 'fillZeros':False}
+                    'useSingles':True, 'estimateMags':True, 'fillZeros':False}
 # params for running detResults
 results_params = {'ss_associateBuffer':1, 'sg_associateBuffer':2.5, 
-                  'requiredNumStations':4, 'veriBuffer':1, 'ssDB':subspace_database,
+                  'requiredNumStations':2, 'veriBuffer':60*10, 'ssDB':subspace_database,
                   'rediceDets':True, 'Pf':False, 'stations':None, 'starttime':None,
                   'endtime':None, 'fetch':'ContinuousWaveForms'}
 
@@ -242,6 +246,10 @@ def modify_cluster(create_cluster):
     cl['TA.M17A'].updateReqCC(.38)
     return cl
 
+
+
+
+
 # tests for the cluster object
 class TestCluster():
     # test types
@@ -253,8 +261,60 @@ class TestCluster():
         assert len(cl) == 2 # test there are two stations
         for c in cl:
             assert len(c) == 4 # make sure there are exactly 4 clusters
+
+@pytest.fixture(scope='module')
+def dendrogram(modify_cluster):
+    save_name = 'dendro_test.pdf'
+    modify_cluster.dendro(show=False, saveName=save_name)
+    return save_name
+
+# test that dendro doesn't raise
+class TestDendrogram():
+    # test dendro doesn't raise
+    def test_dendro(self, dendrogram):
+        assert os.path.exists(dendrogram)
+
+# save cluster
+@pytest.yield_fixture(scope="module")
+def save_cluster(modify_cluster):
+    cl = modify_cluster
+    cl.write()
+    yield cl.filename
+    if os.path.exists(cl.filename):
+        os.remove(cl.filename)
+
+# any actions to perform on cluster go here
+@pytest.fixture(scope="module")
+def load_cluster(save_cluster):
+    cl = detex.loadClusters(save_cluster)
+    return cl
         
-        
+class TestLoadCluster():
+    # test load cluster
+    def test_type(self, load_cluster):
+        assert isinstance(load_cluster, detex.subspace.ClusterStream)
+
+# create a cluster with fill
+@pytest.fixture(scope="module")
+def create_cluster2(make_data_dirs, event_data_fetcher):
+    cl = detex.createCluster(fetch_arg=event_data_fetcher,
+                             **create_cluster_args2)
+    return cl
+
+@pytest.yield_fixture(scope='module')
+def hypoDD_output(create_cluster2):
+    filename = 'dt.cc'
+    cl = create_cluster2
+    cl.writeSimpleHypoDDInput(fileName=filename)
+    yield filename
+    if os.path.exists(filename):
+        os.remove(filename)
+
+class TestWriteHypoDD():
+    # test output
+    def test_exists_output(self, hypoDD_output):
+        assert os.path.exists(hypoDD_output)
+
 ############# Test Subspace
 
 # create the subspace object
@@ -281,22 +341,68 @@ def perform_svd(attach_pick_times):
 
 # perform any additional modifications
 @pytest.fixture(scope='module')
-def modify_subspace(perform_svd):
+def modified_subspace(perform_svd):
     ss = perform_svd
     return ss
 
+# test the subspaces created    
+class TestSubspace():
+    # test that the type is right
+    def test_type(self, create_subspace):
+        assert isinstance(create_subspace, detex.subspace.SubSpace)
+    # test stations in key are found in subspace cluster
+    def test_stations(self, create_subspace, detex_keys):
+        ss = create_subspace
+        stakey = detex_keys.stakey
+        stations_in_key = set(stakey.NETWORK + '.' + stakey.STATION)
+        stations_in_ss = set(ss.stations)
+        assert stations_in_key == stations_in_ss
+    # test that the subspace dict is a dict of dataframes
+    def test_subspace_dict(self, create_subspace):
+        ss = create_subspace
+        assert isinstance(ss.subspaces, dict)
+        for key, item in ss.subspaces.items():
+            assert isinstance(item, pd.DataFrame)
+            assert key in ss.stations
+    # test that pick times attached to subspace
+    def test_attach_picktimes_subspace(self, attach_pick_times):
+        ss = attach_pick_times
+        for key, df in ss.subspaces.items():
+            assert not df.SVDdefined.all()
+            for ind, row in df.iterrows():
+                assert row.SampleTrims
+    # test that SVD is called and basis vectors are defined
+    def test_SVD(self, modified_subspace):
+        ss = modified_subspace
+        for key, df in ss.subspaces.items():
+            assert df.SVDdefined.all()
+            for ind, row in df.iterrows():
+                assert isinstance(row.NumBasis, int) 
+                assert isinstance(row.Threshold, float)
+    
+
 # run detections
 @pytest.fixture(scope='module')
-def run_detections(modify_subspace):
-    ss = modify_subspace
+def run_detections(modified_subspace):
+    ss = modified_subspace
     ss.detex(**detection_params)
     return ss
 
+class TestDetections():
+    def test_detections(self, run_detections):
+        assert os.path.exists(subspace_database)
+
 # load results
 @pytest.fixture(scope='module')
-def get_results(run_detections):
-    res = detex.results.detResults(**results_params)
+def results(run_detections, case_paths):
+    res = detex.results.detResults(verifile=case_paths.verify, **results_params)
     return res
+
+# test that the expected results were returned
+class TestResults():
+    def test_results(self, results):
+        pdb.set_trace()
+        assert 1
     
 
 
