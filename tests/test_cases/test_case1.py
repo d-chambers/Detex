@@ -416,7 +416,7 @@ class TestDetections():
 
 # load results
 @pytest.fixture(scope='module')
-def results(case_paths):#, run_detections):
+def results(case_paths, run_detections):
     res = detex.results.detResults(veriFile=case_paths.verify, **results_params)
     return res
 
