@@ -60,11 +60,11 @@ svd_params = {'conDatNum':100, 'threshold':None, 'normalize':False,
 # params for running detections
 detection_params = {'utcStart':None, 'utcEnd':None, 'subspaceDB':subspace_database,
                     'delOldCorrs':True, 'calcHist':True, 'useSubSpaces':True,
-                    'useSingles':True, 'estimateMags':True, 'fillZeros':False}
+                    'useSingles':False, 'estimateMags':True, 'fillZeros':False}
 # params for running detResults
 results_params = {'ss_associateBuffer':1, 'sg_associateBuffer':2.5, 
                   'requiredNumStations':2, 'veriBuffer':60*10, 'ssDB':subspace_database,
-                  'rediceDets':True, 'Pf':False, 'stations':None, 'starttime':None,
+                  'reduceDets':True, 'Pf':False, 'stations':None, 'starttime':None,
                   'endtime':None, 'fetch':'ContinuousWaveForms'}
 
 
@@ -379,12 +379,34 @@ class TestSubspace():
             for ind, row in df.iterrows():
                 assert isinstance(row.NumBasis, int) 
                 assert isinstance(row.Threshold, float)
+
+# save subspace 
+@pytest.fixture(scope='module')
+def save_subspace(modified_subspace):
+    filename = 'subspace.pkl'    
+    ss = modified_subspace
+    ss.write(filename)
+    return filename
+
+# load a subspace from the given filename
+@pytest.fixture(scope='module')
+def load_subspace(cd_into_case_dir):#save_subspace):
+    save_subspace = 'subspace.pkl'
+    ss = detex.loadSubSpace(save_subspace)    
+    return ss
+
+
+# test that the subspace can be laoded and saved
+class TestLoadSubspace():
+    # load subspace
+    def test_load_subspace(self, load_subspace):
+        isinstance(load_subspace, detex.subspace.SubSpace)
     
 
 # run detections
 @pytest.fixture(scope='module')
-def run_detections(modified_subspace):
-    ss = modified_subspace
+def run_detections(load_subspace):
+    ss = load_subspace
     ss.detex(**detection_params)
     return ss
 
@@ -394,15 +416,27 @@ class TestDetections():
 
 # load results
 @pytest.fixture(scope='module')
-def results(run_detections, case_paths):
-    res = detex.results.detResults(verifile=case_paths.verify, **results_params)
+def results(case_paths):#, run_detections):
+    res = detex.results.detResults(veriFile=case_paths.verify, **results_params)
     return res
 
+# load results
+@pytest.fixture(scope='module')
+def verifile(case_paths):#, run_detections):
+    df = pd.read_csv(case_paths.verify)
+    return df
+    
 # test that the expected results were returned
 class TestResults():
-    def test_results(self, results):
-        pdb.set_trace()
-        assert 1
+    def test_results(self, results, verifile):
+        res = results
+        # test that all detections are vefified
+        assert (len(res.Dets) + len(res.Autos)) == len(res.Vers)
+        assert len(res.Vers) == len(verifile)
+
+## test write detection functionality
+#class TestWriteDetections():
+#    def test_
     
 
 

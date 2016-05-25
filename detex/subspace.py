@@ -6,9 +6,8 @@ Created on Tue Jul 08 21:24:18 2014
 Module containing import detex classes
 """
 # python 2 and 3 compatibility imports
-from __future__ import print_function, absolute_import, unicode_literals
-from __future__ import with_statement, nested_scopes, generators, division
-from six import text_type, string_types
+from __future__ import print_function, absolute_import, unicode_literals, division
+from six import string_types
 
 import pandas as pd
 import numpy as np
@@ -33,6 +32,8 @@ import sys
 
 from scipy.cluster.hierarchy import dendrogram, fcluster
 from detex.detect import _SSDetex
+
+import pdb
 
 pd.options.mode.chained_assignment = None  # mute setting copy warning
 
@@ -1056,7 +1057,7 @@ class SubSpace(object):
                     self.subspaces[station].Threshold[ind] = th
 
     def setSinglesThresholds(self, conDatNum=50, recalc=False, 
-                             threshold=None, backupThreshold=None, kwargs={}):
+                             threshold=None, backupThreshold=None, **kwargs):
         """
         Set thresholds for the singletons (unclustered events) by fitting 
         a beta distribution to estimation of null space
@@ -1496,10 +1497,10 @@ class SubSpace(object):
         """
         try:  # read pksFile
             pks = pd.read_csv(pksFile)
-        except:
+        except Exception:
             try:
                 pks = pd.read_pickle(pksFile)
-            except:
+            except Exception:
                 msg = ('%s does not exist, or it is not a pkl or csv file' 
                         % pksFile)
                 detex.log(__name__, msg, level='error')
@@ -1873,6 +1874,8 @@ class SubSpace(object):
             self.histSubSpaces = Det.hist
 
         if useSingles: # run singletons
+            # make sure thresholds are calcualted
+            self.setSinglesThresholds()
             TRDF = self.singles
             Det = _SSDetex(TRDF, utcStart, utcEnd, self.cfetcher, self.clusters, 
                            subspaceDB, trigCon, triggerLTATime, triggerSTATime, 
@@ -1891,17 +1894,17 @@ class SubSpace(object):
             ssinfo, sginfo = self._getInfoDF()  
             sshists, sghists = self._getHistograms(useSubSpaces, useSingles)
             if useSubSpaces and ssinfo is not None:
-                detex.util.saveSQLite(
-                    ssinfo, subspaceDB, 'ss_info')  # save subspace info
+                 # save subspace info
+                detex.util.saveSQLite(ssinfo, subspaceDB, 'ss_info') 
             if useSingles and sginfo is not None:
-                detex.util.saveSQLite(
-                    sginfo, subspaceDB, 'sg_info')  # save singles info
+                # save singles info
+                detex.util.saveSQLite(sginfo, subspaceDB, 'sg_info')  
             if useSubSpaces and sshists is not None:
-                detex.util.saveSQLite(
-                    sshists, subspaceDB, 'ss_hist')  # save subspace histograms
+                 # save subspace histograms
+                detex.util.saveSQLite(sshists, subspaceDB, 'ss_hist') 
             if useSingles and sghists is not None:
-                detex.util.saveSQLite(
-                    sghists, subspaceDB, 'sg_hist')  # save singles histograms
+                # save singles histograms
+                detex.util.saveSQLite(sghists, subspaceDB, 'sg_hist')  
 
     def _getInfoDF(self):
         """

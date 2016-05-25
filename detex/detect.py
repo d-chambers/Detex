@@ -354,10 +354,13 @@ class _SSDetex(object):
                     WFl = [row.AlignedTD[x] for x in events]
                     WFs = np.array(WFl)
             else: # if single trim and normalize (already done for subspaces)
-                start = row.SampleTrims['Starttime']
-                end = row.SampleTrims['Endtime']
-                mptd = row.MPtd.values()[0]
-                upr = mptd[start:end]
+                mptd = row.MPtd.values()[0]                
+                if row.SampleTrims: # if this is a non empty dict
+                    start = row.SampleTrims['Starttime']
+                    end = row.SampleTrims['Endtime']
+                    upr = mptd[start:end]
+                else:
+                    upr = mptd
                 U = np.array([x / np.linalg.norm(x) for x in [upr]])
                 dlen = len(upr)
                 WFs = [upr]
@@ -656,10 +659,6 @@ def _estSTDMag(mags, ConDat, ewf, eventCors, touse):
             lr =  np.log10(np.std(ConDat) / np.std(ewf[x]))
             ma += (mags[x] + lr) * we
     return ma / weDenom
-    
-
-    
-    
     
     
     

@@ -9,6 +9,7 @@ DetectedEvents
 
 # detex saved files
 clust.pkl
+subspace.pkl
 SubSpace.db
 
 # linux/osx garbage

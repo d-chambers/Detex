@@ -671,7 +671,7 @@ class SSResults(object):
                     detex.log(__name__, msg, level='warning', pri=True)
 
             detTem.loc[num, 'NAME'] = eveDirName
-            detTem.loc[num, 'TIME'] = origin.timestamp
+            detTem.loc[num, 'TIME'] = obspy.UTCDateTime(origin.timestamp)
             detTem.loc[num, 'MAG'] = row.Mag
 
         temkeyNew = pd.concat([temkey, detTem], ignore_index=True)
