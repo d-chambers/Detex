@@ -15,6 +15,7 @@ import detex
 import obspy
 import pandas as pd
 import matplotlib.pyplot as plt
+import shutil
 from collections import namedtuple
 
 import pdb
@@ -68,8 +69,7 @@ results_params = {'ss_associateBuffer':1, 'sg_associateBuffer':2.5,
                   'endtime':None, 'fetch':'ContinuousWaveForms'}
 # params for write detections
 write_detections_params = {'onlyVerified':False, 'minDS':False, 'minMag':False, 
-                           'eventDir':'EventWaveForms', 'updateTemKey':False, 
-                           'timeBeforeOrigin':1*60, 
+                           'updateTemKey':False, 'timeBeforeOrigin':1*60, 
                            'timeAfterOrigin':4*60, 'waveFormat':"mseed"}
 
 
@@ -266,11 +266,13 @@ class TestCluster():
         for c in cl:
             assert len(c) == 4 # make sure there are exactly 4 clusters
 
-@pytest.fixture(scope='module')
+@pytest.yield_fixture(scope='module')
 def dendrogram(modify_cluster):
     save_name = 'dendro_test.pdf'
     modify_cluster.dendro(show=False, saveName=save_name)
-    return save_name
+    yield save_name
+    if os.path.exists(save_name):
+        os.remove(save_name)
 
 # test that dendro doesn't raise
 class TestDendrogram():
@@ -441,16 +443,24 @@ class TestResults():
 # write detections 
 @pytest.yield_fixture(scope='module')
 def write_detections(results):
+    event_dir = 'DetectedEventWaveForms'
     file_name = 'temp.csv'
-    results.writeDetections(temkeyPath=file_name, **write_detections_params)
-    yield file_name
+    results.writeDetections(temkeyPath=file_name, eventDir=event_dir,
+                            **write_detections_params)
+    yield file_name, event_dir
     if os.path.exists(file_name):
         os.remove(file_name)
+    if os.path.isdir(event_dir):
+        shutil.rmtree(event_dir)
 
 class TestWriteDetections():
-    def test_write_detections(self, write_detections, results):
-        assert os.path.exists(write_detections)
-        pdb.set_trace()
+    # tset that detections are indeed written out in a csv
+    def test_write_detections_csv(self, write_detections, results):
+        file_name, event_dir = write_detections
+        #pdb.set_trace()
+        assert os.path.exists(file_name)
+        assert os.path.isdir(event_dir)
+        
 
 ## test write detection functionality
 #class TestWriteDetections():

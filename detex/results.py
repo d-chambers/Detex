@@ -641,7 +641,7 @@ class SSResults(object):
             eventDir = self.eventDir
         if temkeyPath is None:
             temkeyPath = self.TemKeyPath
-        temkey = self.TemplateKey
+        temkey = self.TemplateKey.copy()
 
         detTem = pd.DataFrame(index=range(len(dets)), columns=temkey.columns)
 
@@ -653,6 +653,10 @@ class SSResults(object):
             # if the directory doesnt exists create it
             if not os.path.exists(os.path.join(eventDir, eveDirName)):
                 os.makedirs(os.path.join(eventDir, eveDirName))
+            else: # else delete its index so it will be reindexed 
+                index_path = os.path.join(eventDir, 'index.db')
+                if os.path.exists(index_path):
+                    os.remove(index_path)
 
             # loop through each station and load stream, then save
             for stanum, starow in self.StationKey.iterrows():  
@@ -671,14 +675,14 @@ class SSResults(object):
                     detex.log(__name__, msg, level='warning', pri=True)
 
             detTem.loc[num, 'NAME'] = eveDirName
-            time = str(obspy.UTCDateTime(origin.timestamp)).replace(':', '-')
-            detTem.loc[num, 'TIME'] = time
+            time = str(obspy.UTCDateTime(origin.timestamp))
+            detTem.loc[num, 'TIME'] = time.replace(':', '-').replace('Z', '')
             detTem.loc[num, 'MAG'] = row.Mag
 
         temkeyNew = pd.concat([temkey, detTem], ignore_index=True)
         temkeyNew.reset_index(inplace=True, drop=True)
-        if updateTemKey:
-            temkeyNew.to_csv(temkeyPath)
+        temkeyNew.to_csv(temkeyPath, index=False)
+
 
     def __repr__(self):
         lens = (len(self.Autos), len(self.Dets), str(self.NumVerified))
