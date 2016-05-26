@@ -13,13 +13,13 @@ import pytest
 
 
 ##### Tests for waveforms handling
-path_to_gap_one_chan = os.path.join('Test_Data', 'Misc', 'Trace_one_chan_gap.pkl')
+path_to_gap_one_chan = os.path.join('test_data', 'Misc', 'Trace_one_chan_gap.pkl')
 @pytest.fixture(scope='module')
 def load_gap_one_chan():
     st = obspy.read(path_to_gap_one_chan)
     return st 
 
-path_to_gap_three_chan2 = os.path.join('Test_Data', 'Misc', 'Trace_three_chan2.pkl')
+path_to_gap_three_chan2 = os.path.join('test_data', 'Misc', 'Trace_three_chan2.pkl')
 @pytest.fixture(scope='module')
 def load_gap_three_chan():
     st = obspy.read(path_to_gap_three_chan2)

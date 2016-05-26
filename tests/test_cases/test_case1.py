@@ -66,7 +66,11 @@ results_params = {'ss_associateBuffer':1, 'sg_associateBuffer':2.5,
                   'requiredNumStations':2, 'veriBuffer':60*10, 'ssDB':subspace_database,
                   'reduceDets':True, 'Pf':False, 'stations':None, 'starttime':None,
                   'endtime':None, 'fetch':'ContinuousWaveForms'}
-
+# params for write detections
+write_detections_params = {'onlyVerified':False, 'minDS':False, 'minMag':False, 
+                           'eventDir':'EventWaveForms', 'updateTemKey':False, 
+                           'timeBeforeOrigin':1*60, 
+                           'timeAfterOrigin':4*60, 'waveFormat':"mseed"}
 
 
 # mark skip on module if required command line not passed or other case run
@@ -433,6 +437,20 @@ class TestResults():
         # test that all detections are vefified
         assert (len(res.Dets) + len(res.Autos)) == len(res.Vers)
         assert len(res.Vers) == len(verifile)
+
+# write detections 
+@pytest.yield_fixture(scope='module')
+def write_detections(results):
+    file_name = 'temp.csv'
+    results.writeDetections(temkeyPath=file_name, **write_detections_params)
+    yield file_name
+    if os.path.exists(file_name):
+        os.remove(file_name)
+
+class TestWriteDetections():
+    def test_write_detections(self, write_detections, results):
+        assert os.path.exists(write_detections)
+        pdb.set_trace()
 
 ## test write detection functionality
 #class TestWriteDetections():

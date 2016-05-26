@@ -7,8 +7,8 @@ Tests for __init__ module
 """
 import detex
 import os
-
-def test_setLogger(set_logger): # check log was created
-    log_name = set_logger
-    assert os.path.exists(log_name)
-    
+#
+#def test_setLogger(set_logger): # check log was created
+#    log_name = set_logger
+#    assert os.path.exists(log_name)
+#    

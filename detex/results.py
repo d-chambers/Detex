@@ -592,7 +592,7 @@ class SSResults(object):
         self.TemKeyPath = templateKey
         self.fetcher = fetcher
 
-    def writeDetections(self, onlyVerified=False, minDS=False, minMag=False, 
+    def writeDetections(self, onlyVerified=None, minDS=None, minMag=None, 
                         eventDir='EventWaveForms', updateTemKey=True, 
                         temkeyPath=None, timeBeforeOrigin=1*60, 
                         timeAfterOrigin=4*60, waveFormat="mseed"):
@@ -606,7 +606,7 @@ class SSResults(object):
         ----------
         onlyVerified : boolean
             If true only use detections that are verified
-        minDS : False or float between 0.0 and 1.0
+        minDS : None or float between 0.0 and 1.0
             If float only use detections with average detection statistics 
             above minDSave
         minMag : false or float
@@ -634,7 +634,7 @@ class SSResults(object):
         if onlyVerified:
             dets = dets[dets.Verified]
         if minDS:
-            dets = dets[dets.minDS]
+            dets = dets[dets.minDS>=minDS]
         if minMag:
             dets = dets[dets.Mag >= minMag]
         if eventDir is None:
@@ -671,7 +671,8 @@ class SSResults(object):
                     detex.log(__name__, msg, level='warning', pri=True)
 
             detTem.loc[num, 'NAME'] = eveDirName
-            detTem.loc[num, 'TIME'] = obspy.UTCDateTime(origin.timestamp)
+            time = str(obspy.UTCDateTime(origin.timestamp)).replace(':', '-')
+            detTem.loc[num, 'TIME'] = time
             detTem.loc[num, 'MAG'] = row.Mag
 
         temkeyNew = pd.concat([temkey, detTem], ignore_index=True)
