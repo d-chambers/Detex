@@ -1913,7 +1913,7 @@ class SubSpace(object):
         """
         sslist = []  # list in which to put DFs for each subspace/station pair
         sglist = []  # list in which to put DFs for each single/station pair
-        for sta in self.stations:
+        for sta in self.Stations:
             if sta not in self.ssStations:
                 msg = 'No subspaces on station %s' % sta
                 detex.log(__name__, msg, pri=True)
@@ -1932,7 +1932,7 @@ class SubSpace(object):
                         'beta1', 'beta2']
                 dat = [[name, station, events, thresh, numbasis, b1, b2]]
                 sslist.append(pd.DataFrame(dat, columns=cols))
-        for sta in self.stations:
+        for sta in self.Stations:
             if sta not in self.singStations:
                 msg = 'No singletons on station %s' % sta
                 detex.log(__name__, msg, pri=True)
@@ -1968,7 +1968,7 @@ class SubSpace(object):
             bins = json.dumps(self.histSubSpaces['Bins'].tolist())
             dat = [['Bins', 'Bins', bins]]
             sshists = [pd.DataFrame(dat, columns=cols)]
-            for sta in self.stations:
+            for sta in self.Stations:
                 if sta in self.histSubSpaces.keys():
                     for skey in self.histSubSpaces[sta]:
                         try:
@@ -1985,7 +1985,7 @@ class SubSpace(object):
             bins = json.dumps(self.histSingles['Bins'].tolist())
             dat = [['Bins', 'Bins', bins]]
             sghists = [pd.DataFrame(dat, columns=cols)]
-            for sta in self.stations:
+            for sta in self.Stations:
                 if sta in self.histSingles.keys():
                     for skey in self.histSingles[sta]:
                         try:
