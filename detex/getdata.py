@@ -778,8 +778,13 @@ def _getInventory(invArg):
                     'IRIS, or a path to a station xml')
             detex.log(__name__, msg, level='error')
         else:
+<<<<<<< HEAD
             return detex.read_inventory(invArg)
     elif isinstance(invArg, obspy.core.inventory.Inventory):
+=======
+            return obspy.read_inventory(invArg)
+    elif isinstance(invArg, obspy.station.inventory.Inventory):
+>>>>>>> 7570062f21e241017dfac327de8a436abda6eac6
         return invArg
     elif isinstance (invArg, obspy.clients.fdsn.Client):
         return invArg

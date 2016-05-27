@@ -727,8 +727,8 @@ class SubSpace(object):
         self.Pf = Pf
         self.ssStations = self.subspaces.keys()
         self.singStations = self.singles.keys()
-        self.stations = list(set(self.ssStations) | set(self.singStations))
-        self.stations.sort()
+        self.Stations = list(set(self.ssStations) | set(self.singStations))
+        self.Stations.sort()
         self._stakey2 = {x: x for x in self.ssStations}
         self._stakey1 = {x.split('.')[1]: x for x in self.ssStations}
     
@@ -1664,7 +1664,8 @@ class SubSpace(object):
             useSubSpaces=True,
             useSingles=False,
             numBins=401,
-            recalc=False):
+            recalc=False,
+            **kwargs):
         """
         Function to initialize a FAS (false alarm statistic) instance, used
         primarily for sampling and characterizing the null space of the 

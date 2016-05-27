@@ -240,6 +240,7 @@ class TestDirectoryFetchers():
 def create_cluster(make_data_dirs, event_data_fetcher):
     cl = detex.createCluster(fetch_arg=event_data_fetcher,
                              **create_cluster_args)
+    pdb.set_trace()
     return cl
 
 # any actions to perform on cluster go here
