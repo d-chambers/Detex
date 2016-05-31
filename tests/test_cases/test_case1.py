@@ -61,7 +61,7 @@ svd_params = {'conDatNum':100, 'threshold':None, 'normalize':False,
 # params for running detections
 detection_params = {'utcStart':None, 'utcEnd':None, 'subspaceDB':subspace_database,
                     'delOldCorrs':True, 'calcHist':True, 'useSubSpaces':True,
-                    'useSingles':False, 'estimateMags':True, 'fillZeros':False}
+                    'useSingles':True, 'estimateMags':True, 'fillZeros':False}
 # params for running detResults
 results_params = {'ss_associateBuffer':1, 'sg_associateBuffer':2.5, 
                   'requiredNumStations':2, 'veriBuffer':60*10, 'ssDB':subspace_database,
@@ -240,7 +240,6 @@ class TestDirectoryFetchers():
 def create_cluster(make_data_dirs, event_data_fetcher):
     cl = detex.createCluster(fetch_arg=event_data_fetcher,
                              **create_cluster_args)
-    pdb.set_trace()
     return cl
 
 # any actions to perform on cluster go here
@@ -250,9 +249,6 @@ def modify_cluster(create_cluster):
     cl.updateReqCC(.55)
     cl['TA.M17A'].updateReqCC(.38)
     return cl
-
-
-
 
 
 # tests for the cluster object
@@ -362,7 +358,7 @@ class TestSubspace():
         ss = create_subspace
         stakey = detex_keys.stakey
         stations_in_key = set(stakey.NETWORK + '.' + stakey.STATION)
-        stations_in_ss = set(ss.stations)
+        stations_in_ss = set(ss.Stations)
         assert stations_in_key == stations_in_ss
     # test that the subspace dict is a dict of dataframes
     def test_subspace_dict(self, create_subspace):
@@ -370,7 +366,7 @@ class TestSubspace():
         assert isinstance(ss.subspaces, dict)
         for key, item in ss.subspaces.items():
             assert isinstance(item, pd.DataFrame)
-            assert key in ss.stations
+            assert key in ss.Stations
     # test that pick times attached to subspace
     def test_attach_picktimes_subspace(self, attach_pick_times):
         ss = attach_pick_times
@@ -397,7 +393,7 @@ def save_subspace(modified_subspace):
 
 # load a subspace from the given filename
 @pytest.fixture(scope='module')
-def load_subspace(cd_into_case_dir):#save_subspace):
+def load_subspace(cd_into_case_dir, save_subspace):#save_subspace):
     save_subspace = 'subspace.pkl'
     ss = detex.loadSubSpace(save_subspace)    
     return ss
