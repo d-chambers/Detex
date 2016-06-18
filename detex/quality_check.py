@@ -6,20 +6,23 @@ Created on Thu Oct 08 14:16:09 2015
 @author: Derrick
 """
 
-import pandas as pd
-import numpy as np
-import obspy
 import glob
 import os
-import sys
 import shutil
+import sys
+
+import numpy as np
+import obspy
+import pandas as pd
 
 # get start and stop times
 
 
 
-#stations = glob.glob(os.path.join(conDir,'*'))
-countSoFar = 0 #This global variable used to accurately keep progress bar.
+# stations = glob.glob(os.path.join(conDir,'*'))
+countSoFar = 0  # This global variable used to accurately keep progress bar.
+
+
 def divideIntoHours(utc1, utc2):
     """
     Function to take two utc date time objects and create a generator to yield
@@ -28,14 +31,15 @@ def divideIntoHours(utc1, utc2):
     """
     utc1 = obspy.UTCDateTime(utc1)
     utc2 = obspy.UTCDateTime(utc2)
-    
+
     # convert to time stamps (epoch time)
     ts1 = utc1.timestamp - utc1.timestamp % 3600
     ts2 = utc2.timestamp - utc2.timestamp % 3600
     t = ts1
     while t <= ts2:
-        yield obspy.UTCDateTime(t) # yield a value
-        t += 3600 #add an hour
+        yield obspy.UTCDateTime(t)  # yield a value
+        t += 3600  # add an hour
+
 
 def makePath(conDir, starow, utc):
     """
@@ -44,10 +48,11 @@ def makePath(conDir, starow, utc):
     year = '%04d' % utc.year
     julday = '%03d' % utc.julday
     hour = '%02d' % utc.hour
-    stanet = starow.NETWORK + '.' + starow.STATION #NET.STATION format
-    path = os.path.join(conDir, stanet, year, julday, stanet +'.' + 
-                        year + '-' + julday + 'T' + hour +'*')
+    stanet = starow.NETWORK + '.' + starow.STATION  # NET.STATION format
+    path = os.path.join(conDir, stanet, year, julday, stanet + '.' +
+                        year + '-' + julday + 'T' + hour + '*')
     return path
+
 
 def checkQuality(stPath):
     """
@@ -62,39 +67,42 @@ def checkQuality(stPath):
     duration = endtime - starttime
     if len(gaps) > 0:
         hasGaps = True
-    else: 
+    else:
         hasGaps = False
     exists = True
-    outDict = {'Exists':exists, 'HasGaps': hasGaps, 'Length' : lengthStream,
-               'Gaps': gapsum, 'Timestamp' : utc, 'Duration' : duration}
+    outDict = {'Exists': exists, 'HasGaps': hasGaps, 'Length': lengthStream,
+               'Gaps': gapsum, 'Timestamp': utc, 'Duration': duration}
     return outDict
+
 
 def _move_files2trash(fil, newDir):
     pathlist = fil.split(os.path.sep)
-    newpathlist = pathlist[:] #slice to make copy
+    newpathlist = pathlist[:]  # slice to make copy
     newpathlist[0] = newDir
     dirPath = os.path.join(*newpathlist[:-1])
-    if not os.path.exists(dirPath): #if the directory isn't there make it
+    if not os.path.exists(dirPath):  # if the directory isn't there make it
         os.makedirs(dirPath)
-    shutil.move(os.path.join(*pathlist), os.path.join(*newpathlist)) #move file
+    shutil.move(os.path.join(*pathlist), os.path.join(*newpathlist))  # move file
+
 
 # This will create and update the progress bar
 def _progress_bar(total, fileMoveCount):
     global countSoFar
     countSoFar += 1
     width = 25
-    percent = float((float(countSoFar)/float(total))*100.0)
-    completed=int(percent)
-    totalLeft=100
-    completedAmount = int(completed/(float(totalLeft)/float(width)))
-    spaceAmount = int((float(totalLeft)-float(completed))/
-    (float(totalLeft)/float(width)))
+    percent = float((float(countSoFar) / float(total)) * 100.0)
+    completed = int(percent)
+    totalLeft = 100
+    completedAmount = int(completed / (float(totalLeft) / float(width)))
+    spaceAmount = int((float(totalLeft) - float(completed)) /
+                      (float(totalLeft) / float(width)))
 
     for i in xrange(width):
         sys.stdout.write("\r[" + "=" * completedAmount + " " * spaceAmount +
-        "]" +  str(round(float(percent), 2)) + "%" + " " + str(countSoFar) + 
-        "/" + str(total) + "  Bad Files:" + str(fileMoveCount) + " ")
+                         "]" + str(round(float(percent), 2)) + "%" + " " + str(countSoFar) +
+                         "/" + str(total) + "  Bad Files:" + str(fileMoveCount) + " ")
         sys.stdout.flush()
+
 
 # This will count the number of files in the folder structure
 def _file_count(con_dir):
@@ -105,7 +113,7 @@ def _file_count(con_dir):
         for file in files:
             count = count + 1
     print("DONE\n")
-    return(count)
+    return (count)
 
 
 ## Check continuity of Continuous Data Directory
@@ -121,14 +129,12 @@ def check_data_quality(con_dir='ContinuousWaveForms',
                        bad_files_dir='BadContinuousWaveForms',
                        max_gap_duration=1,
                        minDuration=3570):
-                       
-
-# Init dataframe
-    columns =['Exists', 'HasGaps', 'Length', 'Gaps', 'Timestamp', 'Duration']
-    df = pd.DataFrame(columns=columns) 
+    # Init dataframe
+    columns = ['Exists', 'HasGaps', 'Length', 'Gaps', 'Timestamp', 'Duration']
+    df = pd.DataFrame(columns=columns)
     # Parameters for moving files
-    file_move_count = 0 #This keeps a count of how many files were moved
-    
+    file_move_count = 0  # This keeps a count of how many files were moved
+
     # read station/template keys
     if isinstance(stakey, str):
         stakey = pd.read_csv(stakey)
@@ -138,16 +144,19 @@ def check_data_quality(con_dir='ContinuousWaveForms',
         temkey = pd.read_csv(temkey)
     elif not isinstance(temkey, pd.DataFrame):
         raise Exception('temkey must be string or DataFrame')
-    
-    print "\nWrite to File = " + str(write_files)
-    print "Move files = " + str(move_files) + "\n"
+
+    print
+    "\nWrite to File = " + str(write_files)
+    print
+    "Move files = " + str(move_files) + "\n"
     counted_files = _file_count(con_dir)
-    print "Beginning Data Quality check..."
-    
-    for stanum, starow in stakey.iterrows(): # iter through station info
+    print
+    "Beginning Data Quality check..."
+
+    for stanum, starow in stakey.iterrows():  # iter through station info
         utcGenerator = divideIntoHours(starow.STARTTIME, starow.ENDTIME)
         for utc in utcGenerator:
-            utcpath = makePath(con_dir,starow, utc)
+            utcpath = makePath(con_dir, starow, utc)
             fil = glob.glob(utcpath)
             _progress_bar(counted_files, file_move_count)
             if len(fil) > 0:
@@ -165,30 +174,19 @@ def check_data_quality(con_dir='ContinuousWaveForms',
                             f.write(str(fil[0]) + '\n')
                             f.close()
             elif len(fil) > 1:
-                print 'More than one file found for station hour pair'
+                print
+                'More than one file found for station hour pair'
                 sys.exit(1)
             else:
-                qualDict = {'Exists':False, 'HasGaps':False, 'Length':0, 
-                            'Duration':0, 'Gaps':[], 'Path':fil, 
-                            'Timestamp':utc.timestamp}
+                qualDict = {'Exists': False, 'HasGaps': False, 'Length': 0,
+                            'Duration': 0, 'Gaps': [], 'Path': fil,
+                            'Timestamp': utc.timestamp}
                 df.loc[len(df)] = pd.Series(qualDict)
-    if (write_files) :
-        f = open(bad_files_name,'w')
-        f.write("Total Files Checked:" + str(counted_files) + 
-        "  Total number of bad files:" + str(file_move_count)+ '\n')
+    if (write_files):
+        f = open(bad_files_name, 'w')
+        f.write("Total Files Checked:" + str(counted_files) +
+                "  Total number of bad files:" + str(file_move_count) + '\n')
         f.close()
-    print "Quality check complete"
+    print
+    "Quality check complete"
     return df
-            
-            
-    
-
-
-
-
-
-
-
-
-
-

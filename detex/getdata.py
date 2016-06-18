@@ -5,18 +5,20 @@ Created on Thu Nov 10 20:21:46 2015
 @author: derrick
 """
 from __future__ import print_function, absolute_import, unicode_literals, division
-from six import  string_types
-import os
+
 import glob
-import obspy
-import pandas as pd
-import detex
-import numpy as np
 import itertools
 import json
+import os
 import random
 
-#client imports
+import numpy as np
+import obspy
+import pandas as pd
+from six import string_types
+
+import detex
+# client imports
 import obspy.clients.fdsn
 import obspy.clients.neic
 import obspy.clients.earthworm
@@ -26,6 +28,7 @@ eveDirDefault = 'EventWaveForms'
 
 # extension key to map obspy output type to extension. Add more here
 formatKey = {'mseed': 'msd', 'pickle': 'pkl', 'sac': 'sac', 'Q': 'Q'}
+
 
 def read(path):
     """
@@ -39,9 +42,10 @@ def read(path):
             st = obspy.read(os.path.join(os.path.sep, path))
         except (IOError, TypeError):
             msg = 'Cannot read %s, the file may be corrupt, skipping it' % path
-            detex.log(__name__, msg, level='warn', pri=True)    
+            detex.log(__name__, msg, level='warn', pri=True)
             return None
     return st
+
 
 def quickFetch(fetch_arg, **kwargs):
     """
@@ -71,7 +75,7 @@ def quickFetch(fetch_arg, **kwargs):
     with the default prelim. filter. If you don't want this make a custom
     instance of DataFetcher. 
     """
-    
+
     if isinstance(fetch_arg, DataFetcher):
         dat_fet = fetch_arg
     elif isinstance(fetch_arg, string_types):
@@ -89,23 +93,24 @@ def quickFetch(fetch_arg, **kwargs):
         msg = 'Input not understood, read docs and try again'
         detex.log(__name__, msg, level='error')
     return dat_fet
-    
-def makeDataDirectories(templateKey='TemplateKey.csv', 
-                         stationKey='StationKey.csv', 
-                         fetch='IRIS', 
-                         formatOut='mseed', 
-                         templateDir=eveDirDefault, 
-                         timeBeforeOrigin=1 * 60, 
-                         timeAfterOrigin=4 * 60,
-                         conDir=conDirDefault, 
-                         secBuf=120, 
-                         conDatDuration=3600,
-                         multiPro=False, 
-                         getContinuous=True, 
-                         getTemplates=True,
-                         removeResponse=True,
-                         opType='VEL',
-                         prefilt=[.05, .1, 15, 20]):
+
+
+def makeDataDirectories(templateKey='TemplateKey.csv',
+                        stationKey='StationKey.csv',
+                        fetch='IRIS',
+                        formatOut='mseed',
+                        templateDir=eveDirDefault,
+                        timeBeforeOrigin=1 * 60,
+                        timeAfterOrigin=4 * 60,
+                        conDir=conDirDefault,
+                        secBuf=120,
+                        conDatDuration=3600,
+                        multiPro=False,
+                        getContinuous=True,
+                        getTemplates=True,
+                        removeResponse=True,
+                        opType='VEL',
+                        prefilt=[.05, .1, 15, 20]):
     """ 
     Function designed to fetch data needed for detex and store them in local 
     directories. StationKey.csv and TemplateKey.csv indicate which events to
@@ -163,15 +168,14 @@ def makeDataDirectories(templateKey='TemplateKey.csv',
     """
 
     temkey = detex.util.readKey(templateKey, 'template')
-    stakey = detex.util.readKey(stationKey, 'station')    
-    
+    stakey = detex.util.readKey(stationKey, 'station')
+
     # Check output type
     if formatOut not in formatKey.keys():
         msg = ('%s is not an acceptable format, choices are %s' %
                (formatOut, formatKey.keys()))
         detex.log(__name__, msg, level='error')
-    
-    
+
     # Configure data fetcher
     if isinstance(fetch, detex.getdata.DataFetcher):
         fetcher = fetch
@@ -180,61 +184,62 @@ def makeDataDirectories(templateKey='TemplateKey.csv',
         fetcher.removeResponse = removeResponse
         fetcher.prefilt = prefilt
     else:
-        fetcher = detex.getdata.DataFetcher(fetch, 
+        fetcher = detex.getdata.DataFetcher(fetch,
                                             removeResponse=removeResponse,
                                             opType=opType,
                                             prefilt=prefilt)
     ## Get templates
     if getTemplates:
         msg = 'Getting template waveforms'
-        detex.log(__name__, msg, level = 'info', pri=True)
+        detex.log(__name__, msg, level='info', pri=True)
         _getTemData(temkey, stakey, templateDir, formatOut,
                     fetcher, timeBeforeOrigin, timeAfterOrigin)
-                    
+
     ## Get continuous data
     if getContinuous:
         msg = 'Getting continuous data'
         detex.log(__name__, msg, level='info', pri=True)
-        _getConData(fetcher, stakey, conDir, secBuf, opType, formatOut, 
-                    duration=conDatDuration) 
-    
-    ## Log finish
+        _getConData(fetcher, stakey, conDir, secBuf, opType, formatOut,
+                    duration=conDatDuration)
+
+        ## Log finish
     msg = "finished makeDataDirectories call"
     detex.log(__name__, msg, level='info', close=True, pri=True)
 
 
 def _getTemData(temkey, stakey, temDir, formatOut, fetcher, tb4, taft):
-    
-    streamGenerator = fetcher.getTemData(temkey, stakey, tb4, taft, 
+    streamGenerator = fetcher.getTemData(temkey, stakey, tb4, taft,
                                          returnName=True, temDir=temDir,
                                          skipIfExists=True)
-                                              
+
     for st, name in streamGenerator:
-        netsta = st[0].stats.network + '.' + st[0].stats.station        
-        fname = netsta + '.' + name +'.' + formatKey[formatOut]
+        netsta = st[0].stats.network + '.' + st[0].stats.station
+        fname = netsta + '.' + name + '.' + formatKey[formatOut]
         fdir = os.path.join(temDir, name)
         if not os.path.exists(fdir):
             os.makedirs(fdir)
         st.write(os.path.join(fdir, fname), formatOut)
-    if not os.path.exists(os.path.join(temDir,'.index.db')):
+    if not os.path.exists(os.path.join(temDir, '.index.db')):
         indexDirectory(temDir)
+
 
 def _getConData(fetcher, stakey, conDir, secBuf, opType, formatOut,
                 duration=3600):
-    streamGenerator = fetcher.getConData(stakey, 
-                                        secBuf, 
-                                        returnName=True, 
-                                        conDir=conDir,
-                                        skipIfExists=True,
-                                        duration=duration)
+    streamGenerator = fetcher.getConData(stakey,
+                                         secBuf,
+                                         returnName=True,
+                                         conDir=conDir,
+                                         skipIfExists=True,
+                                         duration=duration)
     for st, path, fname in streamGenerator:
-        if st is not None: #if data were returned
+        if st is not None:  # if data were returned
             if not os.path.exists(path):
                 os.makedirs(path)
             fname = fname + '.' + formatKey[formatOut]
             st.write(os.path.join(path, fname), formatOut)
-    if not os.path.exists(os.path.join(conDir,'.index.db')):
+    if not os.path.exists(os.path.join(conDir, '.index.db')):
         indexDirectory(conDir)
+
 
 class DataFetcher(object):
     """
@@ -288,62 +293,63 @@ class DataFetcher(object):
     
     """
     supMethods = ['dir', 'client', 'uuss', 'iris']
+
     def __init__(self, method, client=None, removeResponse=True,
                  inventoryArg=None, directoryName=None, opType='VEL',
                  prefilt=[.05, .1, 15, 20], conDatDuration=3600, conBuff=120,
-                 timeBeforeOrigin=1*60, timeAfterOrigin=4*60, checkData=True,
+                 timeBeforeOrigin=1 * 60, timeAfterOrigin=4 * 60, checkData=True,
                  fillZeros=False):
-    
+
         self.__dict__.update(locals())  # Instantiate all inputs
         self.inventory = _getInventory(inventoryArg)
         self._checkInputs()
-        
+
         if self.removeResponse and self.inventory is None:
             if self.method == 'dir':
                 msg = ('Cannot remove response without a valid inventoryArg, '
-                        'setting removeResponse to False')
+                       'setting removeResponse to False')
                 detex.log(__name__, msg, level='warning', pri=True)
                 self.removeResponse = False
-    
+
     def _checkInputs(self):
-        if not isinstance (self.method, string_types):
+        if not isinstance(self.method, string_types):
             msg = 'method must be a string. options:\n %s' % self.supMethods
             detex.log(__name__, msg, level='error', e=TypeError)
-        self.method = self.method.lower() # parameter to lowercase
+        self.method = self.method.lower()  # parameter to lowercase
         if not self.method in DataFetcher.supMethods:
-            msg = ('method %s not supported. Options are:\n %s' % 
+            msg = ('method %s not supported. Options are:\n %s' %
                    (self.method, self.supMethods))
             detex.log(__name__, msg, level='error', e=ValueError)
-            
+
         if self.method == 'dir':
             if self.directoryName is None:
                 self.directoryName = conDirDefault
             dirPath = glob.glob(self.directoryName)
             if len(dirPath) < 1:
                 msg = ('directory %s not found make sure path is correct' %
-                self.directoryName)
+                       self.directoryName)
                 detex.log(__name__, msg, level='error', e=IOError)
-            else: 
+            else:
                 self.directory = dirPath[0]
             self._getStream = _loadDirectoryData
-        
+
         elif self.method == "client":
             if self.client is None:
                 msg = 'Method %s requires a valid obspy client' % self.method
                 detex.log(__name__, msg, level='error', e=ValueError)
             self._getStream = _assignClientFunction(self.client)
-            
+
         elif self.method == "iris":
             self.client = obspy.clients.fdsn.Client("IRIS")
             self._getStream = _assignClientFunction(self.client)
-            
-        elif self.method == 'uuss': # uuss setting 
+
+        elif self.method == 'uuss':  # uuss setting
             self.client = obspy.clients.neic.Client('128.110.129.227')
             self._getStream = _assignClientFunction(self.client)
-            self.inventory = obspy.clients.fdsn.Client('iris') # use iris for resps
-    
+            self.inventory = obspy.clients.fdsn.Client('iris')  # use iris for resps
+
     def getTemData(self, temkey, stakey, tb4=None, taft=None, returnName=True,
-                   temDir=None, skipIfExists=False, skipDict=None, 
+                   temDir=None, skipIfExists=False, skipDict=None,
                    returnTimes=False, phases=None):
         """
         Take detex station keys and template keys and yield stream objects of
@@ -382,20 +388,20 @@ class DataFetcher(object):
         --------
         Stream objects of possible combination if data are fetchable and event
         names if returnName == True or times of data if returnTimes == True
-        """        
+        """
         if tb4 is None:
             tb4 = self.timeBeforeOrigin
         if taft is None:
             taft = self.timeAfterOrigin
-        if skipDict is not None and len(skipDict.keys()) < 1: 
+        if skipDict is not None and len(skipDict.keys()) < 1:
             skipDict = None
         stakey = detex.util.readKey(stakey, key_type='station')
         temkey = detex.util.readKey(temkey, key_type='template')
         if phases is not None:
             phases = detex.util.readKey(phases, "phases")
-        
+
         indexiter = itertools.product(stakey.index, temkey.index)
-        #iter through each station/event pair and fetch data
+        # iter through each station/event pair and fetch data
         for stain, temin in indexiter:
             ser = temkey.loc[temin].combine_first(stakey.loc[stain])
             netsta = ser.NETWORK + '.' + ser.STATION
@@ -417,15 +423,15 @@ class DataFetcher(object):
             net = ser.NETWORK
             sta = ser.STATION
             chan = ser.CHANNELS.split('-')
-            
+
             # if phases option is used then find first phase and use it
             if phases is not None:
-                con1 = (phases.Event==ser.NAME)
-                con2 = (phases.Station=='%s.%s' % (net, sta))
-                curEve = phases[ con1 & con2 ]
-                if len(curEve) < 1: # if event station pair not in phases
-                    msg = (('%s on %s was not in phase file, using origin') 
-                            % (ser.NAME, sta))
+                con1 = (phases.Event == ser.NAME)
+                con2 = (phases.Station == '%s.%s' % (net, sta))
+                curEve = phases[con1 & con2]
+                if len(curEve) < 1:  # if event station pair not in phases
+                    msg = (('%s on %s was not in phase file, using origin')
+                           % (ser.NAME, sta))
                     detex.log(__name__, msg, level='info')
                     t = obspy.UTCDateTime(time)
                 else:
@@ -435,9 +441,9 @@ class DataFetcher(object):
                 t = obspy.UTCDateTime(time)
             start = t - tb4
             end = t + taft
-                
+
             st = self.getStream(start, end, net, sta, chan, '??')
-            if st is None: #skip if returns nothing
+            if st is None:  # skip if returns nothing
                 continue
             if returnName:
                 yield st, ser.NAME
@@ -445,8 +451,8 @@ class DataFetcher(object):
                 yield st, start, end
             else:
                 yield st
-    
-    def getConData(self, stakey, secBuff=None, returnName=False, 
+
+    def getConData(self, stakey, secBuff=None, returnName=False,
                    returnTimes=False, conDir=None, skipIfExists=False,
                    utcstart=None, utcend=None, duration=None, randSamps=None):
         """
@@ -489,7 +495,7 @@ class DataFetcher(object):
             secBuff = self.conBuff
         if duration is None:
             duration = self.conDatDuration
-        
+
         for num, ser in stakey.iterrows():
             netsta = ser.NETWORK + '.' + ser.STATION
             if utcstart is None:
@@ -506,7 +512,7 @@ class DataFetcher(object):
                     path, fil = _makePathFile(conDir, netsta, utc)
                 if skipIfExists:
                     pfile = glob.glob(os.path.join(path, fil + '*'))
-                    if len(pfile) > 0: #if already exists then skip
+                    if len(pfile) > 0:  # if already exists then skip
                         continue
                 start = utc
                 end = utc + self.conDatDuration + secBuff
@@ -517,7 +523,7 @@ class DataFetcher(object):
                 if st is None or len(st) < 1:
                     continue
                 if not utcend is None:
-                    if utcend.timestamp < st[0].stats.endtime.timestamp: # trim if needed
+                    if utcend.timestamp < st[0].stats.endtime.timestamp:  # trim if needed
                         st.trim(endtime=utcend)
                 if len(st) < 1:
                     continue
@@ -531,7 +537,7 @@ class DataFetcher(object):
                     yield st, start, end
                 else:
                     yield st
- 
+
     def getStream(self, start, end, net, sta, chan='???', loc='??'):
         """
         function for getting data.\n
@@ -560,25 +566,25 @@ class DataFetcher(object):
         # make sure start and end are UTCDateTimes 
         start = obspy.UTCDateTime(start)
         end = obspy.UTCDateTime(end)
-        
+
         # check that chan input is ok
         if not isinstance(chan, (list, tuple)):
             if not isinstance(chan, string_types):
                 msg = 'chan must be a string or list of strings'
                 detex.log(__name__, msg, level='error')
             chan = [chan]
-        
+
         # fetch stream
         st = self._getStream(self, start, end, net, sta, chan, loc)
-        
+
         # perform checks if required            
         if self.checkData:
-            st = _dataCheck(st, start, end)        
-        
-        # if no data return None
+            st = _dataCheck(st, start, end)
+
+            # if no data return None
         if st is None or len(st) < 1:
             return None
-        
+
         # attach response
         if self.removeResponse and self.inventory is not None:
             if not _hasResponse(st):
@@ -587,22 +593,22 @@ class DataFetcher(object):
         # remove response
         if self.removeResponse:
             st = _removeInstrumentResponse(self, st)
-            
-        if st is None: # return None if response removal failed
+
+        if st is None:  # return None if response removal failed
             return None
-        
+
         # trims and zero fills
         st.trim(starttime=start, endtime=end)
-        st.merge(1) # merge and split to overwrite overlaps 
-        
+        st.merge(1)  # merge and split to overwrite overlaps
+
         st = st.split()
         st.detrend('linear')
         if self.fillZeros:
             st.trim(starttime=start, endtime=end, pad=True, fill_value=0.0)
             st.merge(1, fill_value=0.0)
-        return st                  
+        return st
 
-########## Functions for loading data based on selected methods ###########
+    ########## Functions for loading data based on selected methods ###########
 
 
 def _loadDirectoryData(fet, start, end, net, sta, chan, loc):
@@ -613,43 +619,43 @@ def _loadDirectoryData(fet, start, end, net, sta, chan, loc):
     # get times with slight buffer
     t1 = obspy.UTCDateTime(start).timestamp
     t2 = obspy.UTCDateTime(end).timestamp
-    buf = 3 * fet.conDatDuration 
-    dfind = _loadIndexDb(fet.directoryName, net+ '.' +sta, t1 - buf, t2 + buf)
-    
+    buf = 3 * fet.conDatDuration
+    dfind = _loadIndexDb(fet.directoryName, net + '.' + sta, t1 - buf, t2 + buf)
+
     if dfind is None:
         t1p = obspy.UTCDateTime(t1)
         t2p = obspy.UTCDateTime(t2)
-        msg = 'data from %s to %s on %s not found in %s' % (t1p, t2p, sta, 
+        msg = 'data from %s to %s on %s not found in %s' % (t1p, t2p, sta,
                                                             fet.directoryName)
         detex.log(__name__, msg, level='warning', pri=False)
         return None
     # define conditions in which condata should not be loaded
     # con1 and con2 - No overlap (other than 10%)
-    tra = t2 - t1 # time range
-    con1 = ((dfind.Starttime <= t1) & (dfind.Endtime -tra * .1 < t1) & 
+    tra = t2 - t1  # time range
+    con1 = ((dfind.Starttime <= t1) & (dfind.Endtime - tra * .1 < t1) &
             (dfind.Starttime < t2) & (dfind.Endtime < t2))
-    con2 = ((dfind.Starttime > t1) & (dfind.Endtime > t1) & 
-            (dfind.Starttime + tra*.1 > t2) & (dfind.Endtime >= t2))   
+    con2 = ((dfind.Starttime > t1) & (dfind.Endtime > t1) &
+            (dfind.Starttime + tra * .1 > t2) & (dfind.Endtime >= t2))
     df = dfind[~(con1 | con2)]
 
     if len(df) < 1:
         t1p = obspy.UTCDateTime(t1)
         t2p = obspy.UTCDateTime(t2)
-        msg = 'data from %s to %s on %s not found in %s' % (t1p, t2p, sta, 
+        msg = 'data from %s to %s on %s not found in %s' % (t1p, t2p, sta,
                                                             fet.directoryName)
         detex.log(__name__, msg, level='warning', pri=False)
         return None
-    
+
     st = obspy.core.Stream()
-    
-    if len(df.Path) < 1: # if no event fits description
+
+    if len(df.Path) < 1:  # if no event fits description
         return None
     for path, fname in zip(df.Path, df.FileName):
         fil = os.path.join(path, fname)
         st1 = read(fil)
         if not st1 is None:
             st += st1
-    #st.trim(starttime=start, endtime=end)
+    # st.trim(starttime=start, endtime=end)
     # check if chan variable is string else iterate
     if isinstance(chan, string_types):
         stout = st.select(channel=chan)
@@ -657,10 +663,11 @@ def _loadDirectoryData(fet, start, end, net, sta, chan, loc):
         stout = obspy.core.Stream()
         for cha in chan:
             stout += st.select(channel=cha)
-    
-    loc = '*' if loc in ['???','??'] else loc # convert ? to *
+
+    loc = '*' if loc in ['???', '??'] else loc  # convert ? to *
     stout = stout.select(location=loc)
     return stout
+
 
 def _assignClientFunction(client):
     """
@@ -677,6 +684,7 @@ def _assignClientFunction(client):
         msg = 'Client type not supported'
         detex.log(__name__, msg, level='error', e=TypeError)
 
+
 ## load from client functions, this is needed because the APIs are not the same
 
 def _loadFromNEIC(fet, start, end, net, sta, chan, loc):
@@ -689,32 +697,34 @@ def _loadFromNEIC(fet, start, end, net, sta, chan, loc):
     endstr = str(end)
     st = obspy.Stream()
     for cha in chan:
-        try: #try neic client
+        try:  # try neic client
             st += client.get_waveforms(net, sta, loc, cha, start, end)
-        except: 
-            msg = ('Could not fetch data on %s from %s to %s' % 
-            (net + '.' + sta, startstr, endstr))
+        except:
+            msg = ('Could not fetch data on %s from %s to %s' %
+                   (net + '.' + sta, startstr, endstr))
             detex.log(__name__, msg, level='warning', pri=False)
             st = None
     return st
+
 
 def _loadFromEarthworm(fet, start, end, net, sta, chan, loc):
     client = fet.client
     startstr = str(start)
     endstr = str(end)
     st = obspy.Stream()
-    if '*' in loc or '?' in loc: #adjust for earthworm loc codes
+    if '*' in loc or '?' in loc:  # adjust for earthworm loc codes
         loc = '--'
     for cha in chan:
-        try: #try neic client
+        try:  # try neic client
             st += client.get_waveforms(net, sta, loc, cha, start, end)
-        except: 
-            
-            msg = ('Could not fetch data on %s from %s to %s' % 
-            (net + '.' + sta, startstr, endstr))
+        except:
+
+            msg = ('Could not fetch data on %s from %s to %s' %
+                   (net + '.' + sta, startstr, endstr))
             detex.log(__name__, msg, level='warning', pri=False)
             st = None
     return st
+
 
 def _loadFromFDSN(fet, start, end, net, sta, chan, loc):
     """
@@ -725,24 +735,24 @@ def _loadFromFDSN(fet, start, end, net, sta, chan, loc):
     startstr = str(start)
     endstr = str(end)
     # convert channels to correct format (list seperated by ,)
-    if not isinstance(chan, string_types): 
+    if not isinstance(chan, string_types):
         chan = ','.join(chan)
     else:
         if '-' in chan:
             chan = ','.join(chan.split('-'))
     # try to get waveforms, else return None
-    try: 
+    try:
         st = client.get_waveforms(net, sta, loc, chan, start, end, attach_response=fet.removeResponse)
     except:
-        msg = ('Could not fetch data on %s from %s to %s' % 
-        (net + '.' + sta, startstr, endstr))
+        msg = ('Could not fetch data on %s from %s to %s' %
+               (net + '.' + sta, startstr, endstr))
         detex.log(__name__, msg, level='warning', pri=False)
         st = None
     return st
 
 
 ########## MISC functions #############
-        
+
 def _attachResponse(fet, st, start, end, net, sta, loc, chan):
     """
     Function to attach response from inventory or client
@@ -755,15 +765,16 @@ def _attachResponse(fet, st, start, end, net, sta, loc, chan):
         inv = obspy.core.inventory.Inventory([], 'detex')
         for cha in chan:
             inv += fet.inventory.get_stations(starttime=start,
-                                          endtime=end,
-                                          network=net,
-                                          station=sta,
-                                          loc=loc,
-                                          channel=cha,
-                                          level="response")
+                                              endtime=end,
+                                              network=net,
+                                              station=sta,
+                                              loc=loc,
+                                              channel=cha,
+                                              level="response")
         st.attach_response(inv)
     return st
-        
+
+
 def _getInventory(invArg):
     """
     Take a string, Obspy client, or inventory object and return inventory
@@ -775,46 +786,47 @@ def _getInventory(invArg):
             invArg = obspy.clients.fdsn.Client('IRIS')
         elif not os.path.exists(invArg):
             msg = ('if inventoryArg is str then it must be a client name, ie  '
-                    'IRIS, or a path to a station xml')
+                   'IRIS, or a path to a station xml')
             detex.log(__name__, msg, level='error')
         else:
             return obspy.read_inventory(invArg)
     elif isinstance(invArg, obspy.station.inventory.Inventory):
         return invArg
-    elif isinstance (invArg, obspy.clients.fdsn.Client):
+    elif isinstance(invArg, obspy.clients.fdsn.Client):
         return invArg
     elif invArg is None:
         return None
 
+
 def _dataCheck(st, start, end):
-    
     # if none or empty return None
     if st is None or len(st) < 1:
         return None
     netsta = st[0].stats.network + '.' + st[0].stats.station
     time = str(st[0].stats.starttime).split('.')[0]
-    
+
     # check if data range is way off what was requested
     utcmin = min([x.stats.starttime for x in st])
     utcmax = max([x.stats.endtime for x in st])
-    if (end - start) - (utcmax - utcmin) > 60 * 10: # give 10 mine tolerance
+    if (end - start) - (utcmax - utcmin) > 60 * 10:  # give 10 mine tolerance
         msg = '%s starting on %s is shorter than expected' % (netsta, time)
         detex.log(__name__, msg, pri=True)
-    
-    #Check sample rates
+
+    # Check sample rates
     if any([tr.stats.sampling_rate % 1 != 0 for tr in st]):
         for tr in st:
             tr.stats.sampling_rate = np.round(tr.stats.sampling_rate)
             msg = ('Found non-int sampling_rates, rounded to nearest \
                     int on %s around %s' % (netsta, time))
             detex.log(__name__, msg, level='warning')
-    
+
     if any([not np.any(x.data) for x in st]):
         msg = ('At least one channel is all 0s on %s around %s, skipping' %
-                (netsta, time))
+               (netsta, time))
         detex.log(__name__, msg, level='warn', pri=True)
         return None
     return st
+
 
 def _hasResponse(st):
     """
@@ -822,8 +834,9 @@ def _hasResponse(st):
     """
     return all([hasattr(tr.stats, 'response') for tr in st])
 
+
 def _removeInstrumentResponse(fet, st):
-    if not fet.removeResponse: # pass stream back if no response removal
+    if not fet.removeResponse:  # pass stream back if no response removal
         return st
     st.detrend('linear')  # detrend
     st = _fftprep(st)
@@ -852,6 +865,7 @@ def _fftprep(st):
         st[0].stats.starttime = st[0].stats.starttime + st[0].stats.delta
     return st
 
+
 def _divideIntoChunks(utc1, utc2, duration, randSamps):
     """
     Function to take two utc date time objects and create a generator to yield
@@ -868,20 +882,21 @@ def _divideIntoChunks(utc1, utc2, duration, randSamps):
     if randSamps is None:
         t = ts1
         while t <= ts2:
-            yield obspy.UTCDateTime(t) # yield a value
-            t += duration #add an hour
-    else: 
+            yield obspy.UTCDateTime(t)  # yield a value
+            t += duration  # add an hour
+    else:
 
         utcList = np.arange(utc1.timestamp, utc2.timestamp, duration)
-        if randSamps > len(utcList)/4:
+        if randSamps > len(utcList) / 4:
             msg = ('Population too small for %d random samples, taking %d' % (
-                  randSamps, len(utcList)))
+                randSamps, len(utcList)))
             detex.log(__name__, msg, level='info')
             randSamps = len(utcList)
-        ranutc = random.sample(utcList, randSamps) 
-        rsamps = [obspy.UTCDateTime(x) for x in ranutc] 
-        for samp in rsamps:        
-            yield samp 
+        ranutc = random.sample(utcList, randSamps)
+        rsamps = [obspy.UTCDateTime(x) for x in ranutc]
+        for samp in rsamps:
+            yield samp
+
 
 def _makePathFile(conDir, netsta, utc):
     """
@@ -893,10 +908,12 @@ def _makePathFile(conDir, netsta, utc):
     hr = '%02d' % utc.hour
     mi = '%02d' % utc.minute
     se = '%02d' % utc.second
-    
+
     path = os.path.join(conDir, netsta, year, jd)
     fname = netsta + '.' + year + '-' + jd + 'T' + '-'.join([hr, mi, se])
     return path, fname
+
+
 ###### Index directory functions ##########
 def indexDirectory(dirPath):
     """
@@ -908,15 +925,15 @@ def indexDirectory(dirPath):
     dirPath : str
         The path to the directory containing waveform data (any structure)
     """
-    columns = ['Path', 'FileName', 'Starttime', 'Endtime', 'Gaps', 'Nc', 'Nt', 
+    columns = ['Path', 'FileName', 'Starttime', 'Endtime', 'Gaps', 'Nc', 'Nt',
                'Duration', 'Station']
-    df = pd.DataFrame(columns=columns) # DataFrame for indexing
+    df = pd.DataFrame(columns=columns)  # DataFrame for indexing
     msg = 'indexing, or updating index for %s' % dirPath
     detex.log(__name__, msg, level='info', pri=True)
-    
+
     # Create a list of possible path permutations to save space in database
-    pathList = [] # A list of lists with different path permutations
-    for dirpath, dirname, filenames in  os.walk(dirPath):
+    pathList = []  # A list of lists with different path permutations
+    for dirpath, dirname, filenames in os.walk(dirPath):
         dirList = os.path.abspath(dirpath).split(os.path.sep)
         # Expand pathList if needed
         while len(dirList) > len(pathList):
@@ -929,44 +946,46 @@ def indexDirectory(dirPath):
                 for va in val:
                     if va not in pathList[ind]:
                         pathList[ind].append(va)
-        #Loop over file names perform quality checks
+        # Loop over file names perform quality checks
         for fname in filenames:
-            if fname[0] =='.':
+            if fname[0] == '.':
                 continue
             fpath = os.path.join(*dirList)
             fullpath = os.path.join(fpath, fname)
             qualDict = _checkQuality(fullpath)
-            if qualDict is None: #If file is not obspy readable
+            if qualDict is None:  # If file is not obspy readable
                 msg = 'obspy failed to read %s , skipping' % fullpath
                 detex.log(__name__, msg, level='warning', pri=True)
-                continue # skip to next file
-            pathInts = [pathList[num].index(x) for num, 
-                        x in enumerate(dirList)]
+                continue  # skip to next file
+            pathInts = [pathList[num].index(x) for num,
+                                                   x in enumerate(dirList)]
             df.loc[len(df), 'Path'] = json.dumps(pathInts)
             for key, value in qualDict.iteritems():
-                df.loc[len(df)-1, key] = value
-            df.loc[len(df)-1, 'FileName'] = fname
-        #Create path index key
+                df.loc[len(df) - 1, key] = value
+            df.loc[len(df) - 1, 'FileName'] = fname
+            # Create path index key
     if len(pathList) < 1:
         msg = 'No obspy readable files found in %s' % dirPath
         detex.log(__name__, msg, level='error')
     dfInd = _createIndexDF(pathList)
-    detex.util.saveSQLite(df,os.path.join(dirPath, '.index.db'),'ind')
-    detex.util.saveSQLite(dfInd,os.path.join(dirPath, '.index.db'),'indkey')    
-                
+    detex.util.saveSQLite(df, os.path.join(dirPath, '.index.db'), 'ind')
+    detex.util.saveSQLite(dfInd, os.path.join(dirPath, '.index.db'), 'indkey')
+
+
 def _createIndexDF(pathList):
-        indLength = len(pathList)
-        colLength = max([len(x) for x in pathList])
-        ind = [x for x in range(indLength)]
-        cols = ['col_'+str(x) for x in range(colLength)]
-        df = pd.DataFrame(index=ind, columns=cols)
-        df.fillna(value='', inplace=True)
-        for ind1, pl in enumerate(pathList):
-            for ind2, item in enumerate(pl):
-                df.loc[ind1, 'col_'+str(ind2)] = item
-        
-        return df
-            
+    indLength = len(pathList)
+    colLength = max([len(x) for x in pathList])
+    ind = [x for x in range(indLength)]
+    cols = ['col_' + str(x) for x in range(colLength)]
+    df = pd.DataFrame(index=ind, columns=cols)
+    df.fillna(value='', inplace=True)
+    for ind1, pl in enumerate(pathList):
+        for ind2, item in enumerate(pl):
+            df.loc[ind1, 'col_' + str(ind2)] = item
+
+    return df
+
+
 def _checkQuality(stPath):
     """
     load a path to an obspy trace and check quality
@@ -982,40 +1001,42 @@ def _checkQuality(stPath):
     duration = endtime - starttime
     nc = len(list(set([x.stats.channel for x in st])))
     netsta = st[0].stats.network + '.' + st[0].stats.station
-    outDict = {'Gaps': gapsum, 'Starttime' : starttime, 'Endtime' : endtime,
-               'Duration' : duration, 'Nc' : nc, 'Nt':lengthStream,
-               'Station' : netsta}
-    return outDict      
+    outDict = {'Gaps': gapsum, 'Starttime': starttime, 'Endtime': endtime,
+               'Duration': duration, 'Nc': nc, 'Nt': lengthStream,
+               'Station': netsta}
+    return outDict
+
 
 def _loadIndexDb(dirPath, station, t1, t2):
     indexFile = glob.glob(os.path.join(dirPath, '.index.db'))
     if len(indexFile) < 1:
         msg = '%s is not currently indexed, indexing now' % dirPath
-        detex.log(__name__,msg,level='info', pri=True)
+        detex.log(__name__, msg, level='info', pri=True)
         indexDirectory(dirPath)
-        indexFile = glob.glob(os.path.join(dirPath,'.index.db'))
-    sql = (('SELECT %s FROM %s WHERE Starttime>=%f AND ' + 
-            'Endtime<=%f AND Station="%s"')% 
-          ('*', 'ind', t1, t2, station))
-    df = detex.util.loadSQLite(indexFile[0],'ind', sql=sql, silent=False)
-    if df is None or len(df)<1: #if not in database
+        indexFile = glob.glob(os.path.join(dirPath, '.index.db'))
+    sql = (('SELECT %s FROM %s WHERE Starttime>=%f AND ' +
+            'Endtime<=%f AND Station="%s"') %
+           ('*', 'ind', t1, t2, station))
+    df = detex.util.loadSQLite(indexFile[0], 'ind', sql=sql, silent=False)
+    if df is None or len(df) < 1:  # if not in database
         return None
-    dfin = detex.util.loadSQLite(indexFile[0],'indkey', convertNumeric=False)
-    dfin.columns = [int(x.split('_')[1]) for x in dfin.columns] 
+    dfin = detex.util.loadSQLite(indexFile[0], 'indkey', convertNumeric=False)
+    dfin.columns = [int(x.split('_')[1]) for x in dfin.columns]
     dfin.index = [int(x) for x in dfin.index]
-    
+
     # reconstruct path
-    df['Path'] = [_associatePathList(x,dfin) for x in df['Path']]
+    df['Path'] = [_associatePathList(x, dfin) for x in df['Path']]
     df.sort_values(by='FileName', inplace=True)
     df.reset_index(drop=True, inplace=True)
     return df
 
+
 def _associatePathList(pathList, dfin):
     pl = json.loads(pathList)
     pat = []
-    for num,p in enumerate(pl):
+    for num, p in enumerate(pl):
         pat.append(dfin.loc[num, p])
     return os.path.join(*pat)
 
-getAllData =  makeDataDirectories
-    
+
+getAllData = makeDataDirectories

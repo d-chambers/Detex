@@ -3,16 +3,14 @@ Modified Python package based on this one:
 https://github.com/miili/StreamPick
 """
 
-import sys, os, pickle
+import os
+import pickle
+
 import PyQt4
-#from PyQt4 import QtGui, QtCore
-from obspy import read
+# from PyQt4 import QtGui, QtCore
 from obspy.core import event, UTCDateTime
 from itertools import cycle
 import sys
-import detex
-import sip
-import copy
 import signal
 
 signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -23,8 +21,10 @@ import matplotlib
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.transforms import offset_copy
+
+
 #
-#def streamPick(stream=None, parent=None, ap=None):
+# def streamPick(stream=None, parent=None, ap=None):
 #    print 'starting PyQt4'
 #    reload(PyQt4)
 #    out = dummy()
@@ -36,11 +36,11 @@ from matplotlib.transforms import offset_copy
 #    print 'outout'
 #    return out
 #
-#class dummy(object):
+# class dummy(object):
 #    def __init__(self):
 #        self.KeepGoing = False
 #        self._picks = {}
-    
+
 
 class streamPick(PyQt4.QtGui.QMainWindow):
     def __init__(self, stream=None, parent=None, ap=None):
@@ -72,14 +72,14 @@ class streamPick(PyQt4.QtGui.QMainWindow):
                            'st_previous': 'x',
                            'filter_apply': 'f',
                            'pick_p': 'q',
-                           'pick_p_end':'a',
+                           'pick_p_end': 'a',
                            'pick_s': 'w',
-                           'pick_s_end':'s',
+                           'pick_s_end': 's',
                            'pick_custom': 't',
                            'pick_remove': 'r',
-                           'gain_up':'1',
-                           'gain_down':'2',
-                           'stream_next':'v'
+                           'gain_up': '1',
+                           'gain_down': '2',
+                           'stream_next': 'v'
                            }
         self._plt_drag = None
         self._current_filter = None
@@ -92,7 +92,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         self.setupUI()
         # exec QtApp
         self.qApp.exec_()
-        #self.qApp.deleteLater()
+        # self.qApp.deleteLater()
 
     def setupUI(self):
         '''
@@ -107,8 +107,8 @@ class streamPick(PyQt4.QtGui.QMainWindow):
 
         # Define layout
         l = PyQt4.QtGui.QVBoxLayout(self.main_widget)
-        #self.setLayout(l)
-        
+        # self.setLayout(l)
+
         l.addLayout(self.btnbar)
         l.addWidget(self.canvas)
 
@@ -116,10 +116,10 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         self.setGeometry(300, 300, 1200, 800)
         self.setWindowTitle('obspy.core.Stream-Picker')
         self.show()
-        
+
     def _killLayout():
         pass
-        
+
     def _initPlots(self):
         self.fig = Figure(facecolor='.86', dpi=72, frameon=True)
         # Change facecolor
@@ -140,12 +140,12 @@ class streamPick(PyQt4.QtGui.QMainWindow):
     def _initMenu(self):
         # Next and Prev Button
         nxt = PyQt4.QtGui.QPushButton('NextSta >>',
-                                shortcut=self._shortcuts['st_next'], parent=self.main_widget)
+                                      shortcut=self._shortcuts['st_next'], parent=self.main_widget)
         nxt.clicked.connect(self._pltNextStation)
         nxt.setToolTip('shortcut <b>c</d>')
         nxt.setMaximumWidth(150)
         prv = PyQt4.QtGui.QPushButton('<< Prev',
-                                shortcut=self._shortcuts['st_previous'], parent=self.main_widget)
+                                      shortcut=self._shortcuts['st_previous'], parent=self.main_widget)
         prv.clicked.connect(self._pltPrevStation)
         prv.setToolTip('shortcut <b>x</d>')
         prv.setMaximumWidth(150)
@@ -160,12 +160,12 @@ class streamPick(PyQt4.QtGui.QMainWindow):
 
         # Filter buttons
         self.fltrbtn = PyQt4.QtGui.QPushButton('Filter Trace',
-                                    shortcut=self._shortcuts['filter_apply'])
+                                               shortcut=self._shortcuts['filter_apply'])
         self.fltrbtn.setToolTip('shortcut <b>f</b>')
         self.fltrbtn.setCheckable(True)
-        #self.fltrbtn.setAutoFillBackground(True)
-        #self.fltrbtn.setStyleSheet(PyQt4.QtCore.QString(
-                    #'QPushButton:checked {background-color: lightgreen;}'))
+        # self.fltrbtn.setAutoFillBackground(True)
+        # self.fltrbtn.setStyleSheet(PyQt4.QtCore.QString(
+        # 'QPushButton:checked {background-color: lightgreen;}'))
         self.fltrbtn.clicked.connect(self._appFilter)
 
         self.fltrcb = PyQt4.QtGui.QComboBox(self)
@@ -182,12 +182,11 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         fltrdel = PyQt4.QtGui.QPushButton('Delete')
         fltrdel.resize(fltrdel.sizeHint())
         fltrdel.clicked.connect(self._deleteFilter)
-        
-        nxtstr = PyQt4.QtGui.QPushButton('NextStr >>',shortcut=self._shortcuts['stream_next'])
+
+        nxtstr = PyQt4.QtGui.QPushButton('NextStr >>', shortcut=self._shortcuts['stream_next'])
         nxtstr.clicked.connect(self._pltNextStream)
         nxtstr.setToolTip('shortcut <b>v</d>')
-        nxtstr.setMaximumWidth(150)        
-        
+        nxtstr.setMaximumWidth(150)
 
         btnstyle = PyQt4.QtGui.QFrame(fltredit)
         btnstyle.setFrameStyle(PyQt4.QtGui.QFrame.Box | PyQt4.QtGui.QFrame.Plain)
@@ -197,15 +196,15 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         # onset type
         _radbtn = []
         for _o in self.onset_types:
-                _radbtn.append(PyQt4.QtGui.QRadioButton(str(_o[0].upper())))
-                _radbtn[-1].setToolTip('Onset ' + _o)
-                _radbtn[-1].clicked.connect(self._drawPicks)
-                if _o == 'impulsive':
-                    _radbtn[-1].setChecked(True)
+            _radbtn.append(PyQt4.QtGui.QRadioButton(str(_o[0].upper())))
+            _radbtn[-1].setToolTip('Onset ' + _o)
+            _radbtn[-1].clicked.connect(self._drawPicks)
+            if _o == 'impulsive':
+                _radbtn[-1].setChecked(True)
         self.onsetGrp = PyQt4.QtGui.QButtonGroup()
         self.onsetGrp.setExclusive(True)
         onsetbtns = PyQt4.QtGui.QHBoxLayout()
-        
+
         for _i, _btn in enumerate(_radbtn):
             self.onsetGrp.addButton(_btn, _i)
             onsetbtns.addWidget(_btn)
@@ -235,28 +234,29 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(PyQt4.QtGui.QIcon().fromTheme('document-save'),
-                            'Save', self._saveCatalog)
+                           'Save', self._saveCatalog)
         fileMenu.addAction(PyQt4.QtGui.QIcon().fromTheme('document-save'),
-                            'Save as QuakeML File', self._saveCatalogDlg)
+                           'Save as QuakeML File', self._saveCatalogDlg)
         fileMenu.addAction(PyQt4.QtGui.QIcon().fromTheme('document-open'),
-                            'Load QuakeML File', self._openCatalogDlg)
+                           'Load QuakeML File', self._openCatalogDlg)
         fileMenu.addSeparator()
         fileMenu.addAction('Save Plot', self._savePlotDlg)
         fileMenu.addSeparator()
         fileMenu.addAction(PyQt4.QtGui.QIcon().fromTheme('application-exit'),
-                            'Exit', self._hardExit)
-        #windowMenu = menubar.addMenu('&Windows')
-        #windowMenu.addAction('Wadati Diagram', self._opnWadatiPlot)
+                           'Exit', self._hardExit)
+        # windowMenu = menubar.addMenu('&Windows')
+        # windowMenu.addAction('Wadati Diagram', self._opnWadatiPlot)
         aboutMenu = menubar.addMenu('&About')
         aboutMenu.addAction(PyQt4.QtGui.QIcon().fromTheme('info'),
                             'Info', self._infoDlg)
 
     def _hardExit(self):
-        #self.qApp.deleteLater()
-    
+        # self.qApp.deleteLater()
+
         self.deleteLater()
-        #self.close()
-        #sys.exit()
+        # self.close()
+        # sys.exit()
+
     def _drawFig(self):
         '''
         Draws all matplotlib figures
@@ -265,12 +265,12 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         self.fig.clear()
         self._appFilter(draw=False)
         for _i, tr in enumerate(self._current_st):
-            ax = self.fig.add_subplot(num_plots, 1, _i+1)
+            ax = self.fig.add_subplot(num_plots, 1, _i + 1)
             ax.plot(tr.data, 'k')
             ax.axhline(0, color='k', alpha=.05)
             ax.set_xlim([0, tr.data.size])
             ax.text(.925, .9, self._current_st[_i].stats.channel,
-                        transform=ax.transAxes, va='top', ma='left')
+                    transform=ax.transAxes, va='top', ma='left')
             ax.channel = tr.stats.channel
             if _i == 0:
                 ax.set_xlabel('Seconds')
@@ -278,9 +278,9 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         # plot picks
         self._drawPicks(draw=False)
         self.fig.suptitle('%s - %s - %s' % (self._current_st[-1].stats.network,
-                            self._current_st[-1].stats.station,
-                            self._current_st[-1].stats.starttime.isoformat()),
-                            x=.2)
+                                            self._current_st[-1].stats.station,
+                                            self._current_st[-1].stats.starttime.isoformat()),
+                          x=.2)
         self._updateSB()
         self._canvasDraw()
 
@@ -325,15 +325,15 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         '''
         Write obspy.core.event.Pick into self._picks list
         '''
-        picktime = self._current_st[0].stats.starttime +\
-                (xdata * self._current_st[0].stats.delta)
+        picktime = self._current_st[0].stats.starttime + \
+                   (xdata * self._current_st[0].stats.delta)
 
         this_pick = event.Pick()
         overwrite = True
         # Overwrite existing phase's picktime
         for _pick in self._getPicks():
-            if _pick.phase_hint == phase and\
-                    _pick.waveform_id.channel_code == channel:
+            if _pick.phase_hint == phase and \
+                            _pick.waveform_id.channel_code == channel:
                 this_pick = _pick
                 overwrite = False
                 break
@@ -356,7 +356,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         this_pick.polarity = polarity
         if self._current_filter is not None:
             this_pick.comments.append(event.Comment(
-                        text=str(self.bpfilter[self.fltrcb.currentIndex()])))
+                text=str(self.bpfilter[self.fltrcb.currentIndex()])))
         if overwrite:
             self._picks.append(this_pick)
 
@@ -365,8 +365,8 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         Deletes pick from catalog
         '''
         for _i, _pick in enumerate(self._picks):
-            if _pick.waveform_id.network_code == network\
-                    and _pick.waveform_id.station_code == station\
+            if _pick.waveform_id.network_code == network \
+                    and _pick.waveform_id.station_code == station \
                     and _pick.waveform_id.channel_code == channel:
                 self._picks.remove(_pick)
 
@@ -376,9 +376,9 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         '''
         this_st_picks = []
         for _i, pick in enumerate(self._picks):
-            if pick.waveform_id.station_code == self._current_stname and\
-                    self._current_st[0].stats.starttime <\
-                    pick.time < self._current_st[0].stats.endtime:
+            if pick.waveform_id.station_code == self._current_stname and \
+                                    self._current_st[0].stats.starttime < \
+                                    pick.time < self._current_st[0].stats.endtime:
                 this_st_picks.append(_i)
         return [self._picks[i] for i in this_st_picks]
 
@@ -388,8 +388,8 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         '''
         xpicks = []
         for _pick in picks:
-            xpicks.append((_pick.time-self._current_st[0].stats.starttime)
-                            / self._current_st[0].stats.delta)
+            xpicks.append((_pick.time - self._current_st[0].stats.starttime)
+                          / self._current_st[0].stats.delta)
         return np.array(xpicks)
 
     def _drawPicks(self, draw=True):
@@ -403,7 +403,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
             lines = []
             labels = []
             transOffset = offset_copy(_ax.transData, fig=self.fig,
-                            x=5, y=0, units='points')
+                                      x=5, y=0, units='points')
             for _i, _xpick in enumerate(xpicks):
                 if picks[_i].phase_hint == 'S':
                     color = 'r'
@@ -417,14 +417,14 @@ class streamPick(PyQt4.QtGui.QMainWindow):
                     alpha = .8
 
                 lines.append(matplotlib.lines.Line2D([_xpick, _xpick],
-                            [_ax.get_ylim()[0]*.9, _ax.get_ylim()[1]*.8],
-                            color=color, alpha=alpha))
+                                                     [_ax.get_ylim()[0] * .9, _ax.get_ylim()[1] * .8],
+                                                     color=color, alpha=alpha))
                 lines[-1].obspy_pick = picks[_i]
 
                 labels.append(matplotlib.text.Text(_xpick,
-                            _ax.get_ylim()[0]*.8, text=picks[_i].phase_hint,
-                            color=color, size=10, alpha=alpha,
-                            transform=transOffset))
+                                                   _ax.get_ylim()[0] * .8, text=picks[_i].phase_hint,
+                                                   color=color, size=10, alpha=alpha,
+                                                   transform=transOffset))
 
             # delete all artists
             del _ax.artists[0:]
@@ -487,8 +487,8 @@ class streamPick(PyQt4.QtGui.QMainWindow):
                 return
             for _ax in axes:
                 _ax.set_xlim([_ax.get_xlim()[0] +
-                        (self._plt_drag - event.xdata),
-                        _ax.get_xlim()[1] + (self._plt_drag - event.xdata)])
+                              (self._plt_drag - event.xdata),
+                              _ax.get_xlim()[1] + (self._plt_drag - event.xdata)])
         else:
             return
         self._canvasDraw()
@@ -498,6 +498,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         On Button Release Reset drag variable
         '''
         self._plt_drag = None
+
     def _pltOnButtonPress(self, event):
         '''
         This Function is evoked when the user picks
@@ -507,8 +508,8 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         if event.inaxes is None:
             return
         channel = event.inaxes.channel
-        tr_amp = event.inaxes.lines[0].get_ydata()[int(event.xdata)+3] -\
-                    event.inaxes.lines[0].get_ydata()[int(event.xdata)]
+        tr_amp = event.inaxes.lines[0].get_ydata()[int(event.xdata) + 3] - \
+                 event.inaxes.lines[0].get_ydata()[int(event.xdata)]
         if tr_amp < 0:
             polarity = 'negative'
         elif tr_amp > 0:
@@ -518,48 +519,48 @@ class streamPick(PyQt4.QtGui.QMainWindow):
 
         if event.key == self._shortcuts['pick_p'] and event.button == 1:
             self._setPick(event.xdata, phase='P', channel=channel,
-                            polarity=polarity)
+                          polarity=polarity)
         elif event.key == self._shortcuts['pick_p_end'] and event.button == 1:
             self._setPick(event.xdata, phase='Pend', channel=channel,
-                            polarity=polarity)
+                          polarity=polarity)
 
-        elif event.key== self._shortcuts['stream_next']:
-            self._pltNextStream()                        
+        elif event.key == self._shortcuts['stream_next']:
+            self._pltNextStream()
         elif event.key == self._shortcuts['pick_s_end'] and event.button == 1:
             self._setPick(event.xdata, phase='Send', channel=channel,
-                            polarity=polarity)   
-                            
+                          polarity=polarity)
+
         elif event.key == self._shortcuts['pick_s'] and event.button == 1:
             self._setPick(event.xdata, phase='S', channel=channel,
-                            polarity=polarity)
+                          polarity=polarity)
         elif event.key == self._shortcuts['pick_custom'] and event.button == 1:
             text, ok = PyQt4.QtGui.QInputDialog.getItem(self, 'Custom Phase',
-                'Enter phase name:', self._getPhases())
+                                                        'Enter phase name:', self._getPhases())
             if ok:
                 self._setPick(event.xdata, phase=text, channel=channel,
-                                polarity=polarity)
+                              polarity=polarity)
         elif event.key == self._shortcuts['pick_remove']:
             self._delPicks(network=self._current_network,
-                            station=self._current_stname,
-                            channel=channel)
-                            
+                           station=self._current_stname,
+                           channel=channel)
+
         elif event.key == self._shortcuts['gain_up'] or self._shortcuts['gain_down']:
             self._adjustGain(event)
         else:
             return
         self._updateSB()
         self._drawPicks()
-        
-    def _adjustGain(self,event):
+
+    def _adjustGain(self, event):
         '''
         Allows the gain to be changed on plot
         '''
-        
+
         if event.key is not None:
             event.key = event.key.lower()
         if event.inaxes is None:
             return
-        
+
         if event.inaxes is None:
             return
 
@@ -593,24 +594,24 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         '''
         self._streamStation(self._stationCycle.next())
         self._drawFig()
-        
+
     def _pltNextStream(self):
         '''
         Plot next Stream, used primarily in Detex loops when
         streamPick is called to know to exit loop or go 
         to next stream
         '''
-        
+
         self.KeepGoing = True
         pickle.dump(self.bpfilter, open('.pick_filters', 'w'))
-        #self.closeEvent()
+        # self.closeEvent()
         self.deleteLater()
-    
+
     def _pltPrevStation(self):
         '''
         Plot previous station
         '''
-        for _i in range(len(self._stations)-1):
+        for _i in range(len(self._stations) - 1):
             prevStation = self._stationCycle.next()
         self._streamStation(prevStation)
         self._drawFig()
@@ -658,10 +659,10 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         '''
         newFilter = self.defFilter(self)
         if newFilter.exec_():
-                self.bpfilter.append(newFilter.getValues())
-                self._updateFilterCB()
-                self.fltrcb.setCurrentIndex(len(self.bpfilter)-1)
-                self._appFilter()
+            self.bpfilter.append(newFilter.getValues())
+            self._updateFilterCB()
+            self.fltrcb.setCurrentIndex(len(self.bpfilter) - 1)
+            self._appFilter()
 
     def _editFilter(self):
         '''
@@ -671,10 +672,10 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         this_filter = self.bpfilter[_i]
         editFilter = self.defFilter(self, this_filter)
         if editFilter.exec_():
-                self.bpfilter[_i] = editFilter.getValues()
-                self._updateFilterCB()
-                self.fltrcb.setCurrentIndex(_i)
-                self._appFilter()
+            self.bpfilter[_i] = editFilter.getValues()
+            self._updateFilterCB()
+            self.fltrcb.setCurrentIndex(_i)
+            self._appFilter()
 
     def _deleteFilter(self):
         '''
@@ -682,10 +683,11 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         '''
         pass
         _i = self.fltrcb.currentIndex()
-#        self.fltrbtn.setChecked(False)
-#        self.bpfilter.pop(_i)
-#        self._updateFilterCB()
-#        self._appFilter()
+
+    #        self.fltrbtn.setChecked(False)
+    #        self.bpfilter.pop(_i)
+    #        self._updateFilterCB()
+    #        self._appFilter()
 
     def _changeFilter(self, index):
         '''
@@ -704,7 +706,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         self.fltrcb.setCurrentIndex(-1)
         for _i, _f in enumerate(self.bpfilter):
             self.fltrcb.addItem('%s [%.2f - %.2f Hz]' % (_f['name'],
-                _f['freqmin'], _f['freqmax']))
+                                                         _f['freqmin'], _f['freqmax']))
         self.fltrcb.addItem('Create new Filter...')
 
     # Status bar functions
@@ -725,7 +727,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
             self.stcb.setCurrentIndex(
                 self._stations.index(self._current_stname))
             msg = 'Station %i/%i - %i Picks' % (
-                self._stations.index(self._current_stname)+1,
+                self._stations.index(self._current_stname) + 1,
                 len(self._stations), len(self._getPicks()))
             if self._current_filter is not None:
                 msg += ' - Bandpass %s [%.2f - %.2f Hz]' % (
@@ -738,8 +740,8 @@ class streamPick(PyQt4.QtGui.QMainWindow):
 
     def _openCatalogDlg(self):
         filename = PyQt4.QtGui.QFileDialog.getOpenFileName(self,
-                        'Load QuakeML Picks',
-                        os.getcwd(), 'QuakeML Format (*.xml)', '20')
+                                                           'Load QuakeML Picks',
+                                                           os.getcwd(), 'QuakeML Format (*.xml)', '20')
         if filename:
             self._openCatalog(str(filename))
             self.savefile = str(filename)
@@ -749,7 +751,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         Open existing QuakeML catalog
         '''
         try:
-            print ('Opening QuakeML Catalog %s' % filename)
+            print('Opening QuakeML Catalog %s' % filename)
             cat = event.readEvents(filename)
             self._picks = cat[0].picks
             self._drawPicks()
@@ -762,8 +764,8 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         Save catalog through QtDialog
         '''
         self.savefile = PyQt4.QtGui.QFileDialog.getSaveFileName(self,
-                        'Save QuakeML Picks',
-                        os.getcwd(), 'QuakeML Format (*.xml)')
+                                                                'Save QuakeML Picks',
+                                                                os.getcwd(), 'QuakeML Format (*.xml)')
         if not self.savefile:
             self.savefile = None
             return
@@ -784,16 +786,16 @@ class streamPick(PyQt4.QtGui.QMainWindow):
             savefile = self.savefile
         cat = event.Catalog()
         cat.events.append(event.Event(picks=self._picks))
-        #cat.write(savefile, format='QUAKEML')
-        #print 'Picks saved as %s' % savefile
+        # cat.write(savefile, format='QUAKEML')
+        # print 'Picks saved as %s' % savefile
 
     def _savePlotDlg(self):
         '''
         Save Plot Image Qt Dialog and Matplotlib wrapper
         '''
         filename = PyQt4.QtGui.QFileDialog.getSaveFileName(self, 'Save Plot',
-                        os.getcwd(),
-                        'Image Format (*.png *.pdf *.ps *.svg *.eps)')
+                                                           os.getcwd(),
+                                                           'Image Format (*.png *.pdf *.ps *.svg *.eps)')
         if not filename:
             return
         filename = str(filename)
@@ -867,14 +869,14 @@ class streamPick(PyQt4.QtGui.QMainWindow):
                 for further documentation.
                 </div>
                 """ % (
-                    self._shortcuts['st_next'],
-                    self._shortcuts['st_previous'],
-                    self._shortcuts['filter_apply'],
-                    self._shortcuts['pick_p'],
-                    self._shortcuts['pick_s'],
-                    self._shortcuts['pick_custom'],
-                    self._shortcuts['pick_remove'],
-                    )
+            self._shortcuts['st_next'],
+            self._shortcuts['st_previous'],
+            self._shortcuts['filter_apply'],
+            self._shortcuts['pick_p'],
+            self._shortcuts['pick_s'],
+            self._shortcuts['pick_custom'],
+            self._shortcuts['pick_remove'],
+        )
         PyQt4.QtGui.QMessageBox.about(self, 'About', msg)
 
     def _canvasDraw(self):
@@ -893,19 +895,20 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         '''
         # Save Picks
         # Save Catalog
-#        if len(self._picks) > 0:
-#            self._saveCatalog('.picks-obspy.xml.bak')
-#        if self.savefile is None and len(self._picks) > 0:
-#            ask = PyQt4.QtGui.QMessageBox.question(self, 'Save Picks?',
-#                'Do you want to save your picks?',
-#                PyQt4.QtGui.QMessageBox.Save |
-#                PyQt4.QtGui.QMessageBox.Discard |
-#                PyQt4.QtGui.QMessageBox.Cancel, PyQt4.QtGui.QMessageBox.Save)
-#            if ask == PyQt4.QtGui.QMessageBox.Save:
-#                self._saveCatalog()
-#            elif ask == PyQt4.QtGui.QMessageBox.Cancel:
-#                evnt.ignore()
-#        print self._picks
+
+    #        if len(self._picks) > 0:
+    #            self._saveCatalog('.picks-obspy.xml.bak')
+    #        if self.savefile is None and len(self._picks) > 0:
+    #            ask = PyQt4.QtGui.QMessageBox.question(self, 'Save Picks?',
+    #                'Do you want to save your picks?',
+    #                PyQt4.QtGui.QMessageBox.Save |
+    #                PyQt4.QtGui.QMessageBox.Discard |
+    #                PyQt4.QtGui.QMessageBox.Cancel, PyQt4.QtGui.QMessageBox.Save)
+    #            if ask == PyQt4.QtGui.QMessageBox.Save:
+    #                self._saveCatalog()
+    #            elif ask == PyQt4.QtGui.QMessageBox.Cancel:
+    #                evnt.ignore()
+    #        print self._picks
 
 
     # Filter Dialog
@@ -919,9 +922,9 @@ class streamPick(PyQt4.QtGui.QMainWindow):
 
             # Frequency QDoubleSpinBoxes
             self.frqmin = PyQt4.QtGui.QDoubleSpinBox(decimals=2, maximum=100,
-                            minimum=0.01, singleStep=0.1, value=0.1)
+                                                     minimum=0.01, singleStep=0.1, value=0.1)
             self.frqmax = PyQt4.QtGui.QDoubleSpinBox(decimals=2, maximum=100,
-                            minimum=0.01, singleStep=0.1, value=10.0)
+                                                     minimum=0.01, singleStep=0.1, value=10.0)
 
             # Radio buttons for corners
             _corners = [2, 4, 8]
@@ -956,14 +959,14 @@ class streamPick(PyQt4.QtGui.QMainWindow):
             grid.setVerticalSpacing(10)
 
             btnbox = PyQt4.QtGui.QDialogButtonBox(PyQt4.QtGui.QDialogButtonBox.Ok |
-                                            PyQt4.QtGui.QDialogButtonBox.Cancel)
+                                                  PyQt4.QtGui.QDialogButtonBox.Cancel)
             btnbox.accepted.connect(self.accept)
             btnbox.rejected.connect(self.reject)
 
             layout = PyQt4.QtGui.QVBoxLayout()
             layout.addWidget(PyQt4.QtGui.QLabel('Define a minimum and maximum' +
-                ' frequency\nfor the bandpass filter.\nFunction utilises ' +
-                'obspy.signal.filter (zerophase=True).\n'))
+                                                ' frequency\nfor the bandpass filter.\nFunction utilises ' +
+                                                'obspy.signal.filter (zerophase=True).\n'))
             layout.addLayout(grid)
             layout.addWidget(btnbox)
 
@@ -984,10 +987,12 @@ class streamPick(PyQt4.QtGui.QMainWindow):
                         freqmin=float(self.frqmin.cleanText()),
                         freqmax=float(self.frqmax.cleanText()),
                         corners=int(int(self.corner.checkedId())))
+
+
 def deleteWidget(wid):
     wid.setParent(None)
 
-def clearLayout(layout):
-   for i in reversed(range(layout.count())): 
-        layout.itemAt(i).widget().setParent(None)
 
+def clearLayout(layout):
+    for i in reversed(range(layout.count())):
+        layout.itemAt(i).widget().setParent(None)

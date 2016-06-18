@@ -7,22 +7,22 @@ Created on Thu May 29 16:41:48 2014
 # python 2 and 3 compatibility imports
 from __future__ import print_function, absolute_import, unicode_literals
 from __future__ import with_statement, nested_scopes, generators, division
-from six import string_types
 
+import os
+import sys
+import time
+from sqlite3 import PARSE_DECLTYPES, connect
+
+import PyQt4
 import numpy as np
 import obspy
-import os
-import detex.pandas_dbms
+import pandas as pd
 import pandas.io.sql as psql
 import simplekml
-import pandas as pd
-import detex
-import sip
-import time
-import PyQt4
-import sys
+from six import string_types
 
-from sqlite3 import PARSE_DECLTYPES, connect
+import detex
+import detex.pandas_dbms
 
 
 ######################### KML functions ###############################
@@ -125,6 +125,7 @@ def writeKMLFromArcDF(df, outname='Arc.kml'):
         pnt.coords = [(a[1]['verlon'], a[1]['verlat'])]
     kml.save(outname)
 
+
 def writeKMLfromHYPInput(hypin='test.pha', outname='hypoInInv.kml'):
     with open(hypin, 'rb') as infile:
         kml = simplekml.Kml(open=1)
@@ -135,14 +136,15 @@ def writeKMLfromHYPInput(hypin='test.pha', outname='hypoInInv.kml'):
             elif line[0:6] == '      ':
                 # print 'terminator line'
                 lat = float(line[14:16]) + (float(line[17:19]) / \
-                            60 + float(line[19:21]) / (100.0 * 60))
+                                            60 + float(line[19:21]) / (100.0 * 60))
                 lon = -float(line[21:24]) + -(float(line[25:27]) / \
-                             60.0 + float(line[27:29]) / (100.0 * 60))
+                                              60.0 + float(line[27:29]) / (100.0 * 60))
                 pnt = kml.newpoint()
                 pnt.name = str(cou)
                 pnt.coords = [(lon, lat)]
                 cou += 1
         kml.save(outname)
+
 
 def writeKMLFromHypDD(hypreloc='hypoDD.reloc', outname='hypo.kml'):
     """
@@ -156,6 +158,7 @@ def writeKMLFromHypDD(hypreloc='hypoDD.reloc', outname='hypo.kml'):
         pnt.name = str(int(a[0]))
         pnt.coords = [(a[2], a[1])]
     kml.save(outname)
+
 
 def writeKMLFromEQSearchSum(eqsum='eqsrchsum', outname='eqsearch.kml'):
     """
@@ -184,7 +187,7 @@ def writeKMLFromEQSearchSum(eqsum='eqsrchsum', outname='eqsearch.kml'):
     hr = ['%02d' % x for x in df['hr']]
     minute = ['%02d' % x for x in df['min']]
     second = ['%05.02f' % x for x in df['sec']]
-    TIME = ['%s-%s-%sT%s-%s-%s' % (x1, x2, x3, x4, x5, x6) 
+    TIME = ['%s-%s-%sT%s-%s-%s' % (x1, x2, x3, x4, x5, x6)
             for x1, x2, x3, x4, x5, x6 in zip(
             year, month, day, hr, minute, second)]
     Lat = df['latdeg'].values + df['latmin'].values / 60.0
@@ -196,6 +199,7 @@ def writeKMLFromEQSearchSum(eqsum='eqsrchsum', outname='eqsearch.kml'):
         pnt.name = str(T)
         pnt.coords = [(Lon, Lat)]
     kml.save(outname)
+
 
 ############## HypoDD Functions ################
 
@@ -227,6 +231,7 @@ def writeHypoDDStationInput(stakey, fileName='station.dat', useElevations=True,
         fil.write(line + '\n')
     fil.close()
 
+
 def writeHypoDDEventInput(temkey, fileName='event.dat'):
     """
     Write a hypoDD event file (event.dat)
@@ -248,15 +253,16 @@ def writeHypoDDEventInput(temkey, fileName='event.dat'):
             utc.minute), int(utc.second * 100))
         mag = row.MAG if row.MAG > -20 else 0.0
         ID = fomatstr.format(num)
-        linea = (DATE + ', ' + TIME + ', ' + '{:04f}, '.format(row.LAT) + 
-                '{:04f}, '.format(row.LON) + '{:02f}, '.format(row.DEPTH))
+        linea = (DATE + ', ' + TIME + ', ' + '{:04f}, '.format(row.LAT) +
+                 '{:04f}, '.format(row.LON) + '{:02f}, '.format(row.DEPTH))
         lineb = '{:02f}, '.format(mag) + '0.0, 0.0, 0.0, ' + ID
         fil.write(linea + lineb + '\n')
     fil.close()
 
+
 ############## Hypoinverse Functions ################
 def makeHypoInversePhaseFile(phases, evekey, outname, fix=0, usePhases=['P'],
-                  fixFirstStation=False):
+                             fixFirstStation=False):
     """ 
     Write a hypoinverse phase file used by hypoinverse, format defined
     on page 113 of the manual for version 1.39, using the phase file created
@@ -289,27 +295,28 @@ def makeHypoInversePhaseFile(phases, evekey, outname, fix=0, usePhases=['P'],
     """
     phases = readKey(phases, key_type='phases')
     evekey = readKey(evekey, key_type='template')
-    with open(outname,'wb') as phafil:
+    with open(outname, 'wb') as phafil:
         phafil.write('\n')
-        for eveind, everow in evekey.iterrows(): # Loop events
-            phas = phases[phases.Event==everow.NAME]
-            if len(phas) < 1: # go to next event if no phase info
+        for eveind, everow in evekey.iterrows():  # Loop events
+            phas = phases[phases.Event == everow.NAME]
+            if len(phas) < 1:  # go to next event if no phase info
                 continue
             for phaind, pha in phas.iterrows():
                 stmp = obspy.UTCDateTime(pha.TimeStamp)
                 phase = pha.Phase.upper()
                 net = pha.Station.split('.')[0]
-                sta = pha.Station.split('.')[1] 
+                sta = pha.Station.split('.')[1]
                 chan = pha.Channel
                 # make sure all chans/stations have expected lengths
                 _checkLens(net, chan, sta)
                 if phase not in usePhases:
                     continue
-                line = _makeSHypStationLine(sta, chan, net, stmp, phase) 
+                line = _makeSHypStationLine(sta, chan, net, stmp, phase)
                 phafil.write(line)
             el = _makeHypTermLine(pha, everow, fix, fixFirstStation)
             phafil.write(el)
-            phafil.write('\n')            
+            phafil.write('\n')
+
 
 def _checkLens(net, chan, sta):
     """
@@ -317,14 +324,15 @@ def _checkLens(net, chan, sta):
     """
     if len(net) > 2:
         msg = 'network code must be 2 characters or less, %s is not' % net
-        detex.log(__name__, msg, level='error')  
+        detex.log(__name__, msg, level='error')
     if len(chan) > 3:
         msg = 'channel code must be 3 characters or less, %s is not' % chan
-        detex.log(__name__, msg, level='error') 
+        detex.log(__name__, msg, level='error')
     if len(sta) > 5:
         msg = 'station code must be 5 characters or less, %s is not' % sta
-        detex.log(__name__, msg, level='error')  
-                  
+        detex.log(__name__, msg, level='error')
+
+
 def _makeSHypStationLine(sta, cha, net, ts, pha):
     Ptime = obspy.core.UTCDateTime(ts)
     datestring = _killChars(Ptime.format_iris_web_service())
@@ -334,11 +342,12 @@ def _makeSHypStationLine(sta, cha, net, ts, pha):
     end = '01'
     ty = '%s 0' % pha
     line = "{:<5}{:<4}{:<5}{:<3}{:<12}{:<80}{:<2}\n".format(
-                        sta, net, cha, ty, YYYYMMDDHHMM, ssss, end)
+        sta, net, cha, ty, YYYYMMDDHHMM, ssss, end)
     return line
-    
+
+
 def _makeHypTermLine(pha, everow, fix, fixFirstStation):
-    space=' '
+    space = ' '
     if fix == 0:
         fixchar = ' '
     elif fix == 1:
@@ -347,7 +356,7 @@ def _makeHypTermLine(pha, everow, fix, fixFirstStation):
         fixchar = 'X'
     elif fix == 3:
         fixchar = 'O'
-    UTC=obspy.core.UTCDateTime(everow.TIME)
+    UTC = obspy.core.UTCDateTime(everow.TIME)
     iws = UTC.format_iris_web_service()
     hhmmssss = _killChars(iws)[8:16]
     if fixFirstStation:
@@ -358,9 +367,10 @@ def _makeHypTermLine(pha, everow, fix, fixFirstStation):
         lat, latmin, latchar = _returnLat(everow.LAT)
         lon, lonmin, lonchar = _returnLon(everow.LON)
         dep = '%05.2f' % everow.DEPTH
-    endline="{:<6}{:<8}{:<3}{:<4}{:<4}{:<4}{:<5}{:<1}\n".format(
-    space, hhmmssss, lat, latmin, lon, lonmin, dep, fixchar)
-    return endline 
+    endline = "{:<6}{:<8}{:<3}{:<4}{:<4}{:<4}{:<5}{:<1}\n".format(
+        space, hhmmssss, lat, latmin, lon, lonmin, dep, fixchar)
+    return endline
+
 
 def makeHypoInverseStationFile(stationKey, outname):
     """
@@ -374,7 +384,7 @@ def makeHypoInverseStationFile(stationKey, outname):
     outname : str
         The file to write
     """
-    with open(outname,'wb') as stafil:
+    with open(outname, 'wb') as stafil:
         stakey = readKey(stationKey, key_type='station')
         for ind, srow in stakey.iterrows():
             net = srow.NETWORK
@@ -384,19 +394,21 @@ def makeHypoInverseStationFile(stationKey, outname):
             lond, lonm, lonc = _returnLon(srow.LON, degPre=4)
             ele = '%4d' % srow.ELEVATION
             for chan in chans.split('-'):
-                li = _makeInvStaLine(net, sta, chan, lond, lonm, lonc, latd, 
-                                latm, latc, ele)
+                li = _makeInvStaLine(net, sta, chan, lond, lonm, lonc, latd,
+                                     latm, latc, ele)
                 stafil.write(li)
 
-def _makeInvStaLine(net, sta, chan, lond, lonm, lonc, latd, 
+
+def _makeInvStaLine(net, sta, chan, lond, lonm, lonc, latd,
                     latm, latc, ele):
-    chco = ' ' # optional 1 letter chan code
+    chco = ' '  # optional 1 letter chan code
     fstr = "{:<6}{:<3}{:<1}{:<5}{:<3}{:<7}{:<1}{:<4}{:<7}{:<1}{:<4}"
-    sto = fstr.format(sta, net, chco, chan,latd, latm, latc, lond, 
+    sto = fstr.format(sta, net, chco, chan, latd, latm, latc, lond,
                       lonm, lonc, ele)
     ends = '5.0  P  0.00  0.00  0.00  0.00 0  0.00--'
     return "{:<86}".format(sto + ends) + os.linesep
-        
+
+
 def readHypo2000Sum(sumfile):
     """
     read a sum file from hyp2000 and return DataFrame with info loaded into,
@@ -418,27 +430,28 @@ def readHypo2000Sum(sumfile):
 
     for a, l in enumerate(lines):
         DF.Lat[a] = (float(l[16:18]) + (float(l[19:21].replace(' ', '0')) +
-                     float(l[21:23].replace(' ', '0'))/100)/60)
+                                        float(l[21:23].replace(' ', '0')) / 100) / 60)
 
         DF.Lon[a] = (-float(l[23:26]) - (float(l[27:29].replace(' ', '0')) +
-                     float(l[29:31].replace(' ', '0')) / 100) / 60)
+                                         float(l[29:31].replace(' ', '0')) / 100) / 60)
 
-        DF.DateString[a] = (l[0:4] + '-' + l[4:6] + '-' + l[6:8] + 'T' + 
+        DF.DateString[a] = (l[0:4] + '-' + l[4:6] + '-' + l[6:8] + 'T' +
                             l[8:10] + '-' + l[10:12] + '-' + l[12:14] +
                             '.' + l[14:16])
 
         DF.Dep[a] = (float(l[31:34].replace(' ', '0').replace(
             '-', '0')) + float(l[34:36].replace(' ', '0')) / 100)
-            
+
         DF.RMS[a] = (float(l[48:50].replace(' ', '0')) +
-            float(l[50:52].replace(' ', '0')) / 100)
-            
+                     float(l[50:52].replace(' ', '0')) / 100)
+
         DF.HozError[a] = (float(l[85:87].replace(' ', '0')) +
-            float(l[87:89].replace(' ', '0')) / 100.0)
-            
-        DF.VertError[a] = (float(l[89:91].replace(' ', '0')) + 
-            float(l[91:93].replace(' ', '0')) / 100.0)
-    return DF   
+                          float(l[87:89].replace(' ', '0')) / 100.0)
+
+        DF.VertError[a] = (float(l[89:91].replace(' ', '0')) +
+                           float(l[91:93].replace(' ', '0')) / 100.0)
+    return DF
+
 
 def readHypo71Sum(sumfile):
     """
@@ -454,19 +467,19 @@ def readHypo71Sum(sumfile):
     -----------
     DataFrame populated with sumfile info
     """
-    fw = [(0,20), (19,22), (22,23), (23,28), (28,32), (32,33), (33,38), 
-          (38,45), (52,55), (55,59), (59,64), (64,69), (69,74), (74,79) ]
-    cols = ['ds', 'latd', 'latc', 'latm', 'lond', 'lonc', 'lonm', 'depth', 
-            'numphase', 'azgap', 'stadist', 'rms','horerr', 'vererr']
+    fw = [(0, 20), (19, 22), (22, 23), (23, 28), (28, 32), (32, 33), (33, 38),
+          (38, 45), (52, 55), (55, 59), (59, 64), (64, 69), (69, 74), (74, 79)]
+    cols = ['ds', 'latd', 'latc', 'latm', 'lond', 'lonc', 'lonm', 'depth',
+            'numphase', 'azgap', 'stadist', 'rms', 'horerr', 'vererr']
     toDrop = ['ds', 'latd', 'latc', 'latm', 'lond', 'lonc', 'lonm']
-    df = pd.read_fwf(sumfile, colspecs=fw, names=cols )
-    
+    df = pd.read_fwf(sumfile, colspecs=fw, names=cols)
+
     latmul = [1 if x else -1 for x in df['latc'].isnull()]
-    df['lat'] = np.multiply((df['latd'] + df['latm']/60.), latmul)
+    df['lat'] = np.multiply((df['latd'] + df['latm'] / 60.), latmul)
     lonmul = [1 if x else -1 for x in df['lonc'].isnull()]
-    df['lon'] = np.multiply((df['lond'] + df['lonm']/60.), lonmul)
-    utcs = [obspy.UTCDateTime(x.replace(' ','')) for x in df.ds]
-    irisws = [x.format_iris_web_service().replace(':','-') for x in utcs]
+    df['lon'] = np.multiply((df['lond'] + df['lonm'] / 60.), lonmul)
+    utcs = [obspy.UTCDateTime(x.replace(' ', '')) for x in df.ds]
+    irisws = [x.format_iris_web_service().replace(':', '-') for x in utcs]
     times = [x.timestamp for x in utcs]
     names = [x.split('.')[0] for x in irisws]
     df['times'] = times
@@ -498,32 +511,33 @@ def writePhaseNLL(phases, evekey, NLLoc_dir, useP=True, useS=True):
         phases = pd.read_csv(phases)
     if not isinstance(evekey, pd.DataFrame):
         evekey = pd.read_csv(evekey)
-    
+
     ## Split files if more than 100 events
-    
-    
-    for eveind, everow in evekey.iterrows(): # Loop events
-    
-        on = everow.NAME.split('.')[0].replace('-','').replace('T','') + '.p'
+
+
+    for eveind, everow in evekey.iterrows():  # Loop events
+
+        on = everow.NAME.split('.')[0].replace('-', '').replace('T', '') + '.p'
         outpath = os.path.join(NLLoc_dir, on)
-        with open(outpath,'wb') as phafil:
-            phas = phases[phases.event==everow.NAME]
-            if len(phas) < 1: # got to nect event if no phase info
+        with open(outpath, 'wb') as phafil:
+            phas = phases[phases.event == everow.NAME]
+            if len(phas) < 1:  # got to nect event if no phase info
                 continue
             for phaind, pha in phas.iterrows():
                 Ppick = obspy.UTCDateTime(pha.ptime)
                 Spick = obspy.UTCDateTime(pha.stime)
                 if Ppick is not None and Ppick > 0 and useP:
-                    line= _makeNLLine(pha, everow, 'P')
+                    line = _makeNLLine(pha, everow, 'P')
                     phafil.write(line)
                 if Spick is not None and Spick > 0 and useS:
-                    line= _makeNLLine(pha, everow, 'S')
+                    line = _makeNLLine(pha, everow, 'S')
                     phafil.write(line)
-            phafil.write('\n')            
+            phafil.write('\n')
+
 
 def _makeNLLine(pha, everow, phase):
     if phase == 'P':
-        utc= obspy.UTCDateTime(pha.ptime)
+        utc = obspy.UTCDateTime(pha.ptime)
     elif phase == 'S':
         utc = obspy.UTCDateTime(pha.stime)
     staname = '%-6s' % pha.station
@@ -534,29 +548,28 @@ def _makeNLLine(pha, everow, phase):
     fmot = '%-1s' % '?'
     ymd = '%04d%02d%02d' % (utc.year, utc.month, utc.day)
     hm = '%02d%02d' % (utc.hour, utc.minute)
-    sec = '%07.4f' % (float(utc.second) + utc.microsecond/1000000.)
+    sec = '%07.4f' % (float(utc.second) + utc.microsecond / 1000000.)
     err = '%-3s' % 'GAU'
-    #errMag = '%9.2e' % ermag
+    # errMag = '%9.2e' % ermag
     errMag = '%-9s' % '.01'
     codadur = '%9.2e' % -1
     amp = '%9.2e' % -1
     per = '%9.2e' % -1
-    oustr = ' '.join([staname, inst, comp, ponset, pdes, fmot, ymd, hm, sec, 
+    oustr = ' '.join([staname, inst, comp, ponset, pdes, fmot, ymd, hm, sec,
                       err, errMag, codadur, amp, per])
     return oustr + '\n'
 
 
-     
-        
 ################# Read/Create detex key files ###################
 
 # required key stuff
 req_temkey = set(['TIME', 'NAME', 'LAT', 'LON', 'MAG', 'DEPTH'])
-req_stakey = set(['NETWORK', 'STATION', 'STARTTIME', 'ENDTIME', 'LAT', 
+req_stakey = set(['NETWORK', 'STATION', 'STARTTIME', 'ENDTIME', 'LAT',
                   'LON', 'ELEVATION', 'CHANNELS'])
 req_phases = set(['TimeStamp', 'Event', 'Station', 'Phase'])
-req_columns = {'template': req_temkey, 'station': req_stakey, 
-               'phases':req_phases}
+req_columns = {'template': req_temkey, 'station': req_stakey,
+               'phases': req_phases}
+
 
 def readKey(dfkey, key_type='template'):
     """
@@ -575,7 +588,7 @@ def readKey(dfkey, key_type='template'):
     # key types and required columns
 
     key_types = req_columns.keys()
-    
+
     if key_type not in key_types:
         msg = "unsported key type, supported types are %s" % (key_types)
         detex.log(__name__, msg, level='error')
@@ -602,7 +615,7 @@ def readKey(dfkey, key_type='template'):
     condition = [all([x != '' for item, x in row.iteritems()])
                  for num, row in tdf.iterrows()]
     df = df[condition]
-    
+
     # TODO if column TIME is utcDateTime object sorting fails, fix this
     df.sort_values(by=list(req_columns[key_type]), inplace=True)
     df.reset_index(drop=True, inplace=True)
@@ -612,6 +625,7 @@ def readKey(dfkey, key_type='template'):
         df['STATION'] = [str(x) for x in df['STATION']]
         df['NETWORK'] = [str(x) for x in df['NETWORK']]
     return df
+
 
 def inventory2StationKey(inv, starttime, endtime, fileName=None):
     """
@@ -643,20 +657,20 @@ def inventory2StationKey(inv, starttime, endtime, fileName=None):
         detex.log(__name__, msg, level='error')
     if not isinstance(endtime, obspy.UTCDateTime):
         msg = 'endtime must be an obspy.UTCDateTime instance'
-        detex.log(__name__, msg, level='error')      
+        detex.log(__name__, msg, level='error')
     if starttime >= endtime:
         msg = 'starttime must be less than endtime'
         detex.log(__name__, msg, level='error')
-    contents = inv.get_contents() # get contents
+    contents = inv.get_contents()  # get contents
     if len(contents['channels']) < 1:
         msg = ('Either no channels were found or inventory level is not at '
-                'least "channel", try recreating the inventory using '
-                'level="channel"')
+               'least "channel", try recreating the inventory using '
+               'level="channel"')
         detex.log(__name__, msg, level='error')
     # Init DataFrame
-    cols = ['NETWORK', 'STATION', 'STARTTIME', 'ENDTIME', 
+    cols = ['NETWORK', 'STATION', 'STARTTIME', 'ENDTIME',
             'LAT', 'LON', 'ELEVATION', 'CHANNELS']
-    
+
     df = pd.DataFrame(index=range(len(contents['stations'])), columns=cols)
     # Iter inv
     count = 0
@@ -681,6 +695,7 @@ def inventory2StationKey(inv, starttime, endtime, fileName=None):
         df.to_csv(fileName)
     return df
 
+
 def templateKey2Catalog(temkey='TemplateKey.csv', picks=None):
     """
     Function to convert a templatekey and optionally a phase picks file to 
@@ -703,20 +718,23 @@ def templateKey2Catalog(temkey='TemplateKey.csv', picks=None):
     for ind, row in temkey.iterrows():
         cat.events.append(_getEvents(row, picks))
     return cat
-        
+
+
 def _getEvents(row, picks):
     eve = obspy.core.event.Event()
     eve.magnitudes = _getMagnitudes(row)
     eve.origins = _getOrigins(row)
     eve.picks = _getPicks(row, picks)
     return eve
-    
+
+
 def _getMagnitudes(row):
     mag = obspy.core.event.Magnitude()
     mag.mag = row.MAG
     if 'MTYPE' in row.index:
         mag.magnitude_type = row.MTYPE
     return [mag]
+
 
 def _getOrigins(row):
     lat = row.LAT
@@ -727,22 +745,25 @@ def _getOrigins(row):
     ori.longitude = lon
     ori.depth = dep
     return [ori]
-    
+
+
 def _getPicks(row, picks):
     phases = []
     if picks is None:
         return phases
-    phs = picks[picks.Event==row.NAME]
+    phs = picks[picks.Event == row.NAME]
     for phind, ph in phs.iterrows():
         phases.append(_getPick(row, ph))
     return phases
-    
+
+
 def _getPick(row, ph):
     pick = obspy.core.event.Pick()
     pick.time = obspy.UTCDateTime(ph.TimeStamp)
     pick.phase_hint = ph.Phase
-    return pick 
-    
+    return pick
+
+
 def EQSearch2TemplateKey(eq='eqsrchsum', oname='eqTemplateKey.csv'):
     """
     Write a template key from the eqsearch sum file (produced by the 
@@ -787,6 +808,7 @@ def EQSearch2TemplateKey(eq='eqsrchsum', oname='eqTemplateKey.csv'):
     DF.to_csv(oname)
     return DF
 
+
 def catalog2Templatekey(cat, fileName=None):
     """
     Function to get build the Detex required file TemplateKey.csv 
@@ -816,12 +838,11 @@ def catalog2Templatekey(cat, fileName=None):
     cols = ['NAME', 'TIME', 'LAT', 'LON', 'DEPTH', 'MAG',
             'MTYPE', 'CONTRIBUTOR']
     df = pd.DataFrame(index=range(len(cat)), columns=cols)
-    
 
     for evenum, event in enumerate(cat):
         if not event.origins:
-            msg = ("Event '%s' does not have an origin" % 
-            str(event.resource_id))
+            msg = ("Event '%s' does not have an origin" %
+                   str(event.resource_id))
             detex.log(__name__, msg, level='debug')
             continue
         if not event.magnitudes:
@@ -832,7 +853,7 @@ def catalog2Templatekey(cat, fileName=None):
         lat = origin.latitude
         lon = origin.longitude
         dep = origin.depth / 1000.0
-        #time = str(origin.time).replace(':', '-')
+        # time = str(origin.time).replace(':', '-')
         name = time.split('.')[0]
         magnitude = event.preferred_magnitude() or event.magnitudes[0]
         mag = magnitude.mag
@@ -844,7 +865,8 @@ def catalog2Templatekey(cat, fileName=None):
         df.to_csv(fileName)
     return df
 
-def saveSQLite(DF, CorDB, Tablename, silent=True):  
+
+def saveSQLite(DF, CorDB, Tablename, silent=True):
     """
     Basic function to save pandas dataframe to SQL
     
@@ -861,13 +883,14 @@ def saveSQLite(DF, CorDB, Tablename, silent=True):
     """
 
     with connect(CorDB, detect_types=PARSE_DECLTYPES) as conn:
-        
+
         if os.path.exists(CorDB):
             detex.pandas_dbms.write_frame(
-            DF, Tablename, con=conn, flavor='sqlite', if_exists='append')
+                DF, Tablename, con=conn, flavor='sqlite', if_exists='append')
         else:
             detex.pandas_dbms.write_frame(
                 DF, Tablename, con=conn, flavor='sqlite', if_exists='fail')
+
 
 def loadSQLite(corDB, tableName, sql=None, readExcpetion=False, silent=True,
                convertNumeric=True):
@@ -887,7 +910,7 @@ def loadSQLite(corDB, tableName, sql=None, readExcpetion=False, silent=True,
     -------
     A pandas dataframe with loaded table or None if DB or table does not exist
     """
-   # try:
+    # try:
     if sql is None:
         sql = 'SELECT %s FROM %s' % ('*', tableName)
     with connect(corDB, detect_types=PARSE_DECLTYPES) as con:
@@ -906,7 +929,8 @@ def loadSQLite(corDB, tableName, sql=None, readExcpetion=False, silent=True,
                     pass
     return df
 
-def loadClusters(filename='clust.pkl'): 
+
+def loadClusters(filename='clust.pkl'):
     """
     Function that uses pandas.read_pickle to load a pickled cluster
     (instance of detex.subspace.ClusterStream)
@@ -923,8 +947,9 @@ def loadClusters(filename='clust.pkl'):
         msg = '%s is not a ClusterStream instance' % filename
         detex.log(__name__, msg, level='error')
     return cl
-    
-def loadSubSpace(filename='subspace.pkl'): 
+
+
+def loadSubSpace(filename='subspace.pkl'):
     """
     Function that uses pandas.read_pickle to load a pickled subspace
     (instance of detex.subspace.SubSpaceStream)
@@ -942,6 +967,7 @@ def loadSubSpace(filename='subspace.pkl'):
         detex.log(__name__, msg, level='error')
     return ss
 
+
 def readLog(logpath='detex_log.log'):
     """
     Read the standard detex log into a dataframe. Columns are: Time, Mod,
@@ -956,9 +982,10 @@ def readLog(logpath='detex_log.log'):
     -----------
     DataFrame with log info
     """
-    df = pd.read_table(logpath, names=['Time','Mod','Level','Msg'])           
+    df = pd.read_table(logpath, names=['Time', 'Mod', 'Level', 'Msg'])
     return df
-    
+
+
 ###################### Data processing functions ###########################
 
 def get_number_channels(st):
@@ -972,9 +999,10 @@ def get_number_channels(st):
     nc = len(list(set([x.stats.channel for x in st])))
     return nc
 
+
 ############################## Phase Picker ############################
 
-def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv', 
+def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
                stationkey='StationKey.csv', pickFile='PhasePicks.csv',
                skipIfExists=True, **kwargs):
     """
@@ -1008,15 +1036,15 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
 
     cols = ['TimeStamp', 'Station', 'Event', 'Phase', 'Channel', 'Seconds']
     fetcher = detex.getdata.quickFetch(fetch, **kwargs)
-    
-    ets = {} # events to skip picking on
+
+    ets = {}  # events to skip picking on
     count = 0
-    
+
     # must init the PyQt app outside of the loop or else it kills python
     qApp = PyQt4.QtGui.QApplication(sys.argv)
 
     # load pickfile if it exists
-    if os.path.exists(pickFile):  
+    if os.path.exists(pickFile):
         DF = pd.read_csv(pickFile)
         if len(DF) < 1:  # if empty then delete
             os.remove(pickFile)
@@ -1030,10 +1058,10 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
     else:
         DF = pd.DataFrame(columns=cols)
     for st, event in fetcher.getTemData(temkey, stakey, skipDict=ets):
-        if st is None or len(st) < 1: # skip if no data returned
+        if st is None or len(st) < 1:  # skip if no data returned
             continue
         count += 1
-        #reload(detex.streamPick)
+        # reload(detex.streamPick)
 
         Pks = None  # needed so OS X doesn't crash
         Pks = detex.streamPick.streamPick(st, ap=qApp)
@@ -1045,7 +1073,7 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
             if b:
                 tstamp = b['time'].timestamp
                 chan = b['waveform_id']['channel_code']
-                tdict[b.phase_hint] = [tstamp, chan] 
+                tdict[b.phase_hint] = [tstamp, chan]
                 saveit = 1
         if saveit:
             for key in tdict.keys():
@@ -1053,8 +1081,8 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
                 chan = tdict[key][1]
                 secs = '%3.5f' % stmp
                 sta = str(st[0].stats.network + '.' + st[0].stats.station)
-                di = {'TimeStamp': stmp, 'Station': sta, 'Event': event, 
-                      'Phase': key, 'Channel':chan, 'Seconds':secs}
+                di = {'TimeStamp': stmp, 'Station': sta, 'Event': event,
+                      'Phase': key, 'Channel': chan, 'Seconds': secs}
                 DF = DF.append(pd.Series(di), ignore_index=True)
         if not Pks.KeepGoing:
             msg = 'Exiting picking GUI, progress saved in %s' % pickFile
@@ -1063,7 +1091,7 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
             DF.reset_index(drop=True, inplace=True)
             DF.to_csv(pickFile, index=False)
             return
-        if count % 10 == 0: # save every 10 phase picks
+        if count % 10 == 0:  # save every 10 phase picks
             DF.sort_values(by=['Station', 'Event'], inplace=True)
             DF.reset_index(drop=True, inplace=True)
             DF.to_csv(pickFile, index=False)
@@ -1072,8 +1100,7 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
     DF.to_csv(pickFile, index=False)
 
 
-
-def seeWaveFroms(fetch='ContinuousWaveForms', templatekey='TemplateKey.csv', 
+def seeWaveFroms(fetch='ContinuousWaveForms', templatekey='TemplateKey.csv',
                  outFile='PhasePicks.csv'):
     """
     Uses streamPicks to parse the templates and allow user to manually pick
@@ -1099,15 +1126,15 @@ def seeWaveFroms(fetch='ContinuousWaveForms', templatekey='TemplateKey.csv',
 
     cols = ['TimeStamp', 'Station', 'Event', 'Phase', 'Channel', 'Seconds']
     fetcher = detex.getdata.quickFetch(fetch, **kwargs)
-    
-    ets = {} # events to skip picking on
+
+    ets = {}  # events to skip picking on
     count = 0
-    
+
     # must init the PyQt app outside of the loop or else it kills python
     qApp = PyQt4.QtGui.QApplication(sys.argv)
 
     # load pickfile if it exists
-    if os.path.exists(pickFile):  
+    if os.path.exists(pickFile):
         DF = pd.read_csv(pickFile)
         if len(DF) < 1:  # if empty then delete
             os.remove(pickFile)
@@ -1121,10 +1148,10 @@ def seeWaveFroms(fetch='ContinuousWaveForms', templatekey='TemplateKey.csv',
     else:
         DF = pd.DataFrame(columns=cols)
     for st, event in fetcher.getTemData(temkey, stakey, skipDict=ets):
-        if st is None or len(st) < 1: # skip if no data returned
+        if st is None or len(st) < 1:  # skip if no data returned
             continue
         count += 1
-        #reload(detex.streamPick)
+        # reload(detex.streamPick)
 
         Pks = None  # needed so OS X doesn't crash
         Pks = detex.streamPick.streamPick(st, ap=qApp)
@@ -1136,7 +1163,7 @@ def seeWaveFroms(fetch='ContinuousWaveForms', templatekey='TemplateKey.csv',
             if b:
                 tstamp = b['time'].timestamp
                 chan = b['waveform_id']['channel_code']
-                tdict[b.phase_hint] = [tstamp, chan] 
+                tdict[b.phase_hint] = [tstamp, chan]
                 saveit = 1
         if saveit:
             for key in tdict.keys():
@@ -1144,8 +1171,8 @@ def seeWaveFroms(fetch='ContinuousWaveForms', templatekey='TemplateKey.csv',
                 chan = tdict[key][1]
                 secs = '%3.5f' % stmp
                 sta = str(st[0].stats.network + '.' + st[0].stats.station)
-                di = {'TimeStamp': stmp, 'Station': sta, 'Event': event, 
-                      'Phase': key, 'Channel':chan, 'Seconds':secs}
+                di = {'TimeStamp': stmp, 'Station': sta, 'Event': event,
+                      'Phase': key, 'Channel': chan, 'Seconds': secs}
                 DF = DF.append(pd.Series(di), ignore_index=True)
         if not Pks.KeepGoing:
             msg = 'Exiting picking GUI, progress saved in %s' % pickFile
@@ -1154,20 +1181,22 @@ def seeWaveFroms(fetch='ContinuousWaveForms', templatekey='TemplateKey.csv',
             DF.reset_index(drop=True, inplace=True)
             DF.to_csv(pickFile, index=False)
             return
-        if count % 10 == 0: # save every 10 phase picks
+        if count % 10 == 0:  # save every 10 phase picks
             DF.sort_values(by=['Station', 'Event'], inplace=True)
             DF.reset_index(drop=True, inplace=True)
             DF.to_csv(pickFile, index=False)
     DF.sort_values(by=['Station', 'Event'], inplace=True)
     DF.reset_index(drop=True, inplace=True)
     DF.to_csv(pickFile, index=False)
-    
+
+
 ############### Misc functions
-    
+
 def _killChars(string, charstokill=['-', 'T', ':']):
     for ctk in charstokill:
         string = string.replace(ctk, '')
     return string
+
 
 def _returnLat(lat, degPre=1):
     """
@@ -1179,12 +1208,13 @@ def _returnLat(lat, degPre=1):
         cha = 'S'
     else:
         cha = 'N'
-    #cha = ' '
+    # cha = ' '
     # take decimal degrees spit out degrees decimal minutes
     latds = "{:<2}".format(int(lat))
     latms = ('%4.' + (('%d') % degPre) + 'f') % ((lat % int(lat)) * 60)
     return latds, latms, cha
-    
+
+
 def _returnLon(lon, degPre=1):
     """
     functon to take longitude and return longitude in hypo inverse format
@@ -1195,7 +1225,7 @@ def _returnLon(lon, degPre=1):
         cha = 'W'
     else:
         cha = 'E'
-        #cha = ' '
+        # cha = ' '
     # take decimal degrees spit out degrees decimal minutes
     londs = "{:<3}".format(int(lon))
     lonms = ('%4.' + (('%d') % degPre) + 'f') % ((lon % int(lon)) * 60)

@@ -6,22 +6,24 @@ Created on Fri May 23 17:55:01 2014
 """
 from __future__ import print_function, absolute_import, unicode_literals
 from __future__ import with_statement, nested_scopes, generators, division
-from six import text_type, string_types
 
+import numbers
 import os
+
 import numpy as np
 import obspy
-import detex
 import pandas as pd
-import sys
-import numbers
 import scipy
+from six import string_types
 
-def detResults(trigCon=0, trigParameter=0, associateReq=0, 
-               ss_associateBuffer=1, sg_associateBuffer=2.5, 
-               requiredNumStations=4, veriBuffer=1, ssDB='SubSpace.db', 
+import detex
+
+
+def detResults(trigCon=0, trigParameter=0, associateReq=0,
+               ss_associateBuffer=1, sg_associateBuffer=2.5,
+               requiredNumStations=4, veriBuffer=1, ssDB='SubSpace.db',
                templateKey='TemplateKey.csv', stationKey='StationKey.csv',
-               veriFile=None, includeAllVeriColumns=True, reduceDets=True, 
+               veriFile=None, includeAllVeriColumns=True, reduceDets=True,
                Pf=False, stations=None, starttime=None, endtime=None,
                fetch='ContinuousWaveForms', exceptionalThreshold=None):
     """
@@ -123,8 +125,8 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
     fetcher = detex.getdata.quickFetch(fetch)
 
     # load histograms #TODO: Create visualization methods for hists
-    #ss_hist = detex.util.loadSQLite(ssDB, 'ss_hist')  
-    #sg_hist = detex.util.loadSQLite(ssDB, 'sg_hist')
+    # ss_hist = detex.util.loadSQLite(ssDB, 'ss_hist')
+    # sg_hist = detex.util.loadSQLite(ssDB, 'sg_hist')
 
     filt = detex.util.loadSQLite(ssDB, 'filt_params')  # load filter Parameters
 
@@ -134,10 +136,10 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
     # subpspace, keeping only the subspace with highest detection stat
     if reduceDets:
         ssdf = _deleteDetDups(ssDB, trigCon, trigParameter, ss_associateBuffer,
-                              starttime, endtime, stations, 'ss_df', 
+                              starttime, endtime, stations, 'ss_df',
                               PfKey=ss_PfKey)
         sgdf = _deleteDetDups(ssDB, trigCon, trigParameter, sg_associateBuffer,
-                              starttime, endtime, stations, 'sg_df', 
+                              starttime, endtime, stations, 'sg_df',
                               PfKey=sg_PfKey)
     else:
         if Pf:
@@ -152,19 +154,20 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
     df.reset_index(drop=True, inplace=True)
     if isinstance(stations, (list, tuple)):  # filter stations
         df = df[df.Sta.isin(stations)]
-        
+
     # Associate detections on different stations together
-    Dets, Autos = _associateDetections(df, associateReq, requiredNumStations, 
-                                       ss_associateBuffer, ss_info, temkey, 
+    Dets, Autos = _associateDetections(df, associateReq, requiredNumStations,
+                                       ss_associateBuffer, ss_info, temkey,
                                        exceptionalThreshold)
 
     # Make a dataframe of verified detections if applicable
-    Vers = _verifyEvents(Dets, Autos, veriFile, veriBuffer, 
+    Vers = _verifyEvents(Dets, Autos, veriFile, veriBuffer,
                          includeAllVeriColumns)
 
     ssres = SSResults(Dets, Autos, Vers, ss_info, filt, temkey,
                       stakey, templateKey, fetcher)
     return ssres
+
 
 def _makePfKey(ss_info, sg_info, Pf):
     """
@@ -180,18 +183,18 @@ def _makePfKey(ss_info, sg_info, Pf):
         for num, row in ss_info.iterrows():
             TH = scipy.stats.beta.isf(Pf, row.beta1, row.beta2, 0, 1)
             # if isf gives unrealistic pf, initiated forward grid serach
-            if TH > .94:  
+            if TH > .94:
                 TH, Pftemp = _approximateThreshold(
                     row.beta1, row.beta2, Pf, 1000, 3)
             ss_df.loc[len(ss_df)] = [row.Sta, row.Name,
                                      TH, [row.beta1, row.beta2, 0, 1]]
         ss_df.reset_index(drop=True, inplace=True)
     else:
-        ss_df = None    
+        ss_df = None
     if isinstance(sg_info, pd.DataFrame):
         for num, row in sg_info.iterrows():
             TH = scipy.stats.beta.isf(Pf, row.beta1, row.beta2, 0, 1)
-            if TH > .94:  
+            if TH > .94:
                 TH, Pftemp = _approximateThreshold(
                     row.beta1, row.beta2, Pf, 1000, 3)
             sg_df.loc[len(sg_df)] = [row.Sta, row.Name,
@@ -250,7 +253,7 @@ def _verifyEvents(Dets, Autos, veriFile, veriBuffer, includeAllVeriColumns):
         con2 = Dets.MSTAMPmax + veriBuffer / 2.0 > verrow.STMP
         con3 = [not x for x in Dets.Verified]
         temDets = Dets[(con1) & (con2) & (con3)]
-        if len(temDets) > 0:  #TODO handle multiple verification situations
+        if len(temDets) > 0:  # TODO handle multiple verification situations
             trudet = temDets[temDets.DSav == temDets.DSav.max()]
             Dets.loc[trudet.index[0], 'Verified'] = True
             if includeAllVeriColumns:
@@ -260,7 +263,7 @@ def _verifyEvents(Dets, Autos, veriFile, veriBuffer, includeAllVeriColumns):
             trudet['VerMag'] = verrow.MAG
             trudet['VerLat'] = verrow.LAT
             trudet['VerLon'] = verrow.LON
-            trudet['VerDepth'] = verrow.DEPTH 
+            trudet['VerDepth'] = verrow.DEPTH
             trudet['VerName'] = verrow.NAME
             verlist.append(trudet)
         else:
@@ -268,7 +271,7 @@ def _verifyEvents(Dets, Autos, veriFile, veriBuffer, includeAllVeriColumns):
             con2 = Autos.MSTAMPmax + veriBuffer / 2.0 > verrow.STMP
             con3 = [not x for x in Autos.Verified]
             temAutos = Autos[(con1) & (con2) & (con3)]
-            if len(temAutos) > 0:   #TODO same as above
+            if len(temAutos) > 0:  # TODO same as above
                 trudet = temAutos[temAutos.DSav == temAutos.DSav.max()]
                 Autos.loc[trudet.index[0], 'Verified'] = True
                 if includeAllVeriColumns:
@@ -303,10 +306,10 @@ def _readVeriFile(veriFile):
             try:
                 df = detex.util.loadSQLite(veriFile, 'verify')
             except Exception:
-                msg =('%s could not be read, it must either be csv, pickled' 
-                      'dataframe or sqlite database') % veriFile 
+                msg = ('%s could not be read, it must either be csv, pickled'
+                       'dataframe or sqlite database') % veriFile
                 detex.log(__name__, msg, level='error')
-    reqcols = ['TIME', 'LAT', 'LON', 'MAG', 'DEPTH', 'NAME'] #required cols
+    reqcols = ['TIME', 'LAT', 'LON', 'MAG', 'DEPTH', 'NAME']  # required cols
     if not set(reqcols).issubset(df.columns):
         msg = ('%s does not have the required columns, it needs '
                'TIME,LAT,LON,MAG,DEPTH,NAME') % veriFile
@@ -344,7 +347,7 @@ def _buildSQL(PfKey, trigCon, trigParameter, stations,
             table = 'sg_df' if 'SG' in row.Name else 'ss_df'
             sqstr = ('SELECT %s FROM %s WHERE Sta="%s" AND Name="%s" AND  '
                      'DS>=%f AND MSTAMPmin>%f AND MSTAMPmin<%f') % ('*', table,
-                     row.Sta, row.Name, row.DS, starttime, endtime)
+                                                                    row.Sta, row.Name, row.DS, starttime, endtime)
             SQL.append(sqstr)
     else:
         if trigCon == 0:
@@ -354,13 +357,13 @@ def _buildSQL(PfKey, trigCon, trigParameter, stations,
         for sta in stations:
             if sta == '*':
                 sqstr = ('SELECT %s FROM %s WHERE %s >= %s AND MSTAMPmin>=%f '
-                         'AND MSTAMPmin<=%f') % ('*', tableName, cond, 
-                         trigParameter, starttime, endtime)
+                         'AND MSTAMPmin<=%f') % ('*', tableName, cond,
+                                                 trigParameter, starttime, endtime)
                 SQL.append(sqstr)
             else:
                 sqstr = ('SELECT %s FROM %s WHERE %s="%s" AND %s >= %s AND '
-                         'MSTAMPmin>=%f AND MSTAMPmin<=%f') % ('*', tableName, 
-                         'Sta', sta, cond, trigParameter, starttime, endtime)
+                         'MSTAMPmin>=%f AND MSTAMPmin<=%f') % ('*', tableName,
+                                                               'Sta', sta, cond, trigParameter, starttime, endtime)
                 SQL.append(sqstr)
     return SQL
 
@@ -397,15 +400,15 @@ def _deleteDetDups(ssDB, trigCon, trigParameter, associateBuffer, starttime,
     return ssdf
 
 
-def _associateDetections(ssdf, associateReq, requiredNumStations, 
+def _associateDetections(ssdf, associateReq, requiredNumStations,
                          associateBuffer, ss_info, temkey, exceptionalThreshold):
     """
     Associate detections together using pandas groupby return dataframe of 
     detections and autocorrelations
     """
-    ssdf.sort_values(by='MSTAMPmin', inplace=True) 
+    ssdf.sort_values(by='MSTAMPmin', inplace=True)
     ssdf.reset_index(drop=True, inplace=True)
-    cols = ['Event', 'DSav', 'DSmax', 'NumStations', 'DS_STALTA','MSTAMPmin', 
+    cols = ['Event', 'DSav', 'DSmax', 'NumStations', 'DS_STALTA', 'MSTAMPmin',
             'MSTAMPmax', 'Mag', 'ProEnMag', 'Verified', 'Dets', ]
     if isinstance(ss_info, pd.DataFrame) and associateReq > 0:
         ssdf = pd.merge(ssdf, ss_info, how='inner', on=['Sta', 'Name'])
@@ -452,15 +455,18 @@ def _associateDetections(ssdf, associateReq, requiredNumStations,
                     detdf = _createDetTable(g, cols)
                     detlist.append(detdf)
     detTable = pd.concat(detlist, ignore_index=True)
-    
+
     autoTable = pd.concat(autolist, ignore_index=True)
     return [detTable, autoTable]
 
+
 def _check_if_exceptional(g, exth):
     gg = g.copy()
-    gg['exceptional'] = [exth.get(x.Sta, 100) for _,x in gg.iterrows()]
-#    if any((gg['DS'] >= gg['exceptional']) & (gg['DS'] <= 1.01)) :
-    return any((gg['DS'] >= gg['exceptional']) & (gg['DS'] <= 1.01)) 
+    gg['exceptional'] = [exth.get(x.Sta, 100) for _, x in gg.iterrows()]
+    #    if any((gg['DS'] >= gg['exceptional']) & (gg['DS'] <= 1.01)) :
+    return any((gg['DS'] >= gg['exceptional']) & (gg['DS'] <= 1.01))
+
+
 # Look at the union of the events and delete those that do not meet the
 # requirements
 def _checkSharedEvents(g):
@@ -471,10 +477,11 @@ def _createDetTable(g, cols):
     mag, proEnMag = _getMagnitudes(g)
     utc = obspy.UTCDateTime(np.mean([g.MSTAMPmin.mean(), g.MSTAMPmax.mean()]))
     event = str(utc).replace(':', '-').split('.')[0]
-    data = [event, g.DS.mean(), g.DS.max(), len(g), g.DS_STALTA.mean(), 
-             g.MSTAMPmin.min(), g.MSTAMPmax.max(), mag, proEnMag, False, g]
+    data = [event, g.DS.mean(), g.DS.max(), len(g), g.DS_STALTA.mean(),
+            g.MSTAMPmin.min(), g.MSTAMPmax.max(), mag, proEnMag, False, g]
     detDF = pd.DataFrame([data], columns=cols)
     return detDF
+
 
 def _createAutoTable(g, temkey, cols, associateBuffer):
     isauto = False
@@ -487,12 +494,13 @@ def _createAutoTable(g, temkey, cols, associateBuffer):
             event = temtemkey.iloc[0].NAME
     if isauto:
         mag, proEnMag = _getMagnitudes(g)
-        data = [event, g.DS.mean(), g.DS.max(), len(g), g.DS_STALTA.mean(), 
+        data = [event, g.DS.mean(), g.DS.max(), len(g), g.DS_STALTA.mean(),
                 g.MSTAMPmin.min(), g.MSTAMPmax.max(), mag, proEnMag, False, g]
         autoDF = pd.DataFrame([data], columns=cols)
         return isauto, autoDF
     else:
         return isauto, pd.DataFrame()
+
 
 def _getMagnitudes(g):
     if any([not np.isnan(x) for x in g.Mag]):
@@ -505,7 +513,8 @@ def _getMagnitudes(g):
         PEmag = np.NaN
     return mag, PEmag
 
-def _loadSSdb(ssDB, trigCon, trigParameter, sta=None):  
+
+def _loadSSdb(ssDB, trigCon, trigParameter, sta=None):
     """
     Load a subspace database
     """
@@ -535,7 +544,7 @@ def _checkInputs(trigCon, trigParameter, associateReq,
         con3 = trigParameter < 0
         if not con1 or con2 or con3:
             msg = ('When trigCon==0 trigParameter is the required detection '
-                  'statistic and therefore must be between 0 and 1')
+                   'statistic and therefore must be between 0 and 1')
             detex.log(__name__, msg, level='error')
     elif trigCon == 1:
         # allow 0 to simply select all
@@ -544,18 +553,18 @@ def _checkInputs(trigCon, trigParameter, associateReq,
         con3 = trigParameter != 0
         if not con1 or (con2 and con3):
             msg = ('When trigCon==1 trigParameter is the STA/LTA of the '
-            'detection statistic vector and therefore must be greater than 1')
+                   'detection statistic vector and therefore must be greater than 1')
             detex.log(__name__, msg, level='error')
     if not isinstance(associateReq, int) or associateReq < 0:
         msg = ('AssociateReq is the required number of events a subspace must '
-        'share for detections from different stations to be associated '
-        'together and therefore must be an integer 0 or greater')
+               'share for detections from different stations to be associated '
+               'together and therefore must be an integer 0 or greater')
         detex.log(__name__, msg, level='error')
     if not isinstance(associateBuffer, numbers.Real) or associateBuffer < 0:
         msg = 'associateBuffer must be a real number greater than 0'
         detex.log(__name__, msg, level='error')
     if not isinstance(requiredNumStations, int) or requiredNumStations < 1:
-        msg =  'requiredNumStations must be an integer greater than 0'
+        msg = 'requiredNumStations must be an integer greater than 0'
         detex.log(__name__, msg, level='error')
 
 
@@ -577,7 +586,6 @@ def _loadInfoDataFrames(ssDB):
 
 
 class SSResults(object):
-
     def __init__(self, Dets, Autos, Vers, ss_info, ss_filt,
                  temkey, stakey, templateKey, fetcher):
         DF = pd.DataFrame
@@ -592,10 +600,10 @@ class SSResults(object):
         self.TemKeyPath = templateKey
         self.fetcher = fetcher
 
-    def writeDetections(self, onlyVerified=None, minDS=None, minMag=None, 
-                        eventDir='EventWaveForms', updateTemKey=True, 
-                        temkeyPath=None, timeBeforeOrigin=1*60, 
-                        timeAfterOrigin=4*60, waveFormat="mseed"):
+    def writeDetections(self, onlyVerified=None, minDS=None, minMag=None,
+                        eventDir='EventWaveForms', updateTemKey=True,
+                        temkeyPath=None, timeBeforeOrigin=1 * 60,
+                        timeAfterOrigin=4 * 60, waveFormat="mseed"):
         """
         Function to make all of the eligable new detections templates. New 
         event directories will be added to eventDir and the template key 
@@ -634,7 +642,7 @@ class SSResults(object):
         if onlyVerified:
             dets = dets[dets.Verified]
         if minDS:
-            dets = dets[dets.minDS>=minDS]
+            dets = dets[dets.minDS >= minDS]
         if minMag:
             dets = dets[dets.Mag >= minMag]
         if eventDir is None:
@@ -649,17 +657,17 @@ class SSResults(object):
             origin = obspy.UTCDateTime(np.mean([row.MSTAMPmax, row.MSTAMPmin]))
             Evename = row.Event
             eveDirName = 'd' + Evename
-            
+
             # if the directory doesnt exists create it
             if not os.path.exists(os.path.join(eventDir, eveDirName)):
                 os.makedirs(os.path.join(eventDir, eveDirName))
-            else: # else delete its index so it will be reindexed 
+            else:  # else delete its index so it will be reindexed
                 index_path = os.path.join(eventDir, 'index.db')
                 if os.path.exists(index_path):
                     os.remove(index_path)
 
             # loop through each station and load stream, then save
-            for stanum, starow in self.StationKey.iterrows():  
+            for stanum, starow in self.StationKey.iterrows():
                 net, sta = starow.NETWORK, starow.STATION
                 start = origin - timeBeforeOrigin
                 stop = origin + timeAfterOrigin
@@ -671,7 +679,7 @@ class SSResults(object):
                     st.write(path, waveFormat)
                 except Exception:
                     msg = ('Could not write and save %s for station %s' % (
-                            Evename, sta))
+                        Evename, sta))
                     detex.log(__name__, msg, level='warning', pri=True)
 
             detTem.loc[num, 'NAME'] = eveDirName
@@ -682,7 +690,6 @@ class SSResults(object):
         temkeyNew = pd.concat([temkey, detTem], ignore_index=True)
         temkeyNew.reset_index(inplace=True, drop=True)
         temkeyNew.to_csv(temkeyPath, index=False)
-
 
     def __repr__(self):
         lens = (len(self.Autos), len(self.Dets), str(self.NumVerified))

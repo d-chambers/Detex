@@ -7,27 +7,28 @@ Created on Thu Nov 12 20:21:46 2015
 # python 2 and 3 compatibility imports
 from __future__ import print_function, absolute_import, unicode_literals
 from __future__ import with_statement, nested_scopes, generators, division
-from six import string_types
 
-import detex
-import scipy
-import obspy
-import pandas as pd
-import numpy as np
 import collections
 
+import numpy as np
+import obspy
+import pandas as pd
+import scipy
+
+import detex
 from detex.construct import fast_normcorr, multiplex, _applyFilter
+
 
 class _SSDetex(object):
     """
     Private class to run subspace detections or event classifications
     """
 
-    def __init__(self, TRDF, utcStart, utcEnd, cfetcher, clusters, subspaceDB, 
-                 trigCon, triggerLTATime, triggerSTATime, multiprocess, 
+    def __init__(self, TRDF, utcStart, utcEnd, cfetcher, clusters, subspaceDB,
+                 trigCon, triggerLTATime, triggerSTATime, multiprocess,
                  calcHist, dtype, estimateMags, classifyEvents, eventCorFile,
                  utcSaves, fillZeros, issubspace=True):
-        
+
         # Instantiate input varaibles that are needed by many functions
         self.utcStart = utcStart
         self.utcEnd = utcEnd
@@ -43,10 +44,10 @@ class _SSDetex(object):
         self.fillZeros = fillZeros
         self.issubspace = issubspace
         self.stakey = clusters.stakey
-        self.classifyEvents =classifyEvents
+        self.classifyEvents = classifyEvents
         self.trigCon = trigCon
         self.subspaceDB = subspaceDB
-        
+
         # set DataFetcher and read classifyEvents key, get data length
         if classifyEvents is not None:
             self.eveKey = detex.util.readKey(classifyEvents)
@@ -57,7 +58,7 @@ class _SSDetex(object):
             dur = fetcher.conDatDuration + fetcher.conBuff
         self.fetcher = fetcher
         self.dataLength = dur
-        
+
         # if using utcSavs init list and make sure all inputs are UTCs
         if utcSaves is not None:
             if isinstance(utcSaves, collections.Iterable):
@@ -72,32 +73,32 @@ class _SSDetex(object):
             else:
                 msg = 'UTCSaves must be a list or tupple'
                 detex.log(__name__, msg, level='error')
-            
+
         # init histogram stuff if used
         if calcHist:
             self.hist = {}
             self.hist['Bins'] = np.linspace(0, 1, num=401)
-            
+
         for sta in TRDF.keys():  # loop through each station 
-            DFsta = TRDF[sta] # current row (all ss or singletons on this sta)
+            DFsta = TRDF[sta]  # current row (all ss or singletons on this sta)
             DFsta.reset_index(inplace=True, drop=True)
             if len(DFsta) > 0:
-                self.hist[sta] = self._corStations(DFsta, sta) 
-                
-            # if classifyEvents was used try to write results to DataFrame
+                self.hist[sta] = self._corStations(DFsta, sta)
+
+                # if classifyEvents was used try to write results to DataFrame
             if classifyEvents is not None:
                 try:
                     DFeve = pd.concat(self.eventCorList, ignore_index=True)
-                    DFeve.to_pickle(self.eventCorFile + '_%s,pkl' %sta)
+                    DFeve.to_pickle(self.eventCorFile + '_%s,pkl' % sta)
                 except ValueError:
                     msg = 'classify events failed for %s, skipping' % sta
                     detex.log(__name__, msg, level='warn', pri=True)
-                    
+
         # If utcSaves was used write results to DataFrame
         if isinstance(utcSaves, collections.Iterable):
             try:
                 DFutc = pd.concat(self.UTCSaveList, ignore_index=True)
-                try: # try and read, pass
+                try:  # try and read, pass
                     DFutc_current = pd.read_pickle('UTCsaves.pkl')
                     DFutc = DFutc.append(DFutc_current, ignore_index=True)
                 except Exception:
@@ -114,23 +115,23 @@ class _SSDetex(object):
         # get station key for current station
         skey = self.stakey
         stakey = skey[skey.STATION == sta.split('.')[1]]
-        
+
         # get chans, sampling rates, and trims
         channels = _getChannels(DFsta)
         samplingRates = _getSampleRates(DFsta)
-        threshold = {x.Name : x.Threshold for num, x in DFsta.iterrows()}
+        threshold = {x.Name: x.Threshold for num, x in DFsta.iterrows()}
         names = DFsta.Name.values
         names.sort()
-        
+
         # make sure samp rate and chans is kosher, get trims
         if channels is None or samplingRates is None:
             return None
         samplingRate = samplingRates[0]
         contrim = self._getConTrims(DFsta, channels, samplingRate)
-        
+
         # Proceed to subspace operations
         histdict = self._corDat(threshold, sta, channels, contrim, names,
-                                   DFsta, samplingRate, stakey)
+                                DFsta, samplingRate, stakey)
         return histdict
 
     def _corDat(self, threshold, sta, channels, contrim, names,
@@ -139,19 +140,19 @@ class _SSDetex(object):
         Function to perform subspace detection (sub function of _corStations)
         """
         # init various parameters
-        numdets = 0 # counter for number of detections
+        numdets = 0  # counter for number of detections
         tableName = 'ss_df' if self.issubspace else 'sg_df'
         DF = pd.DataFrame()  # DF for results, dumped to SQL database
-        histdic = {na:[0.0]*(len(self.hist['Bins'])-1) for na in names}
+        histdic = {na: [0.0] * (len(self.hist['Bins']) - 1) for na in names}
         nc = len(channels)
-        
+
         lso = self._loadMPSubSpace(DFsta, sta, channels, samplingRate, True)
         ssTD, ssFD, reqlen, offsets, mags, ewf, events, WFU, UtU = lso
         if self.classifyEvents is not None:
             datGen = self.fetcher.getTemData(self.evekey, stakey)
         else:
             datGen = self.fetcher.getConData(stakey, utcstart=self.utcStart,
-                                             utcend=self.utcEnd, 
+                                             utcend=self.utcEnd,
                                              returnTimes=True)
         for st, utc1, utc2 in datGen:  # loop each data chunk
             msg = 'starting on sta %s from %s to %s' % (sta, utc1, utc2)
@@ -161,46 +162,46 @@ class _SSDetex(object):
                     stakey.STATION.iloc[0], utc1, utc2)
                 detex.log(__name__, msg, level='warning', pri=True)
                 continue
-            
+
             # make dataframe with info for each hour (including det. stats.)
             CorDF, MPcon, ConDat = self._getRA(ssTD, ssFD, st, nc, reqlen,
                                                contrim, names, sta)
             # if something is broken skip hours
-            if CorDF is None or MPcon is None:  
-                msg = (('failing to run detector on %s from %s to %s ') % 
-                      (sta, utc1, utc2))
+            if CorDF is None or MPcon is None:
+                msg = (('failing to run detector on %s from %s to %s ') %
+                       (sta, utc1, utc2))
                 detex.log(__name__, msg, level='warning', pri=True)
                 continue
-            
+
             # iterate through each subspace/single
-            for name, row in CorDF.iterrows():  
+            for name, row in CorDF.iterrows():
                 if self.calcHist and len(CorDF) > 0:
                     try:
                         hg = np.histogram(row.SSdetect, bins=self.hist['Bins'])
-                        histdic[name] = histdic[name] + hg[0] 
+                        histdic[name] = histdic[name] + hg[0]
                     except Exception:
                         msg = (('binning failed on %s for %s from %s to %s') %
-                              (sta, name, utc1, utc2))
+                               (sta, name, utc1, utc2))
                         detex.log(__name__, msg, level='warning')
                 if isinstance(self.utcSaves, collections.Iterable):
-                    self._makeUTCSaveDF(row, name, threshold, sta, offsets, 
+                    self._makeUTCSaveDF(row, name, threshold, sta, offsets,
                                         mags, ewf, MPcon, events, ssTD)
-                if self._evalTrigCon(row, name, threshold):  
-                    Sar = self._CreateCoeffArray(row, name, threshold, sta, 
-                                                 offsets, mags, ewf, MPcon, 
+                if self._evalTrigCon(row, name, threshold):
+                    Sar = self._CreateCoeffArray(row, name, threshold, sta,
+                                                 offsets, mags, ewf, MPcon,
                                                  events, ssTD, WFU, UtU)
                     # if lots of detections are being made raise warning
                     if len(Sar) > 300:
                         msg = (('over 300 events found in singledata block, on'
                                 ' %s form %s to %s perphaps minCoef is too '
                                 'low?') % (sta, utc1, utc2))
-                        detex.log(__name__, msg ,level='warning', pri=True)
-                    if any(Sar.DS>1.05):
+                        detex.log(__name__, msg, level='warning', pri=True)
+                    if any(Sar.DS > 1.05):
                         msg = (('DS values above 1 found in sar, at %s on %s '
                                 'this can happen when fillZeros==True, removing'
                                 ' values above 1') % (utc1, st[0].stats.station))
                         detex.log(__name__, msg, level='warn', pri=True)
-                        Sar = Sar[Sar.DS<=1.05]
+                        Sar = Sar[Sar.DS <= 1.05]
                     if len(Sar) > 0:
                         DF = DF.append(Sar, ignore_index=True)
                     if len(DF) > 500:
@@ -212,7 +213,7 @@ class _SSDetex(object):
         detType = 'Subspaces' if self.issubspace else 'Singletons'
         msg = (('%s on %s completed, %d potential detection(s) recorded') %
                (detType, sta, len(DF) + numdets))
-        detex.log(__name__,msg , pri=1)
+        detex.log(__name__, msg, pri=1)
         if self.calcHist:
             return histdic
 
@@ -221,17 +222,17 @@ class _SSDetex(object):
         Function to make DataFrame of this datachunk with all subspaces and 
         singles that act on it
         """
-        cols = ['SSdetect', 'STALTA', 'TimeStamp', 'SampRate', 'MaxDS', 
+        cols = ['SSdetect', 'STALTA', 'TimeStamp', 'SampRate', 'MaxDS',
                 'MaxSTALTA', 'Nc', 'File']
         CorDF = pd.DataFrame(index=names, columns=cols)
         utc1 = st[0].stats.starttime
-        utc2 = st[0].stats.endtime       
+        utc2 = st[0].stats.endtime
         try:
-            conSt = _applyFilter(st, self.filt, self.decimate, self.dtype, 
-                                     fillZeros=self.fillZeros)
+            conSt = _applyFilter(st, self.filt, self.decimate, self.dtype,
+                                 fillZeros=self.fillZeros)
         except Exception:
             msg = 'failed to filter %s, skipping' % st
-            detex.log(__name__, msg ,level='warning', pri=True)
+            detex.log(__name__, msg, level='warning', pri=True)
             return None, None, None
         if len(conSt) < 1:
             return None, None, None
@@ -243,29 +244,29 @@ class _SSDetex(object):
             ctrim = np.median(contrim.values())
         else:
             ctrim = contrim
-            
+
         # Trim continuous data to avoid overlap
-        if ctrim < 0:  
+        if ctrim < 0:
             MPconcur = MPcon[:len(MPcon) - int(ctrim * sr * Nc)]
         else:
             MPconcur = MPcon
-        
+
         # get freq. domain rep of data
         rele = 2 ** np.max(reqlen.values()).bit_length()
         MPconFD = scipy.fftpack.fft(MPcon, n=rele)
-        
+
         # loop through each subpsace/single and calc sd
-        for ind, row in CorDF.iterrows():  
+        for ind, row in CorDF.iterrows():
             # make sure the template is shorter than continuous data else skip
-            
+
             if len(MPcon) <= np.max(np.shape(ssTD[ind])):
                 msg = ('current data block on %s ranging from %s to %s is '
                        'shorter than %s, skipping') % (sta, utc1, utc2, ind)
                 detex.log(__name__, msg, level='warning')
                 return None, None, None
-            ssd = self._MPXDS(MPconcur, reqlen[ind], ssTD[ind], 
+            ssd = self._MPXDS(MPconcur, reqlen[ind], ssTD[ind],
                               ssFD[ind], Nc, MPconFD)
-            CorDF.SSdetect[ind] = ssd # set detection statistic
+            CorDF.SSdetect[ind] = ssd  # set detection statistic
             if len(ssd) < 10:
                 msg = ('current data block on %s ranging from %s to %s is too '
                        'short, skipping') % (sta, utc1, utc2, ind)
@@ -285,17 +286,16 @@ class _SSDetex(object):
                         self.triggerLTATime * CorDF.SampRate[0],
                         self.triggerSTATime * CorDF.SampRate[0])
                     CorDF.MaxSTALTA[ind] = CorDF.STALTA[ind].max()
-                
-                except Exception: 
+
+                except Exception:
                     msg = ('failing to calculate sta/lta of det. statistic'
                            ' on %s for %s start at %s') % (sta, ind, utc1)
                     detex.log(__name__, msg, level='warn')
-            #else:
-                #return None, None, None
+                    # else:
+                    # return None, None, None
         return CorDF, MPcon, ConDat
 
-
-    def _makeUTCSaveDF(self, row, name, threshold, sta, offsets, mags, ewf, 
+    def _makeUTCSaveDF(self, row, name, threshold, sta, offsets, mags, ewf,
                        MPcon, events, ssTD):
         """
         Function to make utc saves dataframe, which allows times of interest
@@ -308,7 +308,7 @@ class _SSDetex(object):
             Th = threshold[name]
             of = offsets[name]
             dat = [sta, name, Th, of, TS1, TS2, self.utcSaves[inUTCs], MPcon]
-            inds = ['Station', 'Name', 'Threshold', 'offset', 'TS1', 'TS2', 
+            inds = ['Station', 'Name', 'Threshold', 'offset', 'TS1', 'TS2',
                     'utcSaves', 'MPcon']
             ser = pd.Series(dat, index=inds)
             df = pd.DataFrame(pd.concat([ser, row])).T
@@ -316,7 +316,7 @@ class _SSDetex(object):
         return
 
     # function to load subspace representations
-    def _loadMPSubSpace(self, DFsta, sta, channels, samplingRate, 
+    def _loadMPSubSpace(self, DFsta, sta, channels, samplingRate,
                         returnFull=False):
         """
         Function to parse out important information from main DataFrame
@@ -334,11 +334,11 @@ class _SSDetex(object):
         eves = {}
         WFU = {}
         UtUdict = {}
-        
+
         # variables needed for analysis
         Nc = len(channels)  # num of channels
         dataLength = self.dataLength
-        
+
         # get values and preform calcs
         for ind, row in DFsta.iterrows():
             events = row.Events
@@ -353,9 +353,9 @@ class _SSDetex(object):
                 else:
                     WFl = [row.AlignedTD[x] for x in events]
                     WFs = np.array(WFl)
-            else: # if single trim and normalize (already done for subspaces)
-                mptd = row.MPtd.values()[0]                
-                if row.SampleTrims: # if this is a non empty dict
+            else:  # if single trim and normalize (already done for subspaces)
+                mptd = row.MPtd.values()[0]
+                if row.SampleTrims:  # if this is a non empty dict
                     start = row.SampleTrims['Starttime']
                     end = row.SampleTrims['Endtime']
                     upr = mptd[start:end]
@@ -365,22 +365,22 @@ class _SSDetex(object):
                 dlen = len(upr)
                 WFs = [upr]
             UtU = np.dot(np.transpose(U), U)
-            r2d2 = dataLength *samplingRate *Nc # beep beep
+            r2d2 = dataLength * samplingRate * Nc  # beep beep
             reqlen = int(r2d2 + dlen)
-            rbi = 2**reqlen.bit_length()
+            rbi = 2 ** reqlen.bit_length()
             mpfd = np.array([scipy.fftpack.fft(x[::-1], n=rbi) for x in U])
             mag = np.array([row.Stats[x]['magnitude'] for x in events])
-            
+
             # Populate dicts
-            ssFD[row.Name] = mpfd # freq domain of required length
-            ssTD[row.Name] = U # basis vects
-            mags[row.Name] = mag # mag of events
-            eves[row.Name] = events # event names
-            ewf[row.Name] = WFs # event waveforms
-            offsets[row.Name] = row.Offsets # offsets (from eve origin)
-            WFU[row.Name] = np.dot(WFs, UtU) # events projected into subspace
-            UtUdict[row.Name] = UtU # UtU
-            rele[row.Name] = reqlen # required lengths
+            ssFD[row.Name] = mpfd  # freq domain of required length
+            ssTD[row.Name] = U  # basis vects
+            mags[row.Name] = mag  # mag of events
+            eves[row.Name] = events  # event names
+            ewf[row.Name] = WFs  # event waveforms
+            offsets[row.Name] = row.Offsets  # offsets (from eve origin)
+            WFU[row.Name] = np.dot(WFs, UtU)  # events projected into subspace
+            UtUdict[row.Name] = UtU  # UtU
+            rele[row.Name] = reqlen  # required lengths
 
         if returnFull:
             return ssTD, ssFD, rele, offsets, mags, ewf, eves, WFU, UtUdict
@@ -394,11 +394,11 @@ class _SSDetex(object):
         time of detection, estimated magnitude, etc. 
         """
         dpv = 0
-        cols = ['DS', 'DS_STALTA', 'STMP', 'Name', 'Sta', 'MSTAMPmin', 
+        cols = ['DS', 'DS_STALTA', 'STMP', 'Name', 'Sta', 'MSTAMPmin',
                 'MSTAMPmax', 'Mag', 'SNR', 'ProEnMag']
-        sr = corSeries.SampRate # sample rate
-        start = corSeries.TimeStamp # start time of data block
-        
+        sr = corSeries.SampRate  # sample rate
+        start = corSeries.TimeStamp  # start time of data block
+
         # set array to evaluate for successful triggers
         if self.trigCon == 0:
             Ceval = corSeries.SSdetect.copy()
@@ -421,7 +421,7 @@ class _SSDetex(object):
             Ceval = self._downPlayArrayAroundMax(Ceval, sr, dpv)
             # estimate mags else return NaNs as mag estimates
             if self.estimateMags:  # estimate magnitudes
-                M1, M2, SNR = self._estMag(trigIndex, corSeries, MPcon, 
+                M1, M2, SNR = self._estMag(trigIndex, corSeries, MPcon,
                                            mags[name], events[name], WFU[name],
                                            UtU[name], ewf[name], coef, times,
                                            name, sta)
@@ -434,17 +434,17 @@ class _SSDetex(object):
                 msg = (('over 4000 events found in single data block on %s for'
                         '%s around %s') % (sta, name, times))
                 detex.log(__name__, msg, level='error')
-            
+
             # get predicted origin time ranges
             minof = np.min(offsets[name])
             maxof = np.max(offsets[name])
             MSTAMPmax, MSTAMPmin = times - minof, times - maxof
-            Sar.loc[count] = [coef, SLValue, times, name, sta, MSTAMPmin, 
+            Sar.loc[count] = [coef, SLValue, times, name, sta, MSTAMPmin,
                               MSTAMPmax, stMag, SNR, peMag]
             count += 1
         return Sar
 
-    def _estMag(self, trigIndex, corSeries, MPcon, mags, events, 
+    def _estMag(self, trigIndex, corSeries, MPcon, mags, events,
                 WFU, UtU, ewf, coef, times, name, sta):
         """
         Estimate magnitudes by applying projected subspace mag estimates 
@@ -452,7 +452,7 @@ class _SSDetex(object):
         2015.
         """
         WFlen = np.shape(WFU)[1]  # event waveform length
-        nc = corSeries.Nc # number of chans
+        nc = corSeries.Nc  # number of chans
         # continuous data chunk that triggered  subspace
         ConDat = MPcon[trigIndex * nc:trigIndex * nc + WFlen]
         if self.issubspace:
@@ -462,30 +462,30 @@ class _SSDetex(object):
             proEn = np.var(ssCon) / np.var(WFU, axis=1)
 
         # Try and estimate pre-event noise level (for estimating SNR)
-        if trigIndex * nc > 5 * WFlen: #take 5x waveform length before event
+        if trigIndex * nc > 5 * WFlen:  # take 5x waveform length before event
             pe = MPcon[trigIndex * nc - 5 * WFlen: trigIndex * nc]
             rollingstd = pd.rolling_std(pe, WFlen)[WFlen - 1:]
-        else: # if not enough data take 6 times after event
-            pe = MPcon[trigIndex * nc : trigIndex * nc + WFlen + 6 * WFlen]
-            rollingstd=pd.rolling_std(pe , WFlen)[WFlen - 1:]
+        else:  # if not enough data take 6 times after event
+            pe = MPcon[trigIndex * nc: trigIndex * nc + WFlen + 6 * WFlen]
+            rollingstd = pd.rolling_std(pe, WFlen)[WFlen - 1:]
         baseNoise = np.median(rollingstd)  # take median of std for noise level
         SNR = np.std(ConDat) / baseNoise  # estiamte SNR
-        
+
         # ensure mags are greater than -15, else assume no mag value for event
         touse = mags > -15
-        if self.issubspace: # if subspace
+        if self.issubspace:  # if subspace
             if not any(touse):  # if no defined magnitudes avaliable
-                msg = (('No magnitudes above -15 usable for detection at %s on' 
+                msg = (('No magnitudes above -15 usable for detection at %s on'
                         ' station %s and %s') % (times, sta, name))
                 detex.log(__name__, msg, level='warn')
                 return np.NaN, np.Nan, SNR
             else:
                 # correlation coefs between each event and data block
                 ecor = [fast_normcorr(x, ConDat)[0] for x in ewf]
-                eventCors = np.array(ecor)  
+                eventCors = np.array(ecor)
                 projectedEnergyMags = _estPEMag(mags, proEn, eventCors, touse)
                 stdMags = _estSTDMag(mags, ConDat, ewf, eventCors, touse)
-        else: # if singleton
+        else:  # if singleton
             assert len(mags) == 1
             if np.isnan(mags[0]) or mags[0] < -15:
                 projectedEnergyMags = np.NaN
@@ -494,11 +494,11 @@ class _SSDetex(object):
                 # use simple waveform scaling if single
                 d1 = np.dot(ConDat, WFU[0])
                 d2 = np.dot(WFU[0], WFU[0])
-                projectedEnergyMags = mags[0]  + d1 / d2
+                projectedEnergyMags = mags[0] + d1 / d2
                 stdMags = mags[0] + np.log10(np.std(ConDat) / np.std(WFU[0]))
         return projectedEnergyMags, stdMags, SNR
 
-    def _getStaLtaArray(self, C, LTA, STA):  
+    def _getStaLtaArray(self, C, LTA, STA):
         """
         Function to calculate the sta/lta of the detection statistic 
         """
@@ -564,19 +564,19 @@ class _SSDetex(object):
         Nc is the number of channels in the multiplexed stream
         """
         n = np.int32(np.shape(ssTD)[1])  # length of each basis vector
-        a = pd.rolling_mean(MPcon, n)[n - 1:] # rolling mean of data block
+        a = pd.rolling_mean(MPcon, n)[n - 1:]  # rolling mean of data block
         b = pd.rolling_var(MPcon, n)[n - 1:]  # rolling var of data block
         b *= n  # rolling power in vector
-        sum_ss = np.sum(ssTD, axis=1) # the sum of all the subspace basis vects
-        ares = a.reshape(1, len(a)) # reshaped a
-        sumres = sum_ss.reshape(len(sum_ss), 1) # reshaped sum
+        sum_ss = np.sum(ssTD, axis=1)  # the sum of all the subspace basis vects
+        ares = a.reshape(1, len(a))  # reshaped a
+        sumres = sum_ss.reshape(len(sum_ss), 1)  # reshaped sum
         av_norm = np.multiply(ares, sumres)  # to account for non 0 mean vects
-        m1 = np.multiply(ssFD, MPconFD) # fd correlation with each basis vect
+        m1 = np.multiply(ssFD, MPconFD)  # fd correlation with each basis vect
         # preform inverse fft
         if1 = scipy.real(scipy.fftpack.ifft(m1))[:, n - 1:len(MPcon)] - av_norm
-        result = np.sum(np.square(if1), axis=0) / b # get detection statistcs
-        return result[::Nc] # account for multiplexing
-        
+        result = np.sum(np.square(if1), axis=0) / b  # get detection statistcs
+        return result[::Nc]  # account for multiplexing
+
     def _getConTrims(self, df, chans, sr):
         """
         Get trim values, in samples, for each subspace/single. This is 
@@ -588,7 +588,7 @@ class _SSDetex(object):
         nc = len(chans)
         for ind, row in df.iterrows():
             if self.classifyEvents is None:
-                outdi[row.Name] = 0 # no trim if event classification
+                outdi[row.Name] = 0  # no trim if event classification
             else:
                 start = row.SampleTrims['Starttime']
                 end = row.SampleTrims['Endtime']
@@ -610,10 +610,11 @@ def _getChannels(df):
     # make sure all channels are the same for each event
     if not all([chans == set(x) for x in row.Channels.values()]):
         msg = ('Not all channels are the same for all event on %s, skipping '
-                'subspace or singles %s') % (row.Station, df.Names.values) 
+               'subspace or singles %s') % (row.Station, df.Names.values)
         detex.log(__name__, msg, level='warning', pri=True)
         return None
     return list(chans)
+
 
 def _getSampleRates(df):
     """
@@ -632,6 +633,7 @@ def _getSampleRates(df):
         return None
     return list(srs)
 
+
 def _estPEMag(mags, proEn, eventCors, touse):
     """
     Function to estimate projected energy magnitude for subspaces. Squared 
@@ -645,20 +647,18 @@ def _estPEMag(mags, proEn, eventCors, touse):
             lr = np.log10(np.sqrt(proEn[x]))
             ma += (mags[x] + lr) * we
     return ma / weDenom
-            
+
+
 def _estSTDMag(mags, ConDat, ewf, eventCors, touse):
     """
     Function to estimate standard deviation magnitude for subspaces. squared
     weighting on the correlation coef is applied.
     """
     ma = 0.0
-    weDenom = np.sum(np.square(eventCors[touse]))  
+    weDenom = np.sum(np.square(eventCors[touse]))
     for x in range(len(ewf)):
         if mags[x] > -15:
             we = np.square(eventCors[x])
-            lr =  np.log10(np.std(ConDat) / np.std(ewf[x]))
+            lr = np.log10(np.std(ConDat) / np.std(ewf[x]))
             ma += (mags[x] + lr) * we
     return ma / weDenom
-    
-    
-    

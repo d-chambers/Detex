@@ -90,3 +90,6 @@ target/
 
 # pyenv
 .python-version
+
+# pycharm
+.idea
