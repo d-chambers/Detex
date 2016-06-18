@@ -393,7 +393,7 @@ def save_subspace(modified_subspace):
 
 # load a subspace from the given filename
 @pytest.fixture(scope='module')
-def load_subspace(cd_into_case_dir, save_subspace):#save_subspace):
+ddef load_subspace(cd_into_case_dir, save_subspace):#save_subspace):
     save_subspace = 'subspace.pkl'
     ss = detex.loadSubSpace(save_subspace)    
     return ss
