@@ -175,7 +175,7 @@ def createCluster(CCreq=0.5,
 
 
 def createSubSpace(Pf=10 ** -12, clust='clust.pkl', minEvents=2, dtype='double',
-                   conDatFetcher=None):
+                   conDatFetcher=None, **kwargs):
     """
     Function to create subspaces on all available stations based on the 
     clusters in Clustering object which will either be passed directly as the 
@@ -226,7 +226,7 @@ def createSubSpace(Pf=10 ** -12, clust='clust.pkl', minEvents=2, dtype='double',
     """
     # Read in cluster instance
     if isinstance(clust, string_types):  # if no cluster object passed read a pickled one
-        cl = detex.subspace.loadClusters(clust)
+        cl = detex.util.loadClusters(clust)
     elif isinstance(clust, detex.subspace.ClusterStream):
         cl = clust
     else:

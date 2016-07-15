@@ -12,8 +12,10 @@ import numpy as np
 import obspy
 import pandas as pd
 import scipy
+import pdb
 from obspy.signal.trigger import classic_sta_lta
 from scipy.fftpack import fft
+
 
 import detex
 
@@ -88,7 +90,7 @@ def _initFAS(TRDF, conDatNum, cluster, fetcher, LTATime=5,
 
 def _getDSVect(fetcher, stakey, utc1, utc2, filt, deci, dtype,
                conDatNum, Nc, reqlen, sta, lta, ssArrayTD, ssArrayFD,
-               limit=None, ):
+               limit=None):
     # get a generator to return streams, ask for 4x more for rejects
     stgen = fetcher.getConData(stakey, utcstart=utc1, utcend=utc2,
                                randSamps=conDatNum * 4)

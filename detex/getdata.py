@@ -790,7 +790,7 @@ def _getInventory(invArg):
             detex.log(__name__, msg, level='error')
         else:
             return obspy.read_inventory(invArg)
-    elif isinstance(invArg, obspy.station.inventory.Inventory):
+    elif isinstance(invArg, obspy.Inventory):
         return invArg
     elif isinstance(invArg, obspy.clients.fdsn.Client):
         return invArg
