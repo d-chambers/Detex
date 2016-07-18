@@ -5,8 +5,9 @@ Created on Thu May 29 16:41:48 2014
 @author: Derrick
 """
 # python 2 and 3 compatibility imports
-from __future__ import print_function, absolute_import, unicode_literals
-from __future__ import with_statement, nested_scopes, generators, division
+from __future__ import (print_function, absolute_import, unicode_literals,
+                        division)
+from six import string_types
 
 import os
 import sys
@@ -19,7 +20,7 @@ import obspy
 import pandas as pd
 import pandas.io.sql as psql
 import simplekml
-from six import string_types
+import pdb
 
 import detex
 import detex.pandas_dbms
@@ -612,6 +613,7 @@ def readKey(dfkey, key_type='template'):
         detex.log(__name__, msg, level='error')
 
     tdf = df.loc[:, list(req_columns[key_type])]
+    # noinspection PyCompatibility
     condition = [all([x != '' for item, x in row.iteritems()])
                  for num, row in tdf.iterrows()]
     df = df[condition]
@@ -1099,95 +1101,75 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
     DF.reset_index(drop=True, inplace=True)
     DF.to_csv(pickFile, index=False)
 
-
-def seeWaveFroms(fetch='ContinuousWaveForms', templatekey='TemplateKey.csv',
-                 outFile='PhasePicks.csv'):
+def inspect_templates(fetch_arg='EventWaveForms', tem_path='TemplateKey.csv',
+                      sta_path='StationKey.csv', time_before=10,
+                      time_after=60, startrow=0):
     """
-    Uses streamPicks to parse the templates and allow user to manually pick
-    phases for events. Only P,S, Pend, and Send are supported phases under 
-    the current GUI, but other phases can be manually input to this format.
+    Inspect each of the templates with the stream pick GUI, make an
+    S pick on any that should be rejected. Update the templatekey.
 
     Parameters
-    -------------
-    fetch : str or instance of detex.getdata.DataFetcher
-        Input to detex.getdata.quickFetch, defaults to using the default 
-        directory structure
-    templatekey : str or pandas DataFrame
-        Path to the template key or template key loaded in DataFrame
-    outFile : str
-        Path to newly created csv containing events (in df) as index and 
-        stations as columns
     ----------
-    Required columns are : TimeStamp, Station, Event, Phase
-    Station field is net.sta (eg TA.M17A)
+    fetch_arg : str, detex.getdata.Fetcher instance, or obspy client
+        The argument to init a data fetcher
+    tem_path : str
+        Path to the template key
+    sta_path : str
+        Path to the station key
+    time_before : float or int
+        The seconds before the origin time to fetch
+    time_after : float or int
+        The seconds after the origin time to fetch
+    startrow : int
+        The row index to start with
+
+    Notes
+    ------
+    Will overwrite old template key!
+
+    Returns
+    -------
+    None
+
     """
-    temkey = readKey(templatekey, key_type='template')
-    stakey = readKey(stationkey, key_type='station')
-
-    cols = ['TimeStamp', 'Station', 'Event', 'Phase', 'Channel', 'Seconds']
-    fetcher = detex.getdata.quickFetch(fetch, **kwargs)
-
-    ets = {}  # events to skip picking on
-    count = 0
-
-    # must init the PyQt app outside of the loop or else it kills python
+    # init fetcher and load keys
+    fetcher = detex.getdata.quickFetch(fetch_arg)
+    temkey = detex.util.readKey(tem_path, 'template')
+    stakey = detex.util.readKey(sta_path, 'station')
+    # init pyqt app
     qApp = PyQt4.QtGui.QApplication(sys.argv)
-
-    # load pickfile if it exists
-    if os.path.exists(pickFile):
-        DF = pd.read_csv(pickFile)
-        if len(DF) < 1:  # if empty then delete
-            os.remove(pickFile)
-            DF = pd.DataFrame(columns=cols)
-        else:
-            if skipIfExists:
-                for ind, row in DF.iterrows():
-                    if not row.Station in ets:
-                        ets[row.Station] = []
-                    ets[row.Station].append(row.Event)
-    else:
-        DF = pd.DataFrame(columns=cols)
-    for st, event in fetcher.getTemData(temkey, stakey, skipDict=ets):
-        if st is None or len(st) < 1:  # skip if no data returned
+    # get utcs, networks, stations
+    temkey['utc'] = [obspy.UTCDateTime(x) for x in temkey.TIME]
+    temkey['t1'] = temkey.utc - time_before
+    temkey['t2'] = temkey.utc + time_after
+    nets = stakey.NETWORK
+    stas = stakey.STATION
+    # load each event:
+    rows2drop = []
+    for ind, row in temkey.iterrows():
+        if ind < startrow:
             continue
-        count += 1
-        # reload(detex.streamPick)
+        st = _fetch_stream(fetcher, row.utc, nets, stas, row.t1, row.t2)
+        try:
+            pks = detex.streamPick.streamPick(st, ap=qApp)
+        except Exception:
+            continue
+        if pks._picks:
+            new_temkey = temkey.drop(ind, axis=0)
+            new_temkey.to_csv(tem_path, index=False)
 
-        Pks = None  # needed so OS X doesn't crash
-        Pks = detex.streamPick.streamPick(st, ap=qApp)
 
-        tdict = {}
-        saveit = 0  # saveflag
+def _fetch_stream(fetcher, utc, nets, stas, t1, t2):
+    """ use fetcher to get waveforms for events """
+    st = obspy.Stream()
+    for net, sta in zip(nets, stas):
+        st1 = fetcher.getStream(t1, t2, net, sta)
+        if st1 is not None:
+            st += st1
+    return st
 
-        for b in Pks._picks:
-            if b:
-                tstamp = b['time'].timestamp
-                chan = b['waveform_id']['channel_code']
-                tdict[b.phase_hint] = [tstamp, chan]
-                saveit = 1
-        if saveit:
-            for key in tdict.keys():
-                stmp = tdict[key][0]
-                chan = tdict[key][1]
-                secs = '%3.5f' % stmp
-                sta = str(st[0].stats.network + '.' + st[0].stats.station)
-                di = {'TimeStamp': stmp, 'Station': sta, 'Event': event,
-                      'Phase': key, 'Channel': chan, 'Seconds': secs}
-                DF = DF.append(pd.Series(di), ignore_index=True)
-        if not Pks.KeepGoing:
-            msg = 'Exiting picking GUI, progress saved in %s' % pickFile
-            detex.log(__name__, msg, level='info', pri=True)
-            DF.sort_values(by=['Station', 'Event'], inplace=True)
-            DF.reset_index(drop=True, inplace=True)
-            DF.to_csv(pickFile, index=False)
-            return
-        if count % 10 == 0:  # save every 10 phase picks
-            DF.sort_values(by=['Station', 'Event'], inplace=True)
-            DF.reset_index(drop=True, inplace=True)
-            DF.to_csv(pickFile, index=False)
-    DF.sort_values(by=['Station', 'Event'], inplace=True)
-    DF.reset_index(drop=True, inplace=True)
-    DF.to_csv(pickFile, index=False)
+
+
 
 
 ############### Misc functions

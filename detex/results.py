@@ -4,19 +4,19 @@ Created on Fri May 23 17:55:01 2014
 
 @author: Derrick
 """
-from __future__ import print_function, absolute_import, unicode_literals
-from __future__ import with_statement, nested_scopes, generators, division
+from __future__ import (print_function, absolute_import, unicode_literals,
+                        division)
+from six import string_types
 
 import numbers
 import os
-
 import numpy as np
 import obspy
 import pandas as pd
 import scipy
-from six import string_types
-
 import detex
+import PyQt4
+import sys
 
 
 def detResults(trigCon=0, trigParameter=0, associateReq=0,
@@ -585,6 +585,9 @@ def _loadInfoDataFrames(ssDB):
     return ss_info, sg_info
 
 
+
+
+
 class SSResults(object):
     def __init__(self, Dets, Autos, Vers, ss_info, ss_filt,
                  temkey, stakey, templateKey, fetcher):
@@ -691,8 +694,55 @@ class SSResults(object):
         temkeyNew.reset_index(inplace=True, drop=True)
         temkeyNew.to_csv(temkeyPath, index=False)
 
+    def visualize(self, fetcher_arg='ContinuousWaveForms',
+                  detection_type='dets', time_before=10, time_after=60):
+        """
+        Call the stream picks gui to examin detections one at a time
+
+        Parameters
+        ----------
+        fetcher_arg : str, DataFetcher, or client
+            The argument used to init the datafetcher
+        detection_type: str (Det, Auto, Vers)
+            The type of detection (Det = new detection, Auto = autodetection,
+            vers = verified detections)
+        time_before : float or int
+            The time before the (predicted) origin time to fetch
+        time_after : float or int
+            The time after the (predicted) origin time to fetch
+        Returns
+        -------
+        None, GUI called in place
+        """
+        # init qt app
+        qApp = PyQt4.QtGui.QApplication(sys.argv)
+        # dict to map detection_type to correct dfs
+        det_dic = dict(dets=self.Dets, autos=self.Autos, vers=self.Vers)
+        df = det_dic[detection_type.lower()]
+        # init fetcher
+        fetcher = detex.getdata.quickFetch(fetcher_arg)
+        # iter df and plot row one at a time
+        for st in _get_streams(fetcher, df, time_before, time_after):
+            detex.streamPick.streamPick(st, ap=qApp)
+
     def __repr__(self):
         lens = (len(self.Autos), len(self.Dets), str(self.NumVerified))
         outstr = ('SSResults instance with %d autodections and %d new '
                   'detections, %s are verified') % lens
         return outstr
+
+def _get_streams(fetcher, df, time_before, time_after):
+    """ function to get streams from a results df, yield for each row """
+    # start, end, net, sta,
+    stmp_start = df.MSTAMPmin - time_before
+    stmp_end = df.MSTAMPmin + time_after
+    indicies = df.index
+    # iter each detection and yield
+    for ind, start, end in zip(indicies, stmp_start, stmp_end):
+        st = obspy.Stream()
+        dets = df.loc[ind].Dets
+        for net, sta in list(dets.Sta.str.split('.')):
+            st1 = fetcher.getStream(start, end, net, sta)
+            if st1 is not None and len(st1):
+                st += st1
+        yield st
