@@ -469,12 +469,12 @@ class _SSDetex(object):
             pe = MPcon[trigIndex * nc: trigIndex * nc + WFlen + 6 * WFlen]
             rollingstd = pd.rolling_std(pe, WFlen)[WFlen - 1:]
         baseNoise = np.median(rollingstd)  # take median of std for noise level
-        SNR = np.std(ConDat) / baseNoise  # estiamte SNR
+        SNR = np.std(ConDat) / baseNoise  # estimate SNR
 
         # ensure mags are greater than -15, else assume no mag value for event
         touse = mags > -15
         if self.issubspace:  # if subspace
-            if not any(touse):  # if no defined magnitudes avaliable
+            if not any(touse):  # if no defined magnitudes available
                 msg = (('No magnitudes above -15 usable for detection at %s on'
                         ' station %s and %s') % (times, sta, name))
                 detex.log(__name__, msg, level='warn')

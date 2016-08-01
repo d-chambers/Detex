@@ -225,7 +225,7 @@ def writeHypoDDStationInput(stakey, fileName='station.dat', useElevations=True,
     fil = open(fileName, 'wb')
     conFact = 0.3048 if inFt else 1  # ft to meters if needed
     for num, row in stakey.iterrows():
-        line = '%s %.6f %.6f' % (
+        line = '%s %6.4f %6.4f' % (
             row.NETWORK + '.' + row.STATION, row.LAT, row.LON)
         if useElevations:
             line = line + ' %.2f' % row.ELEVATION * conFact
@@ -243,22 +243,21 @@ def writeHypoDDEventInput(temkey, fileName='event.dat'):
     """
     if isinstance(temkey, string_types):
         temkey = readKey(temkey, key_type='template')
-    fil = open(fileName, 'wb')
-    reqZeros = int(np.ceil(np.log10(len(temkey))))
-    fomatstr = '{:0' + "{:d}".format(reqZeros) + 'd}'
-    for num, row in temkey.iterrows():
-        utc = obspy.UTCDateTime(row.TIME)
-        DATE = '%04d%02d%02d' % (
-            int(utc.year), int(utc.month), int(utc.day))
-        TIME = '%02d%02d%04d' % (int(utc.hour), int(
-            utc.minute), int(utc.second * 100))
-        mag = row.MAG if row.MAG > -20 else 0.0
-        ID = fomatstr.format(num)
-        linea = (DATE + ', ' + TIME + ', ' + '{:04f}, '.format(row.LAT) +
-                 '{:04f}, '.format(row.LON) + '{:02f}, '.format(row.DEPTH))
-        lineb = '{:02f}, '.format(mag) + '0.0, 0.0, 0.0, ' + ID
-        fil.write(linea + lineb + '\n')
-    fil.close()
+    with open(fileName, 'wb') as fil:
+        reqZeros = int(np.ceil(np.log10(len(temkey))))
+        fomatstr = '{:0' + "{:d}".format(reqZeros) + 'd}'
+        for num, row in temkey.iterrows():
+            utc = obspy.UTCDateTime(row.TIME)
+            DATE = '%04d%02d%02d' % (
+                int(utc.year), int(utc.month), int(utc.day))
+            TIME = '%02d%02d%04d' % (int(utc.hour), int(
+                utc.minute), int(utc.second * 100))
+            mag = row.MAG if row.MAG > -20 else 0.0
+            ID = fomatstr.format(num)
+            linea = (DATE + ' ' + TIME + ' ' + '{:04f} '.format(row.LAT) +
+                     '{:04f} '.format(row.LON) + '{:02f} '.format(row.DEPTH))
+            lineb = '{:02f} '.format(mag) + '0.0 0.0 0.0 ' + ID
+            fil.write(linea + lineb + '\n')
 
 
 ############## Hypoinverse Functions ################
@@ -1147,9 +1146,10 @@ def inspect_templates(fetch_arg='EventWaveForms', tem_path='TemplateKey.csv',
     # load each event:
     rows2drop = []
     for ind, row in temkey.iterrows():
+        print ('inspecting: %s' % row)
         if ind < startrow:
             continue
-        st = _fetch_stream(fetcher, row.utc, nets, stas, row.t1, row.t2)
+        st = _fetch_stream(fetcher, nets, stas, row.t1, row.t2)
         try:
             pks = detex.streamPick.streamPick(st, ap=qApp)
         except Exception:
@@ -1157,9 +1157,11 @@ def inspect_templates(fetch_arg='EventWaveForms', tem_path='TemplateKey.csv',
         if pks._picks:
             new_temkey = temkey.drop(ind, axis=0)
             new_temkey.to_csv(tem_path, index=False)
+        if not pks.KeepGoing:
+            break
 
 
-def _fetch_stream(fetcher, utc, nets, stas, t1, t2):
+def _fetch_stream(fetcher, nets, stas, t1, t2):
     """ use fetcher to get waveforms for events """
     st = obspy.Stream()
     for net, sta in zip(nets, stas):

@@ -5,8 +5,8 @@ Created on Thu Oct 29 18:39:50 2015
 @author: derrick
 """
 # python 2 and 3 compatibility imports
-from __future__ import print_function, absolute_import, unicode_literals
-from __future__ import with_statement, nested_scopes, generators, division
+from __future__ import (print_function, absolute_import, unicode_literals,
+                        division)
 
 import numpy as np
 import obspy

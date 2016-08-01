@@ -17,7 +17,7 @@ import scipy
 import detex
 import PyQt4
 import sys
-
+import pdb
 
 def detResults(trigCon=0, trigParameter=0, associateReq=0,
                ss_associateBuffer=1, sg_associateBuffer=2.5,
@@ -225,7 +225,7 @@ def _approximateThreshold(beta_a, beta_b, target, numintervals, numloops):
         startVal, stopVal = Xs[minind - 1], Xs[minind + 1]
         loops += 1
         if minind == 0 or minind == numintervals - 1:
-            raise ValueError('Grind search failing, set threshold manually')
+            raise ValueError('Grid search failing, set threshold manually')
     return bestX, bestPf
 
 
@@ -409,14 +409,15 @@ def _associateDetections(ssdf, associateReq, requiredNumStations,
     ssdf.sort_values(by='MSTAMPmin', inplace=True)
     ssdf.reset_index(drop=True, inplace=True)
     cols = ['Event', 'DSav', 'DSmax', 'NumStations', 'DS_STALTA', 'MSTAMPmin',
-            'MSTAMPmax', 'Mag', 'ProEnMag', 'Verified', 'Dets', ]
+            'MSTAMPmax', 'Mag', 'ProEnMag', 'Verified', 'Dets']
     if isinstance(ss_info, pd.DataFrame) and associateReq > 0:
         ssdf = pd.merge(ssdf, ss_info, how='inner', on=['Sta', 'Name'])
     gs = (ssdf.MSTAMPmin - associateBuffer > ssdf.MSTAMPmax.shift()).cumsum()
     groups = ssdf.groupby(gs)
     autolist = [pd.DataFrame(columns=cols)]
     detlist = [pd.DataFrame(columns=cols)]
-    temkey['STMP'] = np.array([obspy.core.UTCDateTime(x).timestamp for x in temkey.TIME])
+    temkey['STMP'] = np.array([obspy.core.UTCDateTime(x).timestamp
+                               for x in temkey.TIME])
     temcop = temkey.copy()
 
     # if there is a required number of shared events
@@ -606,7 +607,8 @@ class SSResults(object):
     def writeDetections(self, onlyVerified=None, minDS=None, minMag=None,
                         eventDir='EventWaveForms', updateTemKey=True,
                         temkeyPath=None, timeBeforeOrigin=1 * 60,
-                        timeAfterOrigin=4 * 60, waveFormat="mseed"):
+                        timeAfterOrigin=4 * 60, waveFormat="mseed",
+                        pick_times='PickTimes.csv',**kwargs):
         """
         Function to make all of the eligable new detections templates. New 
         event directories will be added to eventDir and the template key 
@@ -640,6 +642,9 @@ class SSResults(object):
             Seconds after predicted origin to get
         waveFormat = str
             Format to save files, "mseed", "pickle", "sac", and "Q" supported
+        pick_times : str or df
+            Path to the pick times file, used for calculating predicted origin
+            times, can also pass loaded picktimes dataframe
         """
         dets = self.Dets.copy()
         if onlyVerified:
@@ -652,11 +657,15 @@ class SSResults(object):
             eventDir = self.eventDir
         if temkeyPath is None:
             temkeyPath = self.TemKeyPath
-        temkey = self.TemplateKey.copy()
+        if isinstance(pick_times, string_types):
+            assert os.path.exists(pick_times)
+            pick_times = pd.read_csv(pick_times)
 
+        temkey = self.TemplateKey.copy()
         detTem = pd.DataFrame(index=range(len(dets)), columns=temkey.columns)
 
         for num, row in dets.iterrows():  # loop through detections and save
+            origin = self._predict_origin(row, pick_times)
             origin = obspy.UTCDateTime(np.mean([row.MSTAMPmax, row.MSTAMPmin]))
             Evename = row.Event
             eveDirName = 'd' + Evename
@@ -695,15 +704,17 @@ class SSResults(object):
         temkeyNew.to_csv(temkeyPath, index=False)
 
     def visualize(self, fetcher_arg='ContinuousWaveForms',
-                  detection_type='dets', time_before=10, time_after=60):
+                  detype='dets', time_before=10, time_after=60):
         """
-        Call the stream picks gui to examin detections one at a time
+        Call the stream picks gui to examin detections one at a time. Make
+        A p pick anywhere to mark the detection as accepted, and make an S
+        pick anywhere to mark the detection as rejected
 
         Parameters
         ----------
         fetcher_arg : str, DataFetcher, or client
             The argument used to init the datafetcher
-        detection_type: str (Det, Auto, Vers)
+        detype: str (Det, Auto, Vers)
             The type of detection (Det = new detection, Auto = autodetection,
             vers = verified detections)
         time_before : float or int
@@ -716,20 +727,78 @@ class SSResults(object):
         """
         # init qt app
         qApp = PyQt4.QtGui.QApplication(sys.argv)
-        # dict to map detection_type to correct dfs
-        det_dic = dict(dets=self.Dets, autos=self.Autos, vers=self.Vers)
-        df = det_dic[detection_type.lower()]
+        # dict to map detection_type to correct dfs, or use df if passed
+        df = self._get_detype(detype)
+        if not 'Review' in df.columns:
+            df['Review'] = 0
         # init fetcher
         fetcher = detex.getdata.quickFetch(fetcher_arg)
         # iter df and plot row one at a time
-        for st in _get_streams(fetcher, df, time_before, time_after):
-            detex.streamPick.streamPick(st, ap=qApp)
+        for st, ind in _get_streams(fetcher, df, time_before, time_after):
+            pks = detex.streamPick.streamPick(st, ap=qApp)
+            # mark rejected or accepted if pick found
+            picks = pks._picks
+            if picks and 'S' in picks[0].phase_hint:
+                df.loc[ind, 'Review'] = -1
+            elif picks and 'P' in picks[0].phase_hint:
+                df.loc[ind, 'Review'] = 1
+            if not pks.KeepGoing:
+                break
+
+    def yield_streams(self, fetcher_arg='ContinuousWaveForms',
+                      detype='dets', time_before=10, time_after=60,
+                      yield_ind=True):
+        """
+        Return an iterator of streams containing each detection
+
+        Parameters
+        ----------
+        fetcher_arg : str, DataFetcher, or client
+            The argument used to init the datafetcher
+        detype : str or df
+            The type of detections to use, options are: 'autos', 'vers',
+            'dets'. Can also pass a custom df
+        time_before : int or float
+            The time before the predicted origin time to pull
+        time_after : int or float
+            The time after the predicted origin time to pull
+        yield_ind : bool
+            If true yield the index of the dataframe with the stream
+        Returns
+        -------
+        An iterator of obspy streams for each detection
+        """
+        df = self._get_detype(detype)
+        fetcher = detex.getdata.quickFetch(fetcher_arg)
+        for st, ind in _get_streams(fetcher, df, time_before, time_after):
+            if yield_ind:
+                yield  st, ind
+            else:
+                yield st
+
+    def _get_detype(self, detype):
+        """ get the correct dataframe based on detype argument """
+        if isinstance(detype, pd.DataFrame):
+            df = detype
+        else:
+            det_dic = dict(dets=self.Dets, autos=self.Autos, vers=self.Vers)
+            df = det_dic[detype.lower()]
+        return df
 
     def __repr__(self):
         lens = (len(self.Autos), len(self.Dets), str(self.NumVerified))
         outstr = ('SSResults instance with %d autodections and %d new '
                   'detections, %s are verified') % lens
         return outstr
+
+    def _predict_origin(self, row, pick_times):
+        """
+        Predict the pick times based on the best correlated event
+        on each station
+        """
+        pdb.set_trace()
+        pass
+
 
 def _get_streams(fetcher, df, time_before, time_after):
     """ function to get streams from a results df, yield for each row """
@@ -739,10 +808,12 @@ def _get_streams(fetcher, df, time_before, time_after):
     indicies = df.index
     # iter each detection and yield
     for ind, start, end in zip(indicies, stmp_start, stmp_end):
+        if df.loc[ind].Review != 0:
+            continue
         st = obspy.Stream()
         dets = df.loc[ind].Dets
         for net, sta in list(dets.Sta.str.split('.')):
             st1 = fetcher.getStream(start, end, net, sta)
             if st1 is not None and len(st1):
                 st += st1
-        yield st
+        yield st, ind

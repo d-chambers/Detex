@@ -9,6 +9,7 @@ import pytest
 import detex
 import obspy
 from collections import namedtuple
+import pdb
 
 ##### General tests on method inputs
 class TestFetcherInputs():

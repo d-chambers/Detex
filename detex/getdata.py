@@ -30,7 +30,7 @@ eveDirDefault = 'EventWaveForms'
 formatKey = {'mseed': 'msd', 'pickle': 'pkl', 'sac': 'sac', 'Q': 'Q'}
 
 
-def read(path):
+def read(path, headonly=False):
     """
     function to read a file from a path. If IOError or TypeError simply try
     appending os.set to start
@@ -39,7 +39,7 @@ def read(path):
         st = obspy.read(path)
     except (IOError, TypeError):
         try:
-            st = obspy.read(os.path.join(os.path.sep, path))
+            st = obspy.read(os.path.join(os.path.sep, path), headonly=headonly)
         except (IOError, TypeError):
             msg = 'Cannot read %s, the file may be corrupt, skipping it' % path
             detex.log(__name__, msg, level='warn', pri=True)
@@ -990,7 +990,7 @@ def _checkQuality(stPath):
     """
     load a path to an obspy trace and check quality
     """
-    st = read(stPath)
+    st = read(stPath, headonly=True)
     if st is None:
         return None
     lengthStream = len(st)

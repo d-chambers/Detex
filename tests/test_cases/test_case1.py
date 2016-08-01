@@ -56,7 +56,7 @@ create_subspace_args = {}
 # attach phases params
 attach_pick_time_args = {'defaultDuration':30}
 # params for SVD 
-svd_params = {'conDatNum':100, 'threshold':None, 'normalize':False, 
+svd_params = {'conDatNum':100, 'threshold':None, 'normalize':False,
               'useSingles':False, 'validateWaveforms':True}
 # params for running detections
 detection_params = {'utcStart':None, 'utcEnd':None, 'subspaceDB':subspace_database,

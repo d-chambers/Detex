@@ -32,6 +32,7 @@ import colorsys
 from struct import pack
 import PyQt4
 import sys
+import pdb
 
 from scipy.cluster.hierarchy import dendrogram, fcluster
 from detex.detect import _SSDetex
@@ -77,9 +78,12 @@ class ClusterStream(object):
         fileName : str
             THe path to the new file to be created
         coef : float or int
-            The exponential coeficient to apply to the correlation 
-            coeficient when creating file, usefull to downweight lower cc 
+            The exponential coefficient to apply to the correlation
+           coefficient when creating file,usefull to down-weight lower cc
             values
+        minCC : float
+            The
+
        """
         if not self.enforceOrigin:
             msg = ('Sample Lags are not meaningful unless origin times are '
@@ -413,7 +417,7 @@ class Cluster(object):
 
     # creates a basic dendrogram plot
     def dendro(self, hideEventLabels=True, show=True, saveName=False,
-               legend=True, **kwargs):
+               legend=True, return_axis=False, **kwargs):
         """
         Function to plot dendrograms of the clusters
 
@@ -429,6 +433,8 @@ class Cluster(object):
             for details
         legend : bool
             If true plot a legend on the side of the dendrogram
+        return_axis : bool
+            If True return axis for more plotting
         Note 
         ----------
         kwargs are passed to scipy.cluster.hierarchy.dendrogram, see docs
@@ -454,9 +460,11 @@ class Cluster(object):
         plt.xlabel('Events')
         plt.ylabel('Dissimilarity')
         plt.title(self.station)
-        if saveName:
+        if return_axis:
+            return ax
+        elif saveName:
             plt.savefig(saveName, **kwargs)
-        if show:
+        elif show:
             plt.show()
 
     def plotEvents(self, projection='merc', plotSingles=True, **kwargs):
@@ -625,8 +633,8 @@ class Cluster(object):
             ydist = abs(max(xlim) - min(xlim))
             plt.ylim(ylim[0] - ydist * .1, ylim[1] + ydist * .1)
 
-    def simMatrix(self, groupClusts=False, savename=False, returnMat=False,
-                  **kwargs):
+    def simMatrix(self, groupClusts=False, savename=None, returnMat=False,
+                  return_ax=False, plot_title=True, **kwargs):
         """
         Function to create basic similarity matrix of the values 
         in the cluster object
@@ -636,12 +644,19 @@ class Cluster(object):
         groupClusts : boolean
             If True order by clusters on the simmatrix with the 
             singletons coming last
-        savename : str or False
-            If not False, a path used by plt.savefig to save the current 
-            figure. The extension is necesary for specifying format. See 
+        savename : str or None
+            If str, a path used by plt.savefig to save the current
+            figure. The extension is necessary for specifying format. See
             plt.savefig for details
         returnMat : boolean
             If true return the similarity matrix
+        return_ax : bool
+            If True return the axis the figure is plotted in
+        plot_title : bool, str
+            If True plot the title  as the station, if str plot str
+            for the title
+
+        kwargs are passed to plt.figure and plt.save
         """
         if groupClusts:  # if grouping clusters together
             clusts = copy.deepcopy(self.clusts)  # get cluster list
@@ -649,14 +664,13 @@ class Cluster(object):
             eveOrder = list(itertools.chain.from_iterable(clusts))
             indmask = {
                 num: list(self.key).index(eve) for num,
-                                                   eve in enumerate(eveOrder)}  # create a mask forthe order
+                    eve in enumerate(eveOrder)}  # create a mask for the order
         else:
             # blank index mask if not
             indmask = {x: x for x in range(len(self.key))}
-        plt.figure()
+        plt.figure(**kwargs)
         le = self.DFcc.columns.values.max()
         mat = np.zeros((le + 1, le + 1))
-        # deb([le,indmask,self.DFcc])
         for a in range(le + 1):
             for b in range(le + 1):
                 if a == b:
@@ -680,10 +694,17 @@ class Cluster(object):
             vmax=1)
         plt.clim(0, 1)
         plt.grid(True, color='white')
-        plt.colorbar(img, cmap=cmap)
-        plt.title(self.station)
-        if savename:
-            plt.savefig(savename, **kwargs)
+        plt.colorbar(img, cmap=cmap, label='Correlation Coefficient')
+        if plot_title:
+            if isinstance(plot_title, string_types):
+                plt.title(plot_title)
+            else:
+                plt.title(self.station)
+        plt.xlabel('Event Number')
+        plt.ylabel('Event Number')
+
+        if savename is not None:
+            plt.savefig(savename, bbox_inches='tight', **kwargs)
         if returnMat:
             return mat
 
@@ -1190,22 +1211,42 @@ class SubSpace(object):
                 plt.xlim(xlim)
                 count += 1
 
-    def plotFracEnergy(self):
+    def plotFracEnergy(self, plot_station=None, plot_ss=None):
         """
         Method to plot the fractional energy captured of by the subspace for
-        various dimensions of rep. Each event is plotted as a grey dotted 
+        various dimensions of rep. Each event is plotted as a grey dotted
         line, the average as a red solid line, and the chosen degree of rep.
         is plotted as a solid green vertical line.
         Similar to Harris 2006 Fig 8
+
+        Parameters
+        ----------
+        plot_station : str or None
+            If str only plot given station
+        plot_ss : str or None
+            If str the subspace to plot, else plot all (example name: 'SS0')
+
+        Returns
+        -------
+
         """
         for a, station in enumerate(self.ssStations):
+            if plot_station and plot_station not in station:
+                continue
             f = plt.figure(a + 1)
-            f.set_figheight(1.85 * len(self.subspaces[station]))
+            # size fig if only one ss is being plotted or multiple
+            if not plot_ss:
+                f.set_figheight(1.85 * len(self.subspaces[station]))
             for ind, row in self.subspaces[station].iterrows():
+                print('%s: %d' % (row.Name, len(row.AlignedTD)))
+                if plot_ss:
+                    if row.Name != plot_ss:
+                        continue
+                else:
+                    plt.subplot(len(self.subspaces[station]), 1, ind + 1)
                 if not isinstance(row.FracEnergy, dict):
                     msg = 'fractional energy not defiend, call SVD'
                     detex.log(__name__, msg, level='error')
-                plt.subplot(len(self.subspaces[station]), 1, ind + 1)
                 for event in row.Events:
                     plt.plot(row.FracEnergy[event], '--', color='0.6')
                 plt.plot(row.FracEnergy['Average'], 'r')
@@ -1218,13 +1259,27 @@ class SubSpace(object):
                    va='center', rotation='vertical')
             plt.show()
 
-    def plotAlignedEvents(self):  # plot aligned subspaces in SubSpaces object
-        """ 
-        Plots the aligned events for each station in each cluster. 
+    def plotAlignedEvents(self, plot_station=None, min_number_events=None):
+        """
+        Plots the aligned events for each station in each cluster.
         Will trim waveforms if trim times (by pickTimes or attachPickTimes)
         are defined.
+
+        Parameters
+        ----------
+        plot_station : None or str
+            If str the station id (net.sta) to plot
+        min_number_events : None or int
+            If int the subspace must have this many events or more to plot
+
+        Returns
+        -------
+
         """
         for a, station in enumerate(self.ssStations):
+            if plot_station is not None:
+                if plot_station not in station:
+                    continue
             for ind, row in self.subspaces[station].iterrows():
                 plt.figure(figsize=[10, .9 * len(row.Events)])
                 # f.set_figheight(1.85 * len(row.Events))
@@ -1459,7 +1514,7 @@ class SubSpace(object):
                     num] = self._getOffsets(np.array(offsets))
 
     def attachPickTimes(self, pksFile='PhasePicks.csv',
-                        function='median', defaultDuration=30):
+                        function='median', defaultDuration=30, **kwargs):
         """
         Rather than picking times manually attach a file (either csv or pkl 
         of pandas dataframe) with pick times. Pick time file must have the 
@@ -1758,7 +1813,8 @@ class SubSpace(object):
               classifyEvents=None,
               eventCorFile='EventCors',
               utcSaves=None,
-              fillZeros=False):
+              fillZeros=False,
+              **kwargs):
         """
         function to run subspace detection over continuous data and store 
         results in SQL database subspaceDB
