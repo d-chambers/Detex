@@ -1555,8 +1555,10 @@ class SubSpace(object):
                 msg = ('%s does not exist, or it is not a pkl or csv file'
                        % pksFile)
                 detex.log(__name__, msg, level='error')
+        finally: # trim down picks to only include events in temkey
+            temkey = self.clusters.temkey
+            pks = pks[pks.Event.isin(temkey.NAME)]
         # get travel times
-        temkey = self.clusters.temkey
         self._attach_travel_times(temkey, pks)
         self.pick_times = pks
         # loop through each station in cluster, get singles and subspaces

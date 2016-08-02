@@ -208,7 +208,7 @@ def _makePfKey(ss_info, sg_info, Pf):
 def _approximateThreshold(beta_a, beta_b, target, numintervals, numloops):
     """
     Because scipy.stats.beta.isf can break, if it returns a value near 1 when 
-    this is obvious wrong initialize grid search algo to get close to desired
+    this is obvious wrong initialize grid search to get close to desired
     threshold using forward problem which seems to work where inverse fails
     See this bug report: https://github.com/scipy/scipy/issues/4677
     """
@@ -409,7 +409,7 @@ def _associateDetections(ssdf, associateReq, requiredNumStations,
     ssdf.sort_values(by='MSTAMPmin', inplace=True)
     ssdf.reset_index(drop=True, inplace=True)
     cols = ['Event', 'DSav', 'DSmax', 'NumStations', 'DS_STALTA', 'MSTAMPmin',
-            'MSTAMPmax', 'Mag', 'ProEnMag', 'Verified', 'Dets']
+            'MSTAMPmax', 'Mag', 'ProEnMag', 'Verified', 'Dets', 'Origin']
     if isinstance(ss_info, pd.DataFrame) and associateReq > 0:
         ssdf = pd.merge(ssdf, ss_info, how='inner', on=['Sta', 'Name'])
     gs = (ssdf.MSTAMPmin - associateBuffer > ssdf.MSTAMPmax.shift()).cumsum()
@@ -476,10 +476,14 @@ def _checkSharedEvents(g):
 
 def _createDetTable(g, cols):
     mag, proEnMag = _getMagnitudes(g)
-    utc = obspy.UTCDateTime(np.mean([g.MSTAMPmin.mean(), g.MSTAMPmax.mean()]))
+    origin = g[g.DS == g.DS.max()].iloc[0].EstOrigin
+    #utc = obspy.UTCDateTime(np.mean([g.MSTAMPmin.mean(), g.MSTAMPmax.mean()]))
+    utc = obspy.UTCDateTime(origin)
     event = str(utc).replace(':', '-').split('.')[0]
+
     data = [event, g.DS.mean(), g.DS.max(), len(g), g.DS_STALTA.mean(),
-            g.MSTAMPmin.min(), g.MSTAMPmax.max(), mag, proEnMag, False, g]
+            g.MSTAMPmin.min(), g.MSTAMPmax.max(), mag, proEnMag, False, g,
+            origin]
     detDF = pd.DataFrame([data], columns=cols)
     return detDF
 
@@ -495,8 +499,10 @@ def _createAutoTable(g, temkey, cols, associateBuffer):
             event = temtemkey.iloc[0].NAME
     if isauto:
         mag, proEnMag = _getMagnitudes(g)
+        origin = g[g.DS == g.DS.max()].iloc[0].EstOrigin
         data = [event, g.DS.mean(), g.DS.max(), len(g), g.DS_STALTA.mean(),
-                g.MSTAMPmin.min(), g.MSTAMPmax.max(), mag, proEnMag, False, g]
+                g.MSTAMPmin.min(), g.MSTAMPmax.max(), mag, proEnMag, False, g,
+                origin ]
         autoDF = pd.DataFrame([data], columns=cols)
         return isauto, autoDF
     else:

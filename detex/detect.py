@@ -421,7 +421,8 @@ class _SSDetex(object):
         """
         dpv = 0
         cols = ['DS', 'DS_STALTA', 'STMP', 'Name', 'Sta', 'MSTAMPmin',
-                'MSTAMPmax', 'Mag', 'SNR', 'ProEnMag', 'EstOrigin']
+                'MSTAMPmax', 'Mag', 'SNR', 'ProEnMag', 'EstOrigin',
+                'BestEvent']
         sr = corSeries.SampRate  # sample rate
         start = corSeries.TimeStamp  # start time of data block
 
@@ -447,13 +448,13 @@ class _SSDetex(object):
             Ceval = self._downPlayArrayAroundMax(Ceval, sr, dpv)
             # estimate mags else return NaNs as mag estimates
             if self.estimateMags:  # estimate magnitudes
-                M1, M2, ori, SNR = self._estMag(trigIndex, corSeries, MPcon,
+                M1, M2, ori, SNR, be = self._estMag(trigIndex, corSeries, MPcon,
                                            mags[name], events[name], WFU[name],
                                            UtU[name], ewf[name], coef, times,
                                            name, sta)
                 peMag, stMag = M1, M2
             else:
-                peMag, stMag, ori, SNR = np.NaN, np.NaN, np.NaN, np.NaN
+                peMag, stMag, ori, SNR, be = np.NaN, np.NaN, np.NaN, np.NaN, ''
 
             # kill switch to prevent infinite loop (just in case)
             if count > 4000:
@@ -466,9 +467,8 @@ class _SSDetex(object):
             maxof = np.max(offsets[name])
             MSTAMPmax, MSTAMPmin = times - minof, times - maxof
             Sar.loc[count] = [coef, SLValue, times, name, sta, MSTAMPmin,
-                              MSTAMPmax, stMag, SNR, peMag, ori]
+                              MSTAMPmax, stMag, SNR, peMag, ori, be]
             count += 1
-        pdb.set_trace()
         return Sar
 
     def _estMag(self, trigIndex, corSeries, MPcon, mags, events,
@@ -506,7 +506,7 @@ class _SSDetex(object):
                 msg = (('No magnitudes above -15 usable for detection at %s on'
                         ' station %s and %s') % (times, sta, name))
                 detex.log(__name__, msg, level='warn')
-                return np.NaN, np.Nan, np.Nan, SNR
+                return np.NaN, np.Nan, np.Nan, SNR, ''
             else:
 
                 # correlation coefs between each event and data block
@@ -518,6 +518,7 @@ class _SSDetex(object):
                                     index=['cc', 'mag', 'event']).T
                 ddf = pt.merge(df_t, on='event')
                 ori = times - ddf[ddf.cc == ddf.cc.max()].offset.iloc[0]
+                be = ddf[ddf.cc == ddf.cc.max()].iloc[0].event
         else:  # if singleton
             assert len(mags) == 1
             if np.isnan(mags[0]) or mags[0] < -15:
@@ -531,7 +532,7 @@ class _SSDetex(object):
                 projectedEnergyMags = mags[0] + d1 / d2
                 stdMags = mags[0] + np.log10(np.std(ConDat) / np.std(WFU[0]))
                 ori = times - pts.offset.iloc[0]
-        return projectedEnergyMags, stdMags, ori, SNR
+        return projectedEnergyMags, stdMags, ori, SNR, be
 
     def _estimate_origin(self, df_t):
         """ estimate origin time based on weighted average of CC """
