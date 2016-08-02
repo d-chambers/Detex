@@ -14,6 +14,7 @@ import numpy as np
 import obspy
 import pandas as pd
 import scipy
+import pdb
 
 import detex
 from detex.construct import fast_normcorr, multiplex, _applyFilter
@@ -27,7 +28,7 @@ class _SSDetex(object):
     def __init__(self, TRDF, utcStart, utcEnd, cfetcher, clusters, subspaceDB,
                  trigCon, triggerLTATime, triggerSTATime, multiprocess,
                  calcHist, dtype, estimateMags, classifyEvents, eventCorFile,
-                 utcSaves, fillZeros, issubspace=True):
+                 utcSaves, fillZeros, issubspace=True, pick_times=None):
 
         # Instantiate input varaibles that are needed by many functions
         self.utcStart = utcStart
@@ -47,6 +48,9 @@ class _SSDetex(object):
         self.classifyEvents = classifyEvents
         self.trigCon = trigCon
         self.subspaceDB = subspaceDB
+        self.pick_times = pick_times
+        self.offsets = self._get_offset_df(TRDF)
+
 
         # set DataFetcher and read classifyEvents key, get data length
         if classifyEvents is not None:
@@ -107,6 +111,28 @@ class _SSDetex(object):
             except ValueError:
                 msg = 'Failed to save data in utcSaves'
                 detex.log(__name__, msg, level='warning', pri=True)
+
+    def _get_offset_df(self, TRDF):
+        """
+        make a dictonary of dataframes for getting offset times for
+        each event/station on each subsapce
+        """
+        cols = ['event', 'offset']
+        out = {}
+        for item, val in TRDF.items():
+            df = pd.DataFrame(columns=cols)
+            for ind, row in val.iterrows():
+                offsets = row.SampleTrims['Starttime']
+                for event in row.Events:
+                    ot = row.Stats[event]['origintime']
+                    starttime = row.Stats[event]['starttime']
+                    nc = row.Stats[event]['Nc']
+                    sr = row.Stats[event]['sampling_rate']
+                    chop_time = starttime + (offsets) / (sr * nc)
+                    offset = chop_time - ot
+                    df.loc[len(df), cols] = event, offset
+            out[item] = df
+        return out
 
     def _corStations(self, DFsta, sta):
         """
@@ -223,7 +249,7 @@ class _SSDetex(object):
         singles that act on it
         """
         cols = ['SSdetect', 'STALTA', 'TimeStamp', 'SampRate', 'MaxDS',
-                'MaxSTALTA', 'Nc', 'File']
+                'MaxSTALTA', 'Nc']
         CorDF = pd.DataFrame(index=names, columns=cols)
         utc1 = st[0].stats.starttime
         utc2 = st[0].stats.endtime
@@ -395,7 +421,7 @@ class _SSDetex(object):
         """
         dpv = 0
         cols = ['DS', 'DS_STALTA', 'STMP', 'Name', 'Sta', 'MSTAMPmin',
-                'MSTAMPmax', 'Mag', 'SNR', 'ProEnMag']
+                'MSTAMPmax', 'Mag', 'SNR', 'ProEnMag', 'EstOrigin']
         sr = corSeries.SampRate  # sample rate
         start = corSeries.TimeStamp  # start time of data block
 
@@ -421,13 +447,13 @@ class _SSDetex(object):
             Ceval = self._downPlayArrayAroundMax(Ceval, sr, dpv)
             # estimate mags else return NaNs as mag estimates
             if self.estimateMags:  # estimate magnitudes
-                M1, M2, SNR = self._estMag(trigIndex, corSeries, MPcon,
+                M1, M2, ori, SNR = self._estMag(trigIndex, corSeries, MPcon,
                                            mags[name], events[name], WFU[name],
                                            UtU[name], ewf[name], coef, times,
                                            name, sta)
                 peMag, stMag = M1, M2
             else:
-                peMag, stMag, SNR = np.NaN, np.NaN, np.NaN
+                peMag, stMag, ori, SNR = np.NaN, np.NaN, np.NaN, np.NaN
 
             # kill switch to prevent infinite loop (just in case)
             if count > 4000:
@@ -440,8 +466,9 @@ class _SSDetex(object):
             maxof = np.max(offsets[name])
             MSTAMPmax, MSTAMPmin = times - minof, times - maxof
             Sar.loc[count] = [coef, SLValue, times, name, sta, MSTAMPmin,
-                              MSTAMPmax, stMag, SNR, peMag]
+                              MSTAMPmax, stMag, SNR, peMag, ori]
             count += 1
+        pdb.set_trace()
         return Sar
 
     def _estMag(self, trigIndex, corSeries, MPcon, mags, events,
@@ -470,35 +497,47 @@ class _SSDetex(object):
             rollingstd = pd.rolling_std(pe, WFlen)[WFlen - 1:]
         baseNoise = np.median(rollingstd)  # take median of std for noise level
         SNR = np.std(ConDat) / baseNoise  # estimate SNR
-
         # ensure mags are greater than -15, else assume no mag value for event
+        pts = self.offsets[sta]
+        pt = pts[(pts.event.isin(events))]
         touse = mags > -15
         if self.issubspace:  # if subspace
             if not any(touse):  # if no defined magnitudes available
                 msg = (('No magnitudes above -15 usable for detection at %s on'
                         ' station %s and %s') % (times, sta, name))
                 detex.log(__name__, msg, level='warn')
-                return np.NaN, np.Nan, SNR
+                return np.NaN, np.Nan, np.Nan, SNR
             else:
+
                 # correlation coefs between each event and data block
                 ecor = [fast_normcorr(x, ConDat)[0] for x in ewf]
                 eventCors = np.array(ecor)
                 projectedEnergyMags = _estPEMag(mags, proEn, eventCors, touse)
                 stdMags = _estSTDMag(mags, ConDat, ewf, eventCors, touse)
+                df_t = pd.DataFrame([eventCors, mags, events],
+                                    index=['cc', 'mag', 'event']).T
+                ddf = pt.merge(df_t, on='event')
+                ori = times - ddf[ddf.cc == ddf.cc.max()].offset.iloc[0]
         else:  # if singleton
             assert len(mags) == 1
             if np.isnan(mags[0]) or mags[0] < -15:
                 projectedEnergyMags = np.NaN
                 stdMags = np.NaN
             else:
+                assert len(pts) == 1
                 # use simple waveform scaling if single
                 d1 = np.dot(ConDat, WFU[0])
                 d2 = np.dot(WFU[0], WFU[0])
                 projectedEnergyMags = mags[0] + d1 / d2
                 stdMags = mags[0] + np.log10(np.std(ConDat) / np.std(WFU[0]))
-        return projectedEnergyMags, stdMags, SNR
+                ori = times - pts.offset.iloc[0]
+        return projectedEnergyMags, stdMags, ori, SNR
 
-    def _getStaLtaArray(self, C, LTA, STA):
+    def _estimate_origin(self, df_t):
+        """ estimate origin time based on weighted average of CC """
+
+
+    def _getStaLtaArray(self, C, LTA, ori, STA):
         """
         Function to calculate the sta/lta of the detection statistic 
         """

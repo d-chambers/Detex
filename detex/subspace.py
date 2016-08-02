@@ -32,12 +32,13 @@ import colorsys
 from struct import pack
 import PyQt4
 import sys
-import pdb
+from obspy import UTCDateTime as UTC
 
 from scipy.cluster.hierarchy import dendrogram, fcluster
 from detex.detect import _SSDetex
 
 pd.options.mode.chained_assignment = None  # mute setting copy warning
+
 
 # warnings.filterwarnings('error') #uncomment this to make all warnings errors
 
@@ -664,7 +665,7 @@ class Cluster(object):
             eveOrder = list(itertools.chain.from_iterable(clusts))
             indmask = {
                 num: list(self.key).index(eve) for num,
-                    eve in enumerate(eveOrder)}  # create a mask for the order
+                                                   eve in enumerate(eveOrder)}  # create a mask for the order
         else:
             # blank index mask if not
             indmask = {x: x for x in range(len(self.key))}
@@ -753,6 +754,7 @@ class SubSpace(object):
         self.Stations.sort()
         self._stakey2 = {x: x for x in self.ssStations}
         self._stakey1 = {x.split('.')[1]: x for x in self.ssStations}
+        self.pick_times = None
 
     ################################ Validate Cluster functions
 
@@ -1513,8 +1515,8 @@ class SubSpace(object):
                 self.singles[sta].Offsets[
                     num] = self._getOffsets(np.array(offsets))
 
-    def attachPickTimes(self, pksFile='PhasePicks.csv',
-                        function='median', defaultDuration=30, **kwargs):
+    def attachPickTimes(self, pksFile='PhasePicks.csv', overwrite=False,
+                        function=np.median, defaultDuration=30, **kwargs):
         """
         Rather than picking times manually attach a file (either csv or pkl 
         of pandas dataframe) with pick times. Pick time file must have the 
@@ -1524,7 +1526,9 @@ class SubSpace(object):
         ----------
         pksFile : str
             Path to the input file (either csv or pickle)
-        function : str  ('Average','Max', or 'Min')
+        overwrite : bool
+            If True overwrite current pick times event if already defined
+        function : callable (reducing function)
             Describes how to handle selecting a common pick time for 
             subspace groups (each event in a subspace cannot be treated 
             independently as the entire group is aligned to maximize 
@@ -1535,8 +1539,6 @@ class SubSpace(object):
                 median of the first arriving phase
             max - trim to max value of start times for group
             min - trim to min value of end times for group
-            
-            
         defaultDuration : int or None
             if Int, the default duration (in seconds) to trim the signal to 
             starting from the first arrival in pksFile for each event or 
@@ -1553,36 +1555,27 @@ class SubSpace(object):
                 msg = ('%s does not exist, or it is not a pkl or csv file'
                        % pksFile)
                 detex.log(__name__, msg, level='error')
-
-        # get appropriate function according to ssmod
-        if function == 'mean':
-            fun = np.mean
-        elif function == 'max':
-            fun = np.max
-        elif function == 'min':
-            fun = np.min
-        elif function == 'median':
-            fun = np.median
-        else:
-            msg = ('function %s not supported, options are: mean, median, min,'
-                   ' max' % function)
-            detex.log(__name__, msg, level='error')
+        # get travel times
+        temkey = self.clusters.temkey
+        self._attach_travel_times(temkey, pks)
+        self.pick_times = pks
         # loop through each station in cluster, get singles and subspaces
         for cl in self.clusters:
             sta = cl.station  # current station
             # Attach singles
             if sta in self.singles.keys():
                 for ind, row in self.singles[sta].iterrows():
-                    if len(row.SampleTrims.keys()) > 0:
+                    if len(row.SampleTrims.keys()) > 0 and not overwrite:
                         continue  # skip if sampletrims already defined
                     # get phases that apply to current event and station
                     con1 = pks.Event.isin(row.Events)
                     con2 = pks.Station == sta
                     pk = pks[(con1) & (con2)]
+                    # add origin times
                     eves, starttimes, Nc, Sr = self._getStats(row)
                     if len(pk) > 0:
                         trims = self._getSampTrim(eves, starttimes, Nc, Sr, pk,
-                                                  defaultDuration, fun, sta,
+                                                  defaultDuration, function, sta,
                                                   ind, self.singles[sta], row)
                         if isinstance(trims, dict):
                             self.singles[sta].SampleTrims[ind] = trims
@@ -1590,21 +1583,33 @@ class SubSpace(object):
             # Attach Subspaces
             if sta in self.subspaces.keys():
                 for ind, row in self.subspaces[sta].iterrows():
-                    if len(row.SampleTrims.keys()) > 0:
+                    if len(row.SampleTrims.keys()) > 0 and not overwrite:
                         continue  # skip if sampletrims already defined
                     # phases that apply to current event and station
                     con1 = pks.Event.isin(row.Events)
                     con2 = pks.Station == sta
                     pk = pks[(con1) & (con2)]
+                    # add origin times
                     eves, starttimes, Nc, Sr = self._getStats(row)
                     if len(pk) > 0:
 
                         trims = self._getSampTrim(eves, starttimes, Nc, Sr, pk,
-                                                  defaultDuration, fun, sta,
+                                                  defaultDuration, function, sta,
                                                   ind, self.subspaces[sta], row)
                         if isinstance(trims, dict):
                             self.subspaces[sta].SampleTrims[ind] = trims
                 self._updateOffsets()
+
+    def _attach_travel_times(self, temkey, pk):
+        """ get the travel times by subtracting picks from origin """
+        # add origin times, calculate travel times
+        pk['OT'] = [UTC(temkey[temkey.NAME == x].TIME.iloc[0]).timestamp
+                    for x in pk.Event.values]
+        pk['TT'] = pk.TimeStamp - pk.OT
+        # pk.sort_values(['Event', 'Station', 'TimeStamp'], inplace=True)
+        # pk.drop_duplicates(['Station', 'Event'], inplace=True)
+        # tt = {row.Event: row.TT for ind, row in pk.iterrows()}
+        # return tt
 
     def _getSampTrim(self, eves, starttimes, Nc, Sr, pk, defaultDuration,
                      fun, sta, num, DF, row):
@@ -1921,7 +1926,8 @@ class SubSpace(object):
             Det = _SSDetex(TRDF, utcStart, utcEnd, self.cfetcher, self.clusters,
                            subspaceDB, trigCon, triggerLTATime, triggerSTATime,
                            multiprocess, calcHist, self.dtype, estimateMags,
-                           classifyEvents, eventCorFile, utcSaves, fillZeros)
+                           classifyEvents, eventCorFile, utcSaves, fillZeros,
+                           pick_times=self.pick_times)
             self.histSubSpaces = Det.hist
 
         if useSingles:  # run singletons
@@ -1932,7 +1938,7 @@ class SubSpace(object):
                            subspaceDB, trigCon, triggerLTATime, triggerSTATime,
                            multiprocess, calcHist, self.dtype, estimateMags,
                            classifyEvents, eventCorFile, utcSaves, fillZeros,
-                           issubspace=False)
+                           issubspace=False, pick_times=self.pick_times)
             self.histSingles = Det.hist
 
         # save addational info to sql database
