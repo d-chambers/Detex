@@ -1,3 +1,7 @@
+# Note
+I will be rewriting much of Detex in the coming months. More information to follow. 
+
+
 # Introduction
 
 Detex is a python package for performing waveform similarity clustering and [subspace detection](https://e-reports-ext.llnl.gov/pdf/335299.pdf) on seismic data. The main goal of such analyses is to determine if a group of seismic events are similar, meaning they have comparable source mechanisms and hypocenters, and to use such information to identify small, often difficult to detect, earthquakes.
