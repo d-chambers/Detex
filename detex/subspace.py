@@ -141,7 +141,7 @@ class ClusterStream(object):
                         if np.isnan(cc):  # second pass required
                             msg = ('%s - %s pair returning NaN' %
                                    (ev1, ev2))
-                            detex.log(__name__, msg, level='error', pri=True)
+                            detex.log(__name__, msg, level='warning', pri=True)
                             continue
                     if cc < minCC:
                         continue
@@ -418,7 +418,7 @@ class Cluster(object):
 
     # creates a basic dendrogram plot
     def dendro(self, hideEventLabels=True, show=True, saveName=False,
-               legend=True, return_axis=False, **kwargs):
+               legend=True, return_axis=False, color_list=None, **kwargs):
         """
         Function to plot dendrograms of the clusters
 
@@ -436,13 +436,23 @@ class Cluster(object):
             If true plot a legend on the side of the dendrogram
         return_axis : bool
             If True return axis for more plotting
+        color_list : None or list of matplotlib colors
+            Colors to plot dendrogram
         Note 
         ----------
         kwargs are passed to scipy.cluster.hierarchy.dendrogram, see docs
         for acceptable arguments and descriptions
         """
         # Get color schemes
-        color_list = self._makeColorDict(self.clustColors, self.nonClustColor)
+        if color_list is None:
+            clust_colors = self.clustColors
+        else:
+            clit = itertools.cycle(color_list)
+            clen = len(self.clustColors)
+            clust_colors = list(itertools.islice(clit, 0, clen))
+
+        color_list = self._makeColorDict(clust_colors, self.nonClustColor)
+
         for a in range(len(self.clusts)):
             plt.plot([], [], '-', color=self.clustColors[a])
         plt.plot([], [], '-', color=self.nonClustColor)
@@ -684,8 +694,9 @@ class Cluster(object):
                     mat[a, b] = self.DFcc.loc[li, gi]
                     mat[b, a] = self.DFcc.loc[li, gi]
 
-        cmap = mpl.colors.LinearSegmentedColormap.from_list(
-            'my_colormap', ['blue', 'red'], 256)
+        # cmap = mpl.colors.LinearSegmentedColormap.from_list(
+        #     'my_colormap', ['blue', 'red'], 256)
+        cmap = plt.cm.YlOrRd
         img = plt.imshow(
             mat,
             interpolation='nearest',

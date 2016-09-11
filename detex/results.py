@@ -614,7 +614,7 @@ class SSResults(object):
                         eventDir='EventWaveForms', updateTemKey=True,
                         temkeyPath=None, timeBeforeOrigin=1 * 60,
                         timeAfterOrigin=4 * 60, waveFormat="mseed",
-                        pick_times='PickTimes.csv',**kwargs):
+                        pick_times='PhasePicks.csv',**kwargs):
         """
         Function to make all of the eligable new detections templates. New 
         event directories will be added to eventDir and the template key 
@@ -669,45 +669,60 @@ class SSResults(object):
 
         temkey = self.TemplateKey.copy()
         detTem = pd.DataFrame(index=range(len(dets)), columns=temkey.columns)
-
-        for num, row in dets.iterrows():  # loop through detections and save
-            origin = self._predict_origin(row, pick_times)
-            origin = obspy.UTCDateTime(np.mean([row.MSTAMPmax, row.MSTAMPmin]))
+        num = 0
+        # iter through each detection and write to df
+        for ind, row in dets.iterrows():  # loop through detections and save
+            origin = obspy.UTCDateTime(row.Origin)
             Evename = row.Event
             eveDirName = 'd' + Evename
-
-            # if the directory doesnt exists create it
-            if not os.path.exists(os.path.join(eventDir, eveDirName)):
-                os.makedirs(os.path.join(eventDir, eveDirName))
-            else:  # else delete its index so it will be reindexed
-                index_path = os.path.join(eventDir, 'index.db')
-                if os.path.exists(index_path):
-                    os.remove(index_path)
-
-            # loop through each station and load stream, then save
-            for stanum, starow in self.StationKey.iterrows():
-                net, sta = starow.NETWORK, starow.STATION
-                start = origin - timeBeforeOrigin
-                stop = origin + timeAfterOrigin
-                ext = detex.getdata.formatKey[waveFormat]
-                fname = '.'.join([net, sta, Evename, ext])
-                path = os.path.join(eventDir, eveDirName, fname)
-                try:
-                    st = self.fetcher.getStream(start, stop, net, sta)
-                    st.write(path, waveFormat)
-                except Exception:
-                    msg = ('Could not write and save %s for station %s' % (
-                        Evename, sta))
-                    detex.log(__name__, msg, level='warning', pri=True)
-
+            self._save_waveform(Evename, eveDirName, eventDir,
+                                timeBeforeOrigin, timeAfterOrigin, origin,
+                                waveFormat)
             detTem.loc[num, 'NAME'] = eveDirName
             time = str(obspy.UTCDateTime(origin.timestamp))
             detTem.loc[num, 'TIME'] = time.replace(':', '-').replace('Z', '')
             detTem.loc[num, 'MAG'] = row.Mag
-
+            best_event = row.Dets.BestEvent.value_counts().index[0]
+            # add lat/lon/dep to best correlating event
+            tk = temkey[temkey.NAME == best_event].iloc[0]
+            assert len(tk) # set lat, lon, depth to that of best event
+            for attr in ['LAT', 'LON', 'DEPTH']:
+                detTem.loc[num, attr] = tk[attr]
+            num += 1
+        assert len(dets) == len(detTem)
         temkeyNew = pd.concat([temkey, detTem], ignore_index=True)
         temkeyNew.reset_index(inplace=True, drop=True)
+        temkeyNew['TIME'] = [str(obspy.UTCDateTime(x))
+                             for x in temkeyNew.TIME]
         temkeyNew.to_csv(temkeyPath, index=False)
+
+    def _save_waveform(self, Evename, eveDirName, eventDir,
+                       timeBeforeOrigin, timeAfterOrigin, origin,
+                       waveFormat):
+        """ save the waveforms of the detected event """
+        # if the directory doesnt exists create it
+        if not os.path.exists(os.path.join(eventDir, eveDirName)):
+            os.makedirs(os.path.join(eventDir, eveDirName))
+        else:  # else delete its index so it will be reindexed
+            index_path = os.path.join(eventDir, 'index.db')
+            if os.path.exists(index_path):
+                os.remove(index_path)
+
+        # loop through each station and load stream, then save
+        for stanum, starow in self.StationKey.iterrows():
+            net, sta = starow.NETWORK, starow.STATION
+            start = origin - timeBeforeOrigin
+            stop = origin + timeAfterOrigin
+            ext = detex.getdata.formatKey[waveFormat]
+            fname = '.'.join([net, sta, Evename, ext])
+            path = os.path.join(eventDir, eveDirName, fname)
+            try:
+                st = self.fetcher.getStream(start, stop, net, sta)
+                st.write(path, waveFormat)
+            except Exception:
+                msg = ('Could not write and save %s for station %s' % (
+                    Evename, sta))
+                detex.log(__name__, msg, level='warning', pri=True)
 
     def visualize(self, fetcher_arg='ContinuousWaveForms',
                   detype='dets', time_before=10, time_after=60):

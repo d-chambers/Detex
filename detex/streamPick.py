@@ -86,7 +86,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         # Init stations
         self._initStations()  # defines list self._stations
         self._stationCycle = cycle(self._stations)
-        self._streamStation(self._stationCycle.next())
+        self._streamStation(next(self._stationCycle))
         # Init PyQt4.QtGui
         PyQt4.QtGui.QMainWindow.__init__(self)
         self.setupUI()
@@ -592,7 +592,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         '''
         Plot next station
         '''
-        self._streamStation(self._stationCycle.next())
+        self._streamStation(next(self._stationCycle))
         self._drawFig()
 
     def _pltNextStream(self):
@@ -603,7 +603,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         '''
 
         self.KeepGoing = True
-        pickle.dump(self.bpfilter, open('.pick_filters', 'w'))
+        pickle.dump(self.bpfilter, open('.pick_filters', 'wb'))
         # self.closeEvent()
         self.deleteLater()
 
@@ -612,7 +612,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         Plot previous station
         '''
         for _i in range(len(self._stations) - 1):
-            prevStation = self._stationCycle.next()
+            prevStation = next(self._stationCycle)
         self._streamStation(prevStation)
         self._drawFig()
 
@@ -621,7 +621,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
         Plot station from DropDown Menu
         '''
         _i = self.stcb.currentIndex()
-        while self._stationCycle.next() != self._stations[_i]:
+        while next(self._stationCycle) != self._stations[_i]:
             pass
         self._streamStation(self._stations[_i])
         self._drawFig()

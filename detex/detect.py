@@ -525,13 +525,14 @@ class _SSDetex(object):
                 projectedEnergyMags = np.NaN
                 stdMags = np.NaN
             else:
-                assert len(pts) == 1
+                assert len(pt) == 1
                 # use simple waveform scaling if single
                 d1 = np.dot(ConDat, WFU[0])
                 d2 = np.dot(WFU[0], WFU[0])
                 projectedEnergyMags = mags[0] + d1 / d2
                 stdMags = mags[0] + np.log10(np.std(ConDat) / np.std(WFU[0]))
-                ori = times - pts.offset.iloc[0]
+                ori = times - pt.offset.iloc[0]
+                be = events[0]
         return projectedEnergyMags, stdMags, ori, SNR, be
 
     def _estimate_origin(self, df_t):
