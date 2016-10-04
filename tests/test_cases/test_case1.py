@@ -66,7 +66,7 @@ detection_params = {'utcStart':None, 'utcEnd':None, 'subspaceDB':subspace_databa
 results_params = {'ss_associateBuffer':1, 'sg_associateBuffer':2.5, 
                   'requiredNumStations':2, 'veriBuffer':60*10, 'ssDB':subspace_database,
                   'reduceDets':True, 'Pf':False, 'stations':None, 'starttime':None,
-                  'endtime':None, 'fetch':'ContinuousWaveForms'}
+                  'endtime':None, 'fetch':'ContinuousWaveForms', 'associateReq':1}
 # params for write detections
 write_detections_params = {'onlyVerified':False, 'minDS':False, 'minMag':False, 
                            'updateTemKey':False, 'timeBeforeOrigin':1*60, 
@@ -419,13 +419,13 @@ class TestDetections():
 
 # load results
 @pytest.fixture(scope='module')
-def results(case_paths, run_detections):
+def results(case_paths):  # , run_detections):
     res = detex.results.detResults(veriFile=case_paths.verify, **results_params)
     return res
 
-# load results
+# get verifile
 @pytest.fixture(scope='module')
-def verifile(case_paths):#, run_detections):
+def verifile(case_paths, run_detections):
     df = pd.read_csv(case_paths.verify)
     return df
     

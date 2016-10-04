@@ -91,73 +91,79 @@ class ClusterStream(object):
                    'enforced on each waveform. re-run detex.subspace.'
                    'createCluster with enforceOrigin=True')
             detex.log(__name__, msg, level='error')
-        fil = open(fileName, 'wb')
+        with open(fileName, 'w') as fil:
         # required number of zeros for numbering all events
-        reqZeros = int(np.ceil(np.log10(len(self.temkey))))
-        for num1, everow1 in self.temkey.iterrows():
-            for num2, everow2 in self.temkey.iterrows():
-                if num1 >= num2:  # if autocors or redundant pair then skip
-                    continue
-                ev1, ev2 = everow1.NAME, everow2.NAME
-                header = self._makeHeader(num1, num2, reqZeros)
-                count = 0
-                for sta in self.stalist:  # iter through each station
-                    Clu = self[sta]
-                    try:
-                        # find station specific index for event1
-                        ind1 = np.where(np.array(Clu.key) == ev1)[0][0]
-                        ind2 = np.where(np.array(Clu.key) == ev2)[0][0]
-                    except IndexError:  # if either event is not in index
-                        msg = ('%s or %s not found on station %s' %
-                               (ev1, ev2, sta))
-                        detex.log(__name__, msg, level='warning', pri=True)
+            reqZeros = int(np.ceil(np.log10(len(self.temkey))))
+            for num1, everow1 in self.temkey.iterrows():
+                for num2, everow2 in self.temkey.iterrows():
+                    if num1 >= num2:  # if autocors or redundant pair then skip
                         continue
-                    # get data specific to this station
-                    trdf = self.trdf[self.trdf.Station == sta].iloc[0]
-                    sr1 = trdf.Stats[ev1]['sampling_rate']
-                    sr2 = trdf.Stats[ev2]['sampling_rate']
-                    if sr1 != sr2:
-                        msg = 'Samp. rates not equal on %s and %s' % (ev1, ev2)
-                        detex.log(__name__, msg, level='error')
-                    else:
-                        sr = sr1
-                    Nc1, Nc2 = trdf.Stats[ev1]['Nc'], trdf.Stats[ev2]['Nc']
-                    if Nc1 != Nc2:
-                        msg = ('Num. of channels not equal for %s and %s on %s'
-                               % (ev1, ev2))
-                        detex.log(__name__, msg, level='warning', pri=True)
-                        continue
-                    else:
-                        Nc = Nc1
-                    cc = trdf.CCs[ind2][ind1]  # get cc value
-                    if np.isnan(cc):  # get other part of symetric matrix
+                    ev1, ev2 = everow1.NAME, everow2.NAME
+                    header = self._makeHeader(num1, num2, reqZeros)
+                    count = 0
+                    for sta in self.stalist:  # iter through each station
+                        Clu = self[sta]
                         try:
-                            cc = trdf.CCs[ind1][ind2]
+                            # find station specific index for event1
+                            ind1 = np.where(np.array(Clu.key) == ev1)[0][0]
+                            ind2 = np.where(np.array(Clu.key) == ev2)[0][0]
+                        except IndexError:  # if either event is not in index
+                            msg = ('%s or %s not found on station %s' %
+                                   (ev1, ev2, sta))
+                            detex.log(__name__, msg, level='warning', pri=True)
+                            continue
+                        # get data specific to this station
+                        trdf = self.trdf[self.trdf.Station == sta].iloc[0]
+                        sr1 = trdf.Stats[ev1]['sampling_rate']
+                        sr2 = trdf.Stats[ev2]['sampling_rate']
+                        if sr1 != sr2:
+                            msg = 'Samp. rates not equal on %s and %s' % (ev1, ev2)
+                            detex.log(__name__, msg, level='error')
+                        else:
+                            sr = sr1
+                        Nc1, Nc2 = trdf.Stats[ev1]['Nc'], trdf.Stats[ev2]['Nc']
+                        if Nc1 != Nc2:
+                            msg = ('Num. of channels not equal for %s and %s on %s'
+                                   % (ev1, ev2))
+                            detex.log(__name__, msg, level='warning', pri=True)
+                            continue
+                        else:
+                            Nc = Nc1
+                        try:
+                            cc = trdf.CCs[ind2][ind1]  # get cc value
                         except KeyError:
-                            msg = ('%s - %s pair not in CCs matrix' %
-                                   (ev1, ev2))
-                            detex.log(__name__, msg, level='warning', pri=True)
+                            cc = trdf.CCs[ind1][ind2]
+                        if np.isnan(cc):  # get other part of symetric matrix
+                            try:
+                                cc = trdf.CCs[ind1][ind2]
+                            except KeyError:
+                                msg = ('%s - %s pair not in CCs matrix' %
+                                       (ev1, ev2))
+                                detex.log(__name__, msg, level='warning', pri=True)
+                                continue
+                            if np.isnan(cc):  # second pass required
+                                msg = ('%s - %s pair returning NaN' %
+                                       (ev1, ev2))
+                                detex.log(__name__, msg, level='warning', pri=True)
+                                continue
+                        if cc < minCC:
                             continue
-                        if np.isnan(cc):  # second pass required
-                            msg = ('%s - %s pair returning NaN' %
-                                   (ev1, ev2))
-                            detex.log(__name__, msg, level='warning', pri=True)
-                            continue
-                    if cc < minCC:
-                        continue
-                    lagsamps = trdf.Lags[ind2][ind1]
-                    subsamps = trdf.Subsamp[ind2][ind1]
-                    if np.isnan(lagsamps):  # if lag from other end of mat
-                        lagsamps = -trdf.Lags[ind1][ind2]
-                        subsamps = trdf.Subsamp[ind1][ind2]
-                    lags = lagsamps / (sr * Nc) + subsamps
-                    obsline = self._makeObsLine(sta, lags, cc ** coef)
-                    if isinstance(obsline, string_types):
-                        count += 1
-                        if count == 1:
-                            fil.write(header + '\n')
-                        fil.write(obsline + '\n')
-        fil.close()
+                        try:
+                            lagsamps = trdf.Lags[ind2][ind1]
+                            subsamps = trdf.Subsamp[ind2][ind1]
+                        except KeyError:
+                            lagsamps = trdf.Lags[ind1][ind2]
+                            subsamps = trdf.Subsamp[ind1][ind2]
+                        if np.isnan(lagsamps):  # if lag from other end of mat
+                            lagsamps = -trdf.Lags[ind1][ind2]
+                            subsamps = trdf.Subsamp[ind1][ind2]
+                        lags = lagsamps / (sr * Nc) + subsamps
+                        obsline = self._makeObsLine(sta, lags, cc ** coef)
+                        if isinstance(obsline, string_types):
+                            count += 1
+                            if count == 1:
+                                fil.write(header + '\n')
+                            fil.write(obsline + '\n')
 
     def _makeObsLine(self, sta, dt, cc, pha='S'):
         line = '%s %0.4f %0.4f %s' % (sta, dt, cc, pha)
@@ -1006,8 +1012,7 @@ class SubSpace(object):
         """
         fracDict = {}
         keys = row.Events
-        svales = svdDict.keys()
-        svales.sort(reverse=True)
+        svales = sorted(list(svdDict.keys()), reverse=True)
         stkeys = row.SampleTrims.keys()  # dict defining sample trims
         for key in keys:
             aliTD = row.AlignedTD[key]  # aligned waveform for event key
@@ -1035,8 +1040,7 @@ class SubSpace(object):
         """
         function to populate  the keys of the selected SVD basis vectors
         """
-        keys = svdDict.keys()
-        keys.sort(reverse=True)
+        keys = sorted(list(svdDict.keys()), reverse=True)
         if selectCriteria in [1, 2, 3]:
             # make sure last element is exactly 1
             cumFracEnergy['Average'][-1] = 1.00
@@ -1048,7 +1052,7 @@ class SubSpace(object):
 
     def _setThresholds(self, selectCriteria, selectValue, conDatNum,
                        threshold, basisLength, backupThreshold, kwargs={}):
-        if threshold > 0:
+        if threshold is not None and threshold > 0:
             for station in self.ssStations:
                 subspa = self.subspaces[station]
                 for ind, row in subspa.iterrows():

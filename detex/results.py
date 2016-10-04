@@ -17,7 +17,8 @@ import scipy
 import detex
 import PyQt4
 import sys
-import pdb
+
+from collections import Counter
 
 def detResults(trigCon=0, trigParameter=0, associateReq=0,
                ss_associateBuffer=1, sg_associateBuffer=2.5,
@@ -52,8 +53,9 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
         For example, subspace 0 (SS0) on station 1 was created using events 
         A,B,C. subspace 0 (SS0) on station 2 was created using events C, D. 
         If both subspace share a detection and associateReq=0 or 1 the 
-        detections will be associated into a coherent event. If assiciateReq 
-        == 2, however, the detections will not be associated.
+        detections will be associated into a coherent event. If associateReq
+        == 2, however, the detections will not be associated. If
+        assocaiteReq > 1 singles will not be used.
     ss_associateBuffer : real number (int or float)
         The buffertime applied to subspace event assocaition in seconds
     sg_associateBuffer : real number (int or float)
@@ -113,25 +115,24 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
     _checkExistence([ssDB, templateKey, stationKey])
     _checkInputs(trigCon, trigParameter, associateReq,
                  ss_associateBuffer, requiredNumStations)
-    if associateReq != 0:
-        msg = 'associateReq values other than 0 not yet supported'
-        raise detex.log(__name__, msg, level='error')
+    if associateReq > 0 and reduceDets:
+        msg = 'when a non-zero associateReq is used reduceDets must be False'
+        detex.log(__name__, msg, 'warn')
+        reduceDets = False
+    # if associateReq != 0:
+    #     msg = 'associateReq values other than 0 not yet supported'
+    #     raise detex.log(__name__, msg, level='error')
 
     # Try to read in all input files and dataframes needed
     temkey = detex.util.readKey(templateKey, 'template')  # load template key
     stakey = detex.util.readKey(stationKey, 'station')  # load station key
-
-    ss_info, sg_info = _loadInfoDataFrames(ssDB)  # load info DataFrames
+    info = _loadInfoDataFrames(ssDB)  # load info DataFrames
     fetcher = detex.getdata.quickFetch(fetch)
-
     # load histograms #TODO: Create visualization methods for hists
     # ss_hist = detex.util.loadSQLite(ssDB, 'ss_hist')
     # sg_hist = detex.util.loadSQLite(ssDB, 'sg_hist')
-
     filt = detex.util.loadSQLite(ssDB, 'filt_params')  # load filter Parameters
-
-    ss_PfKey, sg_PfKey = _makePfKey(ss_info, sg_info, Pf)
-
+    ss_PfKey, sg_PfKey = _makePfKey(info, Pf)
     # Parse each station results and delete detections that occur on multiple
     # subpspace, keeping only the subspace with highest detection stat
     if reduceDets:
@@ -157,25 +158,28 @@ def detResults(trigCon=0, trigParameter=0, associateReq=0,
 
     # Associate detections on different stations together
     Dets, Autos = _associateDetections(df, associateReq, requiredNumStations,
-                                       ss_associateBuffer, ss_info, temkey,
+                                       ss_associateBuffer, info, temkey,
                                        exceptionalThreshold)
 
     # Make a dataframe of verified detections if applicable
     Vers = _verifyEvents(Dets, Autos, veriFile, veriBuffer,
                          includeAllVeriColumns)
 
-    ssres = SSResults(Dets, Autos, Vers, ss_info, filt, temkey,
+    ssres = SSResults(Dets, Autos, Vers, info, filt, temkey,
                       stakey, templateKey, fetcher)
     return ssres
 
 
-def _makePfKey(ss_info, sg_info, Pf):
+def _makePfKey(info, Pf):
     """
     Make simple df for defining DS values corresponing to Pf for each 
     subspace station pair
     """
     if not Pf:  # if no Pf value passed simply return none
         return None, None
+
+    ss_info = info[info.NumEvents > 1]
+    sg_info = info[info.NumEvents == 1]
 
     ss_df = pd.DataFrame(columns=['Sta', 'Name', 'DS', 'betadist'])
     sg_df = pd.DataFrame(columns=['Sta', 'Name', 'DS', 'betadist'])
@@ -396,67 +400,60 @@ def _deleteDetDups(ssDB, trigCon, trigParameter, associateBuffer, starttime,
     ssdf.sort_values(by=['Gnum', 'DS'], inplace=True)
     ssdf.drop_duplicates(subset='Gnum', keep='last', inplace=True)
     ssdf.reset_index(inplace=True, drop=True)
-
     return ssdf
 
 
 def _associateDetections(ssdf, associateReq, requiredNumStations,
-                         associateBuffer, ss_info, temkey, exceptionalThreshold):
+                         associateBuffer, info, temkey, exceptionalThreshold):
     """
     Associate detections together using pandas groupby return dataframe of 
-    detections and autocorrelations
+    detections and auto correlations
     """
+    # add info columns for doing associateReq computations
+    if isinstance(info, pd.DataFrame) and associateReq > 0:
+        ssdf = pd.merge(ssdf, info, how='inner', on=['Sta', 'Name'])
+    # sort by timestamps
     ssdf.sort_values(by='MSTAMPmin', inplace=True)
     ssdf.reset_index(drop=True, inplace=True)
-    cols = ['Event', 'DSav', 'DSmax', 'NumStations', 'DS_STALTA', 'MSTAMPmin',
-            'MSTAMPmax', 'Mag', 'ProEnMag', 'Verified', 'Dets', 'Origin']
-    if isinstance(ss_info, pd.DataFrame) and associateReq > 0:
-        ssdf = pd.merge(ssdf, ss_info, how='inner', on=['Sta', 'Name'])
+    # group by offsets (these are potential detections)
     gs = (ssdf.MSTAMPmin - associateBuffer > ssdf.MSTAMPmax.shift()).cumsum()
     groups = ssdf.groupby(gs)
+    # create new dfs
+    cols = ['Event', 'DSav', 'DSmax', 'NumStations', 'DS_STALTA', 'MSTAMPmin',
+            'MSTAMPmax', 'Mag', 'ProEnMag', 'Verified', 'Dets', 'Origin']
     autolist = [pd.DataFrame(columns=cols)]
     detlist = [pd.DataFrame(columns=cols)]
     temkey['STMP'] = np.array([obspy.core.UTCDateTime(x).timestamp
                                for x in temkey.TIME])
     temcop = temkey.copy()
+    # iterate groups
+    for num, g in groups:
+        # Make sure detections occur on the required number of stations
+        g = _checkSharedEvents(g, associateReq)
+        if not len(g):
+            continue
 
-    # if there is a required number of shared events
-    if isinstance(ss_info, pd.DataFrame) and associateReq > 0:
-        for num, g in groups:
-            g = _checkSharedEvents(g)
-            # Make sure detections occur on the required number of stations
-            if len(set(g.Sta)) >= requiredNumStations:
-                isauto, autoDF = _createAutoTable(g, temcop, cols)
-                if isauto:
-                    autolist.append(autoDF)
-                else:
-                    detdf = _createDetTable(g, cols)
-                    detlist.append(detdf)
-    else:
-        for num, g in groups:
-            # Make sure detections occur on the required number of stations
-            con1 = len(set(g.Sta)) >= requiredNumStations
-            if not con1 and isinstance(exceptionalThreshold, float):
-                con2 = g.DS.max() >= exceptionalThreshold
-                con1 = con1 or con2
-            elif not con1 and isinstance(exceptionalThreshold, dict):
-                con2 = _check_if_exceptional(g, exceptionalThreshold)
-                con1 = con1 or con2
-            if con1:
-                # If there is more than one single or subpspace representing a
-                # station on each event only keep the one with highest DS
-                if len(set(g.Sta)) < len(g.Sta):
-                    g = g.sort_values(by='DS').drop_duplicates(
-                        subset='Sta', keep='last').sort_values('MSTAMPmin')
-                isauto, autoDF = _createAutoTable(g, temcop, cols, associateBuffer)
-                if isauto:
-                    autolist.append(autoDF)
-                    # temcop=temcop[temcop.NAME!=autoDF.iloc[0].Event]
-                else:
-                    detdf = _createDetTable(g, cols)
-                    detlist.append(detdf)
+        con1 = len(set(g.Sta)) >= requiredNumStations
+        if not con1 and isinstance(exceptionalThreshold, float):
+            con2 = g.DS.max() >= exceptionalThreshold
+            con1 = con1 or con2
+        elif not con1 and isinstance(exceptionalThreshold, dict):
+            con2 = _check_if_exceptional(g, exceptionalThreshold)
+            con1 = con1 or con2
+        if con1:
+            # If there is more than one single or subpspace representing a
+            # station on each event only keep the one with highest DS
+            if len(set(g.Sta)) < len(g.Sta):
+                g = g.sort_values(by='DS').drop_duplicates(
+                    subset='Sta', keep='last').sort_values('MSTAMPmin')
+            isauto, autoDF = _createAutoTable(g, temcop, cols, associateBuffer)
+            if isauto:
+                autolist.append(autoDF)
+                # temcop=temcop[temcop.NAME!=autoDF.iloc[0].Event]
+            else:
+                detdf = _createDetTable(g, cols)
+                detlist.append(detdf)
     detTable = pd.concat(detlist, ignore_index=True)
-
     autoTable = pd.concat(autolist, ignore_index=True)
     return [detTable, autoTable]
 
@@ -470,7 +467,34 @@ def _check_if_exceptional(g, exth):
 
 # Look at the union of the events and delete those that do not meet the
 # requirements
-def _checkSharedEvents(g):
+def _checkSharedEvents(g, associateReq):
+    """
+    makes ure templates or subspace share the required number of events
+    """
+    # bail out if no association req or less than 0 is given
+    if associateReq is None or associateReq <= 0:
+        return g
+
+    # init a counter object
+    counter = Counter()
+    # count the event occurrences in the dataframe
+    for gval in g.Events.values:
+        counter.update(gval.split(','))
+    # get a set of events that meet or exceed the requirement
+    ser = pd.Series(counter).sort_values()
+    ser_keep = ser[ser//len(g) == 1]
+    # keep_events = {key for key, val in counter.items()
+    #                if val//len(g) == 1}
+    # if the required number of events are shared or not possible return
+    if len(ser_keep) >= associateReq:
+        return g
+    # else drop a row in g and recurse
+    g = g[[ser.argmax() in x.split(',') for x in g.Events.values]]
+    return _checkSharedEvents(g, associateReq)
+    # else try to pop out bad players and recurse
+
+
+
     pass  # TODO figure out how to incorporate an association requirement
 
 
@@ -575,6 +599,7 @@ def _checkInputs(trigCon, trigParameter, associateReq,
         detex.log(__name__, msg, level='error')
 
 
+
 def _checkExistence(existList):
     for fil in existList:
         if not os.path.exists(fil):
@@ -589,7 +614,9 @@ def _loadInfoDataFrames(ssDB):
     sg_info = detex.util.loadSQLite(ssDB, 'sg_info')
     if isinstance(sg_info, pd.DataFrame):
         sg_info['NumEvents'] = 1
-    return ss_info, sg_info
+    # concat infos together
+    info = pd.concat([ss_info, sg_info])
+    return info
 
 
 
@@ -817,7 +844,6 @@ class SSResults(object):
         Predict the pick times based on the best correlated event
         on each station
         """
-        pdb.set_trace()
         pass
 
 

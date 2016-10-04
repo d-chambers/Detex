@@ -140,12 +140,12 @@ def _loadMPSingles(row, conLen):
     """
     function to load trimed waveforms of singles
     """
-    Nc = row.Stats.values()[0]['Nc']  # num of channels
+    Nc = list(row.Stats.values())[0]['Nc']  # num of channels
     sts = row.SampleTrims['Starttime']
     ste = row.SampleTrims['Endtime']
     ssArrayTDp = np.array([row.MPtd[x][sts:ste] for x in row.MPtd.keys()])
     ssArrayTD = np.array([x / np.linalg.norm(x) for x in ssArrayTDp])  # normalize
-    sr = conLen * row.Stats.values()[0]['sampling_rate']  # samp rate
+    sr = conLen * list(row.Stats.values())[0]['sampling_rate']  # samp rate
     rele = int(sr * Nc + np.max(np.shape(ssArrayTD)))
     releb = 2 ** rele.bit_length()
     ssArrayFD = np.array([fft(x[::-1], n=releb) for x in ssArrayTD])
@@ -161,12 +161,14 @@ def _loadMPSubSpace(row, conLen):
             msg = ('SVD not defined, run SVD on subspace stream class before '
                    'calling false alarm statistic class')
             detex.log(__name__, msg, level='error')
-        if not all(x == row.Channels.values()[0] for x in row.Channels.values()):
+        # check that all stations report the same channels
+        if not all(x == list(row.Channels.values())[0]
+                   for x in row.Channels.values()):
             msg = 'all stations in subspace do not have the same channels'
             detex.log(__name__, msg, level='error')
-        Nc = len(row.Channels.values()[0])  # num of channels
+        Nc = len(list(row.Channels.values())[0])  # num of channels
         ssArrayTD = np.array([row.SVD[x] for x in row.UsedSVDKeys])
-        sr = row.Stats.values()[0]['sampling_rate']  # samp rate
+        sr = list(row.Stats.values())[0]['sampling_rate']  # samp rate
         rele = int(conLen * sr * Nc + np.max(np.shape(ssArrayTD)))
         releb = 2 ** rele.bit_length()
         # Get freq domain rep. with required length

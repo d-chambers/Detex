@@ -530,7 +530,7 @@ def _makeSingleEventDict(cl, TRDF, temkey):
     cols = [x for x in TRDF.columns if not x in ['Clust', 'Link', 'Lags', 'CCs']]
     for num, row in TRDF.iterrows():
         singleslist = [0] * len(cl[row.Station].singles)  # init list
-        DF = pd.DataFrame(index=xrange(len(singleslist)), columns=cols)
+        DF = pd.DataFrame(index=range(len(singleslist)), columns=cols)
         if len(singleslist) < 1:  # if no singles on this channel
             break
         DF['Name'] = str
@@ -919,8 +919,7 @@ def _loadStream(fetcher, filt, trim, decimate, station, dtype,
                '%s Check input parameters, especially trim' % station)
         detex.log(__name__, msg, level='warning', pri=True)
         return None, None, None, None
-    evlist = StreamDict.keys()
-    evlist.sort()
+    evlist = sorted(list(StreamDict.keys()))
     # if 'IMU' in station:
     return StreamDict, evlist, channelDict, stats
 

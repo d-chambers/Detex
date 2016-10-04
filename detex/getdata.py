@@ -892,7 +892,7 @@ def _divideIntoChunks(utc1, utc2, duration, randSamps):
                 randSamps, len(utcList)))
             detex.log(__name__, msg, level='info')
             randSamps = len(utcList)
-        ranutc = random.sample(utcList, randSamps)
+        ranutc = np.random.choice(utcList, randSamps)
         rsamps = [obspy.UTCDateTime(x) for x in ranutc]
         for samp in rsamps:
             yield samp

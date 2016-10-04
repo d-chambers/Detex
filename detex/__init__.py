@@ -65,7 +65,11 @@ def setLogger(fileName='detex_log.log', deleteOld=False):
     deleteOld : bool
         If True, delete any file of fileName if exists
     """
-    reload(logging)  # reload to reconfigure default ipython log
+    try: # try to reload logger, handle python 2 and 3 cases
+        reload(logging)  # reload to reconfigure default ipython log
+    except NameError:  # python 3 is platform
+        import importlib
+        importlib.reload(logging)
     # set makeLog to True
     global makeLog
     makeLog = True
