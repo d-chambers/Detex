@@ -1,5 +1,7 @@
 # Note
-I will be rewriting much of Detex in the coming months. More information to follow. 
+I will be rewriting much of Detex in the coming months. More information to follow.
+
+Update: I am still working Detex, but the focus of the project will probably change bit. I recommend checking out [EQcorrscan](https://github.com/eqcorrscan/eqcorrscan) for your match filter/detection needs.
 
 
 # Introduction
