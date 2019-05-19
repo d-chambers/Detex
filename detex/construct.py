@@ -226,7 +226,7 @@ def createSubSpace(Pf=10 ** -12, clust='clust.pkl', minEvents=2, dtype='double',
     """
     # Read in cluster instance
     if isinstance(clust, string_types):  # if no cluster object passed read a pickled one
-        cl = detex.subspace.loadClusters(clust)
+        cl = detex.util.loadClusters(clust)
     elif isinstance(clust, detex.subspace.ClusterStream):
         cl = clust
     else:
