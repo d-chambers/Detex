@@ -38,7 +38,7 @@ logging.basicConfig()
 # __all__ = [os.path.basename(f)[:-3] for f in modules if os.path.isfile(f)]
 # warnings.filterwarnings('error') #uncomment this to make all warnings errors
 
-# Imports for lazy people (ie make detex.createCluster callable) 
+# Imports for lazy people (ie make detex.createCluster callable)
 from detex.construct import createCluster, createSubSpace
 from detex.util import loadClusters, loadSubSpace
 
@@ -57,7 +57,7 @@ makeLog = False  # set to false to not make log file
 def setLogger(fileName='detex_log.log', deleteOld=False):
     """
     Function to set up the logger used across Detex
-    
+
     Parameters
     ----------
     fileName : str
@@ -99,7 +99,7 @@ def log(name, msg, level='info', pri=False, close=False, e=None):
     ----------
     name : the __name__ statement
         should always be set to __name__ from the log call. This will enable
-        inspect to trace back to where the call initially came from and 
+        inspect to trace back to where the call initially came from and
         record it in the log
     msg : str
         A message to log
@@ -110,7 +110,7 @@ def log(name, msg, level='info', pri=False, close=False, e=None):
     close : bool
         If true close the logger so the log file can be opened
     e : Exception class or None
-        If level == "error" and Exception is raised, e is the type of 
+        If level == "error" and Exception is raised, e is the type of
         exception
     """
 
@@ -151,12 +151,6 @@ def closeLogger():
     for handler in handlers:
         handler.close()
         logger.removeHandler(handler)
-
-
-def deb(*varlist):
-    global de
-    de = varlist
-    sys.exit(1)
 
 
 if makeLog:

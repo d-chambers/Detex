@@ -7,7 +7,7 @@ import os
 import pickle
 
 import PyQt4
-# from PyQt4 import QtGui, QtCore
+from PyQt4 import QtGui, QtCore
 from obspy.core import event, UTCDateTime
 from itertools import cycle
 import sys
@@ -598,7 +598,7 @@ class streamPick(PyQt4.QtGui.QMainWindow):
     def _pltNextStream(self):
         '''
         Plot next Stream, used primarily in Detex loops when
-        streamPick is called to know to exit loop or go 
+        streamPick is called to know to exit loop or go
         to next stream
         '''
 

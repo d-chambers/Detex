@@ -12,6 +12,11 @@ clust.pkl
 subspace.pkl
 SubSpace.db
 
+# ignore data directories
+docs/**/.msd
+docs/**/EventWaveForms
+docs/**/ContinuousWaveForms
+
 # linux/osx garbage
 *~
 *.swp

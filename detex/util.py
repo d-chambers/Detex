@@ -47,7 +47,7 @@ def writeKMLFromTemplateKey(df='TemplateKey.csv', outname='templates.kml'):
     Parameters
     -------------
     DF : str or pandas Dataframe
-        If str then the path to the template key csv. If dataframe then 
+        If str then the path to the template key csv. If dataframe then
         template key loaded with readKey function with key_type='template'
     outname : str
         path of the kml file
@@ -148,7 +148,7 @@ def writeKMLfromHYPInput(hypin='test.pha', outname='hypoInInv.kml'):
 
 def writeKMLFromHypDD(hypreloc='hypoDD.reloc', outname='hypo.kml'):
     """
-    Uses simplekml to create a KML file (used by Google Earth, 
+    Uses simplekml to create a KML file (used by Google Earth,
     Google Maps, etc) of the results from hypoDD
     """
     points = np.array(np.genfromtxt(hypreloc))
@@ -162,7 +162,7 @@ def writeKMLFromHypDD(hypreloc='hypoDD.reloc', outname='hypo.kml'):
 
 def writeKMLFromEQSearchSum(eqsum='eqsrchsum', outname='eqsearch.kml'):
     """
-    Write a KML from the eqsearch sum file (produced by the University 
+    Write a KML from the eqsearch sum file (produced by the University
     of Utah seismograph stations code EQsearch)
 
     Parameters
@@ -171,7 +171,7 @@ def writeKMLFromEQSearchSum(eqsum='eqsrchsum', outname='eqsearch.kml'):
         eqsearch sum. file
     outname : str
         name of the kml file
-    Notes 
+    Notes
     -------------
     Code assimes any year code above 50 belongs to 1900, and any year code
     less than 50 belongs to 2000 (since eqsrchsum is not y2k compliant)
@@ -263,14 +263,14 @@ def writeHypoDDEventInput(temkey, fileName='event.dat'):
 ############## Hypoinverse Functions ################
 def makeHypoInversePhaseFile(phases, evekey, outname, fix=0, usePhases=['P'],
                              fixFirstStation=False):
-    """ 
+    """
     Write a hypoinverse phase file used by hypoinverse, format defined
     on page 113 of the manual for version 1.39, using the phase file created
-    by detex.util.pickPhases. Format for this file is free csv with the 
+    by detex.util.pickPhases. Format for this file is free csv with the
     following fields: TimeStamp (epoch time in seconds), Station (net.sta),
-    Event (unique event id, usually datestring, must be the same in 
+    Event (unique event id, usually datestring, must be the same in
     templatekey), Phase (phase identifier, generally only P or S)
-    
+
     Parameters
     ---------
     phases : pandas dataframe or path to csv
@@ -280,18 +280,18 @@ def makeHypoInversePhaseFile(phases, evekey, outname, fix=0, usePhases=['P'],
     outname : str
         File name (path) to write
     fix : int
-        if fix==0 nothing is fixed, fix==1 depths are fixed, fix==2 
+        if fix==0 nothing is fixed, fix==1 depths are fixed, fix==2
         hypocenters fixed, fix==3 hypocenters and origin time fixed
     usePhases : list
         List of phases to use, all other phases will be skipped
     fixFirstStation : bool
         If True do not set any lat, lon, or depth on each terminator
-        line. HypoInverse will then use the first hit station as the 
+        line. HypoInverse will then use the first hit station as the
         starting location with some reasonable depth (a few kilometers)
-    
+
     Note
     --------
-    Assumes the channel to be ZENZ for writing file. 
+    Assumes the channel to be ZENZ for writing file.
     """
     phases = readKey(phases, key_type='phases')
     evekey = readKey(evekey, key_type='template')
@@ -374,9 +374,9 @@ def _makeHypTermLine(pha, everow, fix, fixFirstStation):
 
 def makeHypoInverseStationFile(stationKey, outname):
     """
-    Make a hypoinverse station file as defined in station data format #2, 
+    Make a hypoinverse station file as defined in station data format #2,
     p. 30 of hyp1.41 user's manual
-    
+
     Parameters
     ------------
     stationKey : str or DataFrame
@@ -418,7 +418,7 @@ def readHypo2000Sum(sumfile):
     --------------
     sumfile : str
         Path to the summary file to read
-        
+
     Read a sum file from hyp2000 and return lat, long, depth, mag, and RMS and
     TSTMP as pd dataframe
     WARNING : Assumes western hemisphere
@@ -455,14 +455,14 @@ def readHypo2000Sum(sumfile):
 
 def readHypo71Sum(sumfile):
     """
-    Read a summary file from hypoinverse in the y2k compliant hypo71 
+    Read a summary file from hypoinverse in the y2k compliant hypo71
     format
-    
+
     Parameters
     ----------
     sumfile : str
         Path the the sum file
-        
+
     Returns
     -----------
     DataFrame populated with sumfile info
@@ -491,7 +491,7 @@ def readHypo71Sum(sumfile):
 ########## NonLinLoc Functions ##############
 
 def writePhaseNLL(phases, evekey, NLLoc_dir, useP=True, useS=True):
-    """ 
+    """
     Write a y2k complient phase file used by hypoinverse 2000, format defined
     on page 113 of the manual for version 1.39
     Parameters
@@ -630,7 +630,7 @@ def readKey(dfkey, key_type='template'):
 def inventory2StationKey(inv, starttime, endtime, fileName=None):
     """
     Function to create a station key from an obspy station inventory
-    
+
     Parameters
     ----------
     inv : an obspy.core.inventory.Inventory instance
@@ -641,7 +641,7 @@ def inventory2StationKey(inv, starttime, endtime, fileName=None):
     endtime : obspy.UTCDateTime instance
         The end time to be written to the station key
     fileName : None or str
-        If str then path to file to save (as csv), default name is 
+        If str then path to file to save (as csv), default name is
         StationKey.csv
     Returns
     -------
@@ -698,16 +698,16 @@ def inventory2StationKey(inv, starttime, endtime, fileName=None):
 
 def templateKey2Catalog(temkey='TemplateKey.csv', picks=None):
     """
-    Function to convert a templatekey and optionally a phase picks file to 
+    Function to convert a templatekey and optionally a phase picks file to
     an obspy catalog instance
-    
+
     Parameters
     -----------
     temeky : str, pd.DataFrame
         The standard template key (or path to it)
     picks : str, pd.DataFrame
         A picks file in same format as created by pickPhases
-    
+
     Returns
     ---------
     An Obspy.Catalog object
@@ -766,7 +766,7 @@ def _getPick(row, ph):
 
 def EQSearch2TemplateKey(eq='eqsrchsum', oname='eqTemplateKey.csv'):
     """
-    Write a template key from the eqsearch sum file (produced by the 
+    Write a template key from the eqsearch sum file (produced by the
     University of Utah seismograph stations code EQsearch)
 
     Parameters
@@ -775,7 +775,7 @@ def EQSearch2TemplateKey(eq='eqsrchsum', oname='eqTemplateKey.csv'):
         eqsearch sum. file
     oname : str
         name of the template key
-    Notes 
+    Notes
     -------------
     Code assimes any year code above 50 belongs to 1900, and any year code
     less than 50 belongs to 2000 (since eqsrchsum is not y2k compliant)
@@ -811,7 +811,7 @@ def EQSearch2TemplateKey(eq='eqsrchsum', oname='eqTemplateKey.csv'):
 
 def catalog2Templatekey(cat, fileName=None):
     """
-    Function to get build the Detex required file TemplateKey.csv 
+    Function to get build the Detex required file TemplateKey.csv
     from an obspy catalog object
 
     Parameters
@@ -823,7 +823,7 @@ def catalog2Templatekey(cat, fileName=None):
         save. Default is StationKey.csv.
     Returns
     --------
-    A pandas DataFrame of the template key information found in the 
+    A pandas DataFrame of the template key information found in the
     catalog object
 
     Notes
@@ -853,8 +853,9 @@ def catalog2Templatekey(cat, fileName=None):
         lat = origin.latitude
         lon = origin.longitude
         dep = origin.depth / 1000.0
-        # time = str(origin.time).replace(':', '-')
-        name = time.split('.')[0]
+        time = str(origin.time).replace(':', '-')
+        assert origin.time is not None
+        name = str(origin.time).split('.')[0]
         magnitude = event.preferred_magnitude() or event.magnitudes[0]
         mag = magnitude.mag
         magty = magnitude.magnitude_type
@@ -869,8 +870,8 @@ def catalog2Templatekey(cat, fileName=None):
 def saveSQLite(DF, CorDB, Tablename, silent=True):
     """
     Basic function to save pandas dataframe to SQL
-    
-    Parameters 
+
+    Parameters
     -------------
     DF : pandas DataFrame
         The data frame instance to save
@@ -878,7 +879,7 @@ def saveSQLite(DF, CorDB, Tablename, silent=True):
         Path to the database
     Tablename : str
         Name of the table to which DF will be saved
-    silent : bool 
+    silent : bool
         If True will suppress the any messages from database writing
     """
 
@@ -940,7 +941,7 @@ def loadClusters(filename='clust.pkl'):
         Path to the saved cluster isntance
     Returns
     ----------
-    An instance of detex.subspace.ClusterStream 
+    An instance of detex.subspace.ClusterStream
     """
     cl = pd.read_pickle(filename)
     if not isinstance(cl, detex.subspace.ClusterStream):
@@ -959,7 +960,7 @@ def loadSubSpace(filename='subspace.pkl'):
         Path to the saved subspace instance
     Returns
     ----------
-    An instance of detex.subspace.SubSpaceStream 
+    An instance of detex.subspace.SubSpaceStream
     """
     ss = pd.read_pickle(filename)
     if not isinstance(ss, detex.subspace.SubSpace):
@@ -972,12 +973,12 @@ def readLog(logpath='detex_log.log'):
     """
     Read the standard detex log into a dataframe. Columns are: Time, Mod,
     Level, and Msg.
-    
+
     Parameters
     -------------
     logpath : str
         Path the the log file
-    
+
     Returns
     -----------
     DataFrame with log info
@@ -1007,14 +1008,14 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
                skipIfExists=True, **kwargs):
     """
     Uses streamPicks to parse the templates and allow user to manually pick
-    phases for events. Only P,S, Pend, and Send are supported phases under 
+    phases for events. Only P,S, Pend, and Send are supported phases under
     the current GUI, but other phases can be manually input to this format.
 
     Parameters
     -------------
     EveDir : str
-        Input to detex.getdata.quickFetch, defaults to using the default 
-        directory structure for 
+        Input to detex.getdata.quickFetch, defaults to using the default
+        directory structure for
     templatekey : str or pandas DataFrame
         Path to the template key or template key loaded in DataFrame
     stationkey : str or pandas DataFrame
@@ -1023,7 +1024,7 @@ def pickPhases(fetch='EventWaveForms', templatekey='TemplateKey.csv',
         Path to newly created csv containing phase times. If the file already
         exists it will be read so that picks already made do not have to be
         re-picked
-    skipIfExists : bool 
+    skipIfExists : bool
         If True skip any events/stations that already have any phase picks
     kwargs passed to quickFetch, see detex.getdata.quickFetch for details
     Notes
@@ -1104,18 +1105,18 @@ def seeWaveFroms(fetch='ContinuousWaveForms', templatekey='TemplateKey.csv',
                  outFile='PhasePicks.csv'):
     """
     Uses streamPicks to parse the templates and allow user to manually pick
-    phases for events. Only P,S, Pend, and Send are supported phases under 
+    phases for events. Only P,S, Pend, and Send are supported phases under
     the current GUI, but other phases can be manually input to this format.
 
     Parameters
     -------------
     fetch : str or instance of detex.getdata.DataFetcher
-        Input to detex.getdata.quickFetch, defaults to using the default 
+        Input to detex.getdata.quickFetch, defaults to using the default
         directory structure
     templatekey : str or pandas DataFrame
         Path to the template key or template key loaded in DataFrame
     outFile : str
-        Path to newly created csv containing events (in df) as index and 
+        Path to newly created csv containing events (in df) as index and
         stations as columns
     ----------
     Required columns are : TimeStamp, Station, Event, Phase

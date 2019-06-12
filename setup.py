@@ -8,8 +8,17 @@ from setuptools import setup, find_packages
 import os
 
 version_file = os.path.join('detex', 'version.py')
+
+
+# --- get version
+with open(version_file, 'r') as fi:
+    content = fi.read().split("=")[-1].strip()
+    __version__ = content.replace('"', "").replace("'", "")
+
+
 with open(version_file) as vfopen:
     __version__ = vfopen.read().strip()
+
 
 setup(
     name='detex',

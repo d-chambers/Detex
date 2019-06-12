@@ -1,10 +1,20 @@
-.. detex documentation master file, created by
-   sphinx-quickstart on Tue May 31 19:53:30 2016.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+Detex
+=====
+Detex is a package for waveform similarity clustering and subspace detection.
 
-Welcome to detex's documentation!
-=================================
+`Installation <installation.md>`_
+
+`Intro Tutorial <tutorial/Intro/intro.ipynb>`_
+
+`Advanced Tutorial <tutorial/Advanced/advanced.md>`_
+
+
+
+Intro Tutorials
+
+Advanced Tutorials
+
+
 
 Contents:
 

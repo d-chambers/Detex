@@ -11,19 +11,24 @@ import numpy as np
 import obspy
 import pytest
 
+from pathlib2 import Path
 
+
+test_data = Path(__file__).parent / 'test_data'
 ##### Tests for waveforms handling
-path_to_gap_one_chan = os.path.join('test_data', 'Misc', 'Trace_one_chan_gap.pkl')
 @pytest.fixture(scope='module')
 def load_gap_one_chan():
-    st = obspy.read(path_to_gap_one_chan)
-    return st 
+    path_to_gap_one_chan = test_data / 'Misc' / 'Trace_one_chan_gap.pkl'
+    st = obspy.read(str(path_to_gap_one_chan))
+    return st
 
-path_to_gap_three_chan2 = os.path.join('test_data', 'Misc', 'Trace_three_chan2.pkl')
+
 @pytest.fixture(scope='module')
 def load_gap_three_chan():
-    st = obspy.read(path_to_gap_three_chan2)
+    path_to_gap_three_chan2 = test_data / 'Misc' / 'Trace_three_chan2.pkl'
+    st = obspy.read(str(path_to_gap_three_chan2))
     return st
+
 
 @pytest.fixture(scope='module')
 def load_gap_all_chans():
@@ -39,22 +44,22 @@ def _make_gap(st, gap=.1): # makes a gap in the file to test merge
     st1 = st.copy().slice(starttime=start, endtime=obspy.UTCDateTime(mid - gap*dur))
     st2 = st.copy().slice(starttime=obspy.UTCDateTime(mid+gap*dur), endtime=stop)
     return st1 + st2
-    
+
 class Test_merge_channels():
     def test_merge_gap_on_one_chan(self, load_gap_one_chan):
         st = load_gap_one_chan
         st_out = detex.construct._mergeChannels(st)
         nc = len(set([x.stats.channel for x in st_out]))
-        assert nc == len(st_out) 
+        assert nc == len(st_out)
 
     def test_merge_gap_on_three_chan2(self, load_gap_three_chan):
         st = load_gap_three_chan
         st_out = detex.construct._mergeChannels(st)
         nc = len(set([x.stats.channel for x in st_out]))
-        assert nc == len(st_out) 
+        assert nc == len(st_out)
 
     def test_merge_gap_on_three_chan(self, load_gap_all_chans):
         st = load_gap_all_chans
         st_out = detex.construct._mergeChannels(st)
         nc = len(set([x.stats.channel for x in st_out]))
-        assert nc == len(st_out) 
+        assert nc == len(st_out)
