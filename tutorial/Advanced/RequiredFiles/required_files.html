@@ -1,0 +1,644 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Required Files &#8212; detex __version__ = 1.0.9 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="required-files">
+<h1>Required Files<a class="headerlink" href="#required-files" title="Permalink to this headline">¶</a></h1>
+<p>Detex requires two files: the station key and the template key (referred to as “keys”). Both are usually saved as csv files for ease of editing/viewing.</p>
+<div class="section" id="station-key">
+<h2>Station Key<a class="headerlink" href="#station-key" title="Permalink to this headline">¶</a></h2>
+<p>The station key is used to tell detex which stations and channels to use. The location of the station and a desired time frame are also included.</p>
+<p>Here is an example from the introductory tutorial:</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th align="center">NETWORK</th>
+<th align="center">STATION</th>
+<th align="center">STARTTIME</th>
+<th align="center">ENDTIME</th>
+<th align="center">LAT</th>
+<th align="center">LON</th>
+<th align="center">ELEVATION</th>
+<th align="center">CHANNELS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="center">TA</td>
+<td align="center">M18A</td>
+<td align="center">2009-04-01T00:00:00</td>
+<td align="center">2009-04-04T00:00:00</td>
+<td align="center">41.4272</td>
+<td align="center">-110.0674</td>
+<td align="center">2103</td>
+<td align="center">BHE-BHN-BHZ</td>
+</tr>
+<tr>
+<td align="center">TA</td>
+<td align="center">M17A</td>
+<td align="center">2009-04-01T00:00:00</td>
+<td align="center">2009-04-04T00:00:00</td>
+<td align="center">41.4729</td>
+<td align="center">- 110.6664</td>
+<td align="center">2101</td>
+<td align="center">BHE-BHN-BHZ</td>
+</tr>
+</tbody>
+</table><p>The STARTTIME and ENDTIME fields indicate the time range of the continuous data and can be in any format readable by the <a class="reference external" href="http://docs.obspy.org/packages/autogen/obspy.core.utcdatetime.UTCDateTime.html">obspy.UTCDateTime class</a> including a time stamp (ie epoch time). If you do use a time stamp be careful when editing outside of python because some programs, like excel, tend to silently round large numbers. See the <a class="reference external" href="https://docs.obspy.org/packages/autogen/obspy.core.utcdatetime.UTCDateTime.html">obspy.UTCDateTime docs</a> for more info on readable formats.</p>
+<p>The CHANNELS field lists the channels that will be used for each station. If multiple channels are used they are separated by a dash (-).</p>
+<p>The LAT, LON, and ELEVATION fields give the stations location in global coordinates (elevation is from sea-level, in meters).</p>
+<p>The order of the headers is not important. Extra fields can be added without affecting detex’s ability to read the file. If you need to keep track of location for example, simply add a location field.</p>
+</div>
+<div class="section" id="template-key">
+<h2>Template Key<a class="headerlink" href="#template-key" title="Permalink to this headline">¶</a></h2>
+<p>The template key is usually saved as TemplateKey.csv. It contains information on each of the events that will be used by detex.</p>
+<p>Here is an example from the introductory tutorial:</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th align="center">CONTRIBUTOR</th>
+<th align="center">NAME</th>
+<th align="center">TIME</th>
+<th align="center">LAT</th>
+<th align="center">LON</th>
+<th align="center">DEPTH</th>
+<th align="center">MTYPE</th>
+<th align="center">MAG</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="center">ANF</td>
+<td align="center">2007-12-19T17-56-18</td>
+<td align="center">2007-12-19T17-56-18</td>
+<td align="center">41.7205</td>
+<td align="center">-110.6486</td>
+<td align="center">4.07</td>
+<td align="center">ML</td>
+<td align="center">2.36</td>
+</tr>
+<tr>
+<td align="center">ANF</td>
+<td align="center">2007-12-21T18-30-09</td>
+<td align="center">2007-12-21T18-30-09</td>
+<td align="center">41.7669</td>
+<td align="center">-110.6122</td>
+<td align="center">8.97</td>
+<td align="center">ML</td>
+<td align="center">2.17</td>
+</tr>
+<tr>
+<td align="center">ANF</td>
+<td align="center">2007-12-21T18-30-09</td>
+<td align="center">2007-12-21T18-30-09</td>
+<td align="center">41.7669</td>
+<td align="center">-110.6122</td>
+<td align="center">8.97</td>
+<td align="center">ML</td>
+<td align="center">2.17</td>
+</tr>
+</tbody>
+</table><p>The NAME field can be any string that can also be used as a file name by your OS. Windows does not allow “:” in a file path so the “:” between the hour and minute, and between the minute and seconds, have been replaced with a “-“.</p>
+<p>The TIME field, just like the STARTTIME and ENDTIME fields in the station key, can be in any obspy UTCDateTime readable format.</p>
+<p>The MAG field is used in estimating magnitudes of newly detected events.</p>
+<p>The LAT, LON, and DEPTH fields are used in some visualization methods.</p>
+<p>The CONTRIBUTOR and MTYPE fields are not required by detex but can be useful for record keeping. Additionally, just as with the station key, any extra fields can be added in any order.</p>
+</div>
+</div>
+<div class="section" id="generating-keys">
+<h1>Generating Keys<a class="headerlink" href="#generating-keys" title="Permalink to this headline">¶</a></h1>
+<p>As long as the comma separated format shown above is followed you can use any method you like to create the keys. For small data sets it may be suitable to create the keys by hand in a text editor or in a program like open office. For larger data sets, however, it is better to either use some of the built in functions to generate the keys or create your own script to do so.</p>
+<p>The following shows a few of the built in methods for generating the keys but it is an good learning exercise in python, especially for those new in the language, to generate these files yourself. If you do write a script or function that uses some data source detex currently cannot read consider contributing it to detex as others will probably find it useful.</p>
+<p>The following examples follows the <a class="reference external" href="https://docs.obspy.org/packages/obspy.fdsn.html">obspy FDSN tutorial</a> closely.</p>
+<div class="section" id="generating-station-keys">
+<h2>Generating Station Keys<a class="headerlink" href="#generating-station-keys" title="Permalink to this headline">¶</a></h2>
+<p>The format for the station key is very similar to that produced by the <a class="reference external" href="https://ds.iris.edu/SeismiQuery/station.htm">IRIS station query</a>. If you elect to have the results emailed to you it becomes a trivial to make a station key from the data in the email. Currently there is only one method to make the station key which uses an instance of the <a class="reference external" href="https://docs.obspy.org/packages/autogen/obspy.station.inventory.Inventory.html">obspy Inventory class</a> as an input argument.</p>
+<div class="section" id="station-key-from-obspy-inventory-object">
+<h3>Station key from obspy inventory object<a class="headerlink" href="#station-key-from-obspy-inventory-object" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">detex</span>
+<span class="kn">import</span> <span class="nn">obspy</span>
+<span class="kn">from</span> <span class="nn">obspy.fdsn</span> <span class="kn">import</span> <span class="n">Client</span>
+<span class="kn">import</span> <span class="nn">obspy</span>
+
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;IRIS&quot;</span><span class="p">)</span> <span class="c1"># use IRIS client</span>
+
+<span class="n">starttime</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="s1">&#39;2009-01-01&#39;</span><span class="p">)</span>
+<span class="n">endtime</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="s1">&#39;2010-01-01&#39;</span><span class="p">)</span>
+
+<span class="n">lat</span> <span class="o">=</span> <span class="mf">41.4272</span>
+<span class="n">lon</span> <span class="o">=</span> <span class="o">-</span><span class="mf">110.0674</span>
+
+<span class="n">inv</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_stations</span><span class="p">(</span><span class="n">network</span><span class="o">=</span><span class="s2">&quot;TA&quot;</span><span class="p">,</span> <span class="n">starttime</span><span class="o">=</span><span class="n">starttime</span><span class="p">,</span> <span class="n">endtime</span><span class="o">=</span><span class="n">endtime</span><span class="p">,</span> 
+                          <span class="n">channel</span><span class="o">=</span><span class="s1">&#39;BH*&#39;</span><span class="p">,</span> <span class="n">latitude</span><span class="o">=</span><span class="n">lat</span><span class="p">,</span> <span class="n">longitude</span><span class="o">=</span><span class="n">lon</span><span class="p">,</span> <span class="n">maxradius</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                         <span class="n">level</span><span class="o">=</span><span class="s1">&#39;channel&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stakey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">inventory2StationKey</span><span class="p">(</span><span class="n">inv</span><span class="p">,</span> <span class="n">starttime</span><span class="p">,</span> <span class="n">endtime</span><span class="p">)</span>
+<span class="n">stakey</span>
+</pre></div>
+</div>
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>NETWORK</th>
+      <th>STATION</th>
+      <th>STARTTIME</th>
+      <th>ENDTIME</th>
+      <th>LAT</th>
+      <th>LON</th>
+      <th>ELEVATION</th>
+      <th>CHANNELS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>TA</td>
+      <td>L17A</td>
+      <td>2009-01-01T00-00-00</td>
+      <td>2010-01-01T00-00-00</td>
+      <td>42.0995</td>
+      <td>-110.8727</td>
+      <td>1996.0</td>
+      <td>BHE-BHN-BHZ</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>TA</td>
+      <td>L18A</td>
+      <td>2009-01-01T00-00-00</td>
+      <td>2010-01-01T00-00-00</td>
+      <td>41.9243</td>
+      <td>-110.0364</td>
+      <td>2051.0</td>
+      <td>BHE-BHN-BHZ</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>TA</td>
+      <td>L19A</td>
+      <td>2009-01-01T00-00-00</td>
+      <td>2010-01-01T00-00-00</td>
+      <td>42.1012</td>
+      <td>-109.3575</td>
+      <td>2034.0</td>
+      <td>BHE-BHN-BHZ</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>TA</td>
+      <td>M17A</td>
+      <td>2009-01-01T00-00-00</td>
+      <td>2010-01-01T00-00-00</td>
+      <td>41.4729</td>
+      <td>-110.6664</td>
+      <td>2101.0</td>
+      <td>BHE-BHN-BHZ</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>TA</td>
+      <td>M18A</td>
+      <td>2009-01-01T00-00-00</td>
+      <td>2010-01-01T00-00-00</td>
+      <td>41.4272</td>
+      <td>-110.0674</td>
+      <td>2103.0</td>
+      <td>BHE-BHN-BHZ</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>TA</td>
+      <td>M19A</td>
+      <td>2009-01-01T00-00-00</td>
+      <td>2010-01-01T00-00-00</td>
+      <td>41.5047</td>
+      <td>-109.1569</td>
+      <td>2080.0</td>
+      <td>BHE-BHN-BHZ</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>TA</td>
+      <td>N17A</td>
+      <td>2009-01-01T00-00-00</td>
+      <td>2010-01-01T00-00-00</td>
+      <td>40.9425</td>
+      <td>-110.8335</td>
+      <td>2500.0</td>
+      <td>BHE-BHN-BHZ</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>TA</td>
+      <td>N18A</td>
+      <td>2009-01-01T00-00-00</td>
+      <td>2010-01-01T00-00-00</td>
+      <td>40.9763</td>
+      <td>-109.6731</td>
+      <td>1893.0</td>
+      <td>BHE-BHN-BHZ</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>TA</td>
+      <td>N19A</td>
+      <td>2009-01-01T00-00-00</td>
+      <td>2010-01-01T00-00-00</td>
+      <td>40.8936</td>
+      <td>-109.1772</td>
+      <td>1703.0</td>
+      <td>BHE-BHN-BHZ</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="section" id="generating-template-keys">
+<h2>Generating Template Keys<a class="headerlink" href="#generating-template-keys" title="Permalink to this headline">¶</a></h2>
+<p>There are two methods for generating template keys. The first uses an obspy catalog object as input and the second uses the output from the University of Utah Seismograph Stations (UUSS) code EQsearch.</p>
+<div class="section" id="template-key-from-obspy-catalog-object">
+<h3>Template key from obspy catalog object<a class="headerlink" href="#template-key-from-obspy-catalog-object" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cat</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_events</span><span class="p">(</span><span class="n">starttime</span><span class="o">=</span><span class="n">starttime</span><span class="p">,</span> <span class="n">endtime</span><span class="o">=</span><span class="n">endtime</span><span class="p">,</span> <span class="n">minmagnitude</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span> <span class="n">catalog</span><span class="o">=</span><span class="s1">&#39;ANF&#39;</span><span class="p">,</span> 
+                        <span class="n">latitude</span><span class="o">=</span><span class="n">lat</span><span class="p">,</span> <span class="n">longitude</span><span class="o">=</span><span class="n">lon</span><span class="p">,</span> <span class="n">maxradius</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>to use this catalog as a template key we simply need to call the catalog2TemplateKey function of detex.util</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">temkey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">catalog2Templatekey</span><span class="p">(</span><span class="n">cat</span><span class="p">)</span> <span class="c1"># get template key as DataFrame</span>
+<span class="n">temkey</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">&#39;TemplateKey.csv&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span> <span class="c1"># save as csv</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">temkey</span>
+</pre></div>
+</div>
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>NAME</th>
+      <th>TIME</th>
+      <th>LAT</th>
+      <th>LON</th>
+      <th>DEPTH</th>
+      <th>MAG</th>
+      <th>MTYPE</th>
+      <th>CONTRIBUTOR</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2009-11-23T19-14-08</td>
+      <td>2009-11-23T19-14-08.060</td>
+      <td>41.5691</td>
+      <td>-108.8264</td>
+      <td>11.1</td>
+      <td>2.5</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2009-09-08T17-55-04</td>
+      <td>2009-09-08T17-55-04.190</td>
+      <td>41.4931</td>
+      <td>-108.803</td>
+      <td>1.3</td>
+      <td>2.6</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2009-06-01T17-22-47</td>
+      <td>2009-06-01T17-22-47.000</td>
+      <td>41.609</td>
+      <td>-108.774</td>
+      <td>0.4</td>
+      <td>3.0</td>
+      <td>ML</td>
+      <td>PDE-Q</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2009-05-05T13-40-43</td>
+      <td>2009-05-05T13-40-43.940</td>
+      <td>41.588</td>
+      <td>-109.3144</td>
+      <td>26.0</td>
+      <td>3.0</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2009-04-20T17-53-38</td>
+      <td>2009-04-20T17-53-38.440</td>
+      <td>41.6998</td>
+      <td>-110.6275</td>
+      <td>3.0</td>
+      <td>2.5</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>2009-04-17T18-35-23</td>
+      <td>2009-04-17T18-35-23.070</td>
+      <td>41.7977</td>
+      <td>-110.6184</td>
+      <td>8.9</td>
+      <td>2.5</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>2009-04-16T18-23-21</td>
+      <td>2009-04-16T18-23-21.320</td>
+      <td>41.6856</td>
+      <td>-110.6516</td>
+      <td>7.9</td>
+      <td>2.6</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>2009-04-14T16-56-38</td>
+      <td>2009-04-14T16-56-38.140</td>
+      <td>41.7042</td>
+      <td>-110.6316</td>
+      <td>9.0</td>
+      <td>2.6</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>2009-04-13T17-28-07</td>
+      <td>2009-04-13T17-28-07.410</td>
+      <td>41.721</td>
+      <td>-110.687</td>
+      <td>0.0</td>
+      <td>2.5</td>
+      <td>ML</td>
+      <td>NEIC</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>2009-04-08T17-54-04</td>
+      <td>2009-04-08T17-54-04.030</td>
+      <td>41.1525</td>
+      <td>-109.553</td>
+      <td>10.0</td>
+      <td>2.5</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>2009-04-01T17-36-58</td>
+      <td>2009-04-01T17-36-58.980</td>
+      <td>41.6824</td>
+      <td>-110.6313</td>
+      <td>2.1</td>
+      <td>2.5</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>2009-03-19T19-06-07</td>
+      <td>2009-03-19T19-06-07.760</td>
+      <td>41.8112</td>
+      <td>-110.6174</td>
+      <td>8.2</td>
+      <td>2.8</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>2009-03-13T17-39-47</td>
+      <td>2009-03-13T17-39-47.460</td>
+      <td>41.8099</td>
+      <td>-110.6039</td>
+      <td>1.3</td>
+      <td>2.5</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>2009-03-07T02-45-10</td>
+      <td>2009-03-07T02-45-10.000</td>
+      <td>41.67</td>
+      <td>-109.92</td>
+      <td>4.5</td>
+      <td>3.4</td>
+      <td>ML</td>
+      <td>PDE-Q</td>
+    </tr>
+    <tr>
+      <th>14</th>
+      <td>2009-02-19T16-53-08</td>
+      <td>2009-02-19T16-53-08.740</td>
+      <td>41.506</td>
+      <td>-108.8102</td>
+      <td>6.4</td>
+      <td>2.5</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>15</th>
+      <td>2009-02-10T19-08-26</td>
+      <td>2009-02-10T19-08-26.700</td>
+      <td>41.7022</td>
+      <td>-110.6354</td>
+      <td>8.9</td>
+      <td>2.7</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>16</th>
+      <td>2009-01-29T18-02-07</td>
+      <td>2009-01-29T18-02-07.560</td>
+      <td>41.6945</td>
+      <td>-110.6229</td>
+      <td>8.8</td>
+      <td>2.6</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>17</th>
+      <td>2009-01-26T21-11-20</td>
+      <td>2009-01-26T21-11-20.420</td>
+      <td>41.704</td>
+      <td>-110.613</td>
+      <td>0.0</td>
+      <td>2.6</td>
+      <td>ML</td>
+      <td>NEIC</td>
+    </tr>
+    <tr>
+      <th>18</th>
+      <td>2009-01-23T21-59-33</td>
+      <td>2009-01-23T21-59-33.000</td>
+      <td>41.669</td>
+      <td>-108.822</td>
+      <td>1.1</td>
+      <td>3.1</td>
+      <td>ML</td>
+      <td>PDE-Q</td>
+    </tr>
+    <tr>
+      <th>19</th>
+      <td>2009-01-23T20-47-06</td>
+      <td>2009-01-23T20-47-06.180</td>
+      <td>41.8063</td>
+      <td>-110.607</td>
+      <td>11.4</td>
+      <td>2.5</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+    <tr>
+      <th>20</th>
+      <td>2009-01-16T18-17-56</td>
+      <td>2009-01-16T18-17-56.550</td>
+      <td>41.809</td>
+      <td>-110.594</td>
+      <td>9.1</td>
+      <td>2.7</td>
+      <td>ML</td>
+      <td>ANF</td>
+    </tr>
+  </tbody>
+</table>
+</div><p>The other function used to make a template key is only useful at the University of Utah where a program called EQsearch is used to query the UUSS catalog. EQsearch produces a file, by default, called eqsrchsum. The function EQSearch2TemplateKey is a parser that takes the information from this file and converts it to a template key.</p>
+</div>
+</div>
+</div>
+<div class="section" id="reading-keys">
+<h1>Reading Keys<a class="headerlink" href="#reading-keys" title="Permalink to this headline">¶</a></h1>
+<p>All detex functions and classes that use a key file call the detex.util.readKey function to read in the key file (either template key, station key, or phase picks) or to validate a key that is already in memory (in the form of a DataFrame). This function makes sure all the required fields exist and have legal values. If you want to verify that a key file you have created is valid simply try and read it in with the readKey function. Alternatively, we can pass a DataFrame to the function to see if it is a valid key.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">temkey2</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="n">temkey</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="s1">&#39;template&#39;</span><span class="p">)</span>
+<span class="n">stakey2</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="n">stakey</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="s1">&#39;station&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Since no errors were raised the station key and the template key we created are valid.</p>
+</div>
+<div class="section" id="next-section">
+<h1>Next Section<a class="headerlink" href="#next-section" title="Permalink to this headline">¶</a></h1>
+<p>The <a class="reference internal" href="../GetData/get_data.html"><span class="doc">next section</span></a> covers how to get data from various sources.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">detex</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../detex.html">detex package</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Derrick Chambers.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/tutorial/Advanced/RequiredFiles/required_files.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

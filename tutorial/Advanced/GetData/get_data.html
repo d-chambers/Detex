@@ -1,0 +1,809 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>The DataFetcher &#8212; detex __version__ = 1.0.9 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="the-datafetcher">
+<h1>The DataFetcher<a class="headerlink" href="#the-datafetcher" title="Permalink to this headline">¶</a></h1>
+<p>The DataFetcher class is by detex to serve seismic data to other functions and classes. It is designed to use data from local directories as well as remote clients (like the <a class="reference external" href="https://docs.obspy.org/packages/obspy.fdsn.html">obspy FDSN client</a>). In the future I hope to add functionality to the DataFetcher to allow it to check data availability and quality. We will start by looking at the DataFetcher class docs, using the DataFetcher on local data directories, and then setting up a DataFetcher to use a remote client.</p>
+<div class="section" id="datafetcher-docs">
+<h2>DataFetcher docs<a class="headerlink" href="#datafetcher-docs" title="Permalink to this headline">¶</a></h2>
+<p>Let’s print the current version of detex and the docstring associated with the DataFetcher class in order to get an idea of what it does and what options are available.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">detex</span>
+<span class="k">print</span><span class="p">(</span><span class="s1">&#39;Current detex version is </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">detex</span><span class="o">.</span><span class="n">__version__</span><span class="p">))</span>
+<span class="k">print</span> <span class="p">(</span><span class="s1">&#39;-------------------------------&#39;</span><span class="p">)</span>
+<span class="k">print</span> <span class="p">(</span><span class="n">detex</span><span class="o">.</span><span class="n">getdata</span><span class="o">.</span><span class="n">DataFetcher</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Current</span> <span class="n">detex</span> <span class="n">version</span> <span class="ow">is</span> <span class="mf">1.0</span><span class="o">.</span><span class="mi">5</span>
+<span class="o">-------------------------------</span>
+
+    
+
+    <span class="n">Class</span> <span class="n">to</span> <span class="n">handle</span> <span class="n">data</span> <span class="n">acquisition</span>
+    
+    <span class="n">Parameters</span> 
+    <span class="o">----------</span>
+    <span class="n">method</span> <span class="p">:</span> <span class="nb">str</span> <span class="ow">or</span> <span class="nb">int</span>
+        <span class="n">One</span> <span class="n">of</span> <span class="n">the</span> <span class="n">approved</span> <span class="n">methods</span> <span class="k">for</span> <span class="n">getting</span> <span class="n">data</span> <span class="k">as</span> <span class="n">supported</span> <span class="n">by</span> <span class="n">detex</span>
+        <span class="n">Options</span> <span class="n">are</span><span class="p">:</span>
+            <span class="s2">&quot;dir&quot;</span> <span class="p">:</span> <span class="n">A</span> <span class="n">data</span> <span class="n">directory</span> <span class="k">as</span> <span class="n">created</span> <span class="n">by</span> <span class="n">makeDataDirectories</span>
+            <span class="s2">&quot;client&quot;</span> <span class="p">:</span> <span class="n">an</span> <span class="n">obspy</span> <span class="n">client</span> <span class="n">can</span> <span class="n">be</span> <span class="n">passed</span> <span class="n">to</span> <span class="n">get</span> <span class="n">data</span>
+            <span class="n">useful</span> <span class="k">if</span> <span class="n">using</span> <span class="n">an</span> <span class="ow">in</span><span class="o">-</span><span class="n">network</span> <span class="n">database</span> 
+            <span class="s2">&quot;iris&quot;</span> <span class="p">:</span> <span class="n">an</span> <span class="n">iris</span> <span class="n">client</span> <span class="ow">is</span> <span class="n">initiated</span><span class="p">,</span> <span class="n">also</span> <span class="n">uses</span> <span class="n">IRIS</span> <span class="k">for</span> <span class="n">inventory</span>
+            <span class="s2">&quot;uuss&quot;</span> <span class="p">:</span> <span class="n">A</span> <span class="n">client</span> <span class="n">attached</span> <span class="n">to</span> <span class="n">the</span> <span class="n">university</span> <span class="n">of</span> <span class="n">utah</span> 
+            <span class="n">seismograph</span> <span class="n">stations</span> <span class="ow">is</span> <span class="n">initiated</span> <span class="n">using</span> <span class="n">CWB</span> <span class="k">for</span> <span class="n">waveforms</span>
+            <span class="ow">and</span> <span class="n">IRIS</span> <span class="ow">is</span> <span class="n">used</span> <span class="k">for</span> <span class="n">station</span> <span class="n">inventories</span>
+    <span class="n">client</span> <span class="p">:</span> <span class="n">An</span> <span class="n">obspy</span> <span class="n">client</span> <span class="nb">object</span>
+        <span class="n">Client</span> <span class="nb">object</span> <span class="n">used</span> <span class="n">to</span> <span class="n">get</span> <span class="n">data</span><span class="p">,</span> <span class="kn">from</span> <span class="nn">obspy.fdsn</span><span class="p">,</span> <span class="n">obspy</span><span class="o">.</span><span class="n">neic</span> <span class="n">etc</span><span class="o">.</span>
+    <span class="n">removeResponse</span> <span class="p">:</span> <span class="nb">bool</span>
+        <span class="n">If</span> <span class="kc">True</span> <span class="n">remove</span> <span class="n">response</span> <span class="n">before</span> <span class="n">returning</span> <span class="n">stream</span><span class="o">.</span>
+    <span class="n">inventoryArg</span> <span class="p">:</span> <span class="kc">None</span><span class="p">,</span> <span class="n">obspy</span> <span class="n">client</span> <span class="nb">object</span><span class="p">,</span> <span class="ow">or</span> <span class="n">obspy</span> <span class="n">Inventory</span> <span class="nb">object</span>
+        <span class="n">A</span> <span class="n">seperate</span> <span class="n">client</span> <span class="k">for</span> <span class="n">station</span> <span class="n">inventories</span><span class="p">,</span> <span class="n">only</span> <span class="n">used</span> <span class="k">if</span> 
+        <span class="n">removeResponse</span> <span class="o">==</span> <span class="kc">True</span><span class="p">,</span> <span class="n">also</span> <span class="n">supports</span> <span class="n">keyword</span> <span class="s2">&quot;iris&quot;</span> <span class="k">for</span> <span class="n">iris</span> <span class="n">client</span>
+    <span class="n">directoryName</span> <span class="p">:</span> <span class="nb">str</span>
+        <span class="n">A</span> <span class="n">path</span> <span class="n">to</span> <span class="n">the</span> <span class="n">continuous</span> <span class="n">waveforms</span> <span class="n">directory</span> <span class="ow">or</span> <span class="n">event</span> <span class="n">waveforms</span>
+        <span class="n">directory</span><span class="o">.</span> <span class="n">If</span> <span class="kc">None</span> <span class="ow">is</span> <span class="n">passed</span> <span class="n">default</span> <span class="n">names</span> <span class="n">are</span> <span class="n">used</span> 
+        <span class="p">(</span><span class="n">ContinuousWaveForms</span> <span class="ow">and</span> <span class="n">EventWaveForms</span><span class="p">)</span>
+    <span class="n">opType</span> <span class="p">:</span> <span class="nb">str</span>
+        <span class="n">Output</span> <span class="nb">type</span> <span class="n">after</span> <span class="n">removing</span> <span class="n">instrument</span> <span class="n">response</span><span class="o">.</span> <span class="n">Choices</span> <span class="n">are</span><span class="p">:</span>
+        <span class="s2">&quot;DISP&quot;</span> <span class="p">(</span><span class="n">m</span><span class="p">),</span> <span class="s2">&quot;VEL&quot;</span> <span class="p">(</span><span class="n">m</span><span class="o">/</span><span class="n">s</span><span class="p">),</span> <span class="ow">or</span> <span class="s2">&quot;ACC&quot;</span> <span class="p">(</span><span class="n">m</span><span class="o">/</span><span class="n">s</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">prefilt</span> <span class="p">:</span> <span class="nb">list</span> <span class="n">of</span> <span class="n">real</span> <span class="n">numbers</span>
+        <span class="n">Pre</span><span class="o">-</span><span class="nb">filter</span> <span class="n">parameters</span> <span class="k">for</span> <span class="n">removing</span> <span class="n">instrument</span> <span class="n">response</span><span class="o">.</span> 
+    <span class="n">conDatDuration</span> <span class="p">:</span> <span class="nb">int</span> <span class="ow">or</span> <span class="nb">float</span>
+        <span class="n">Duration</span> <span class="k">for</span> <span class="n">continuous</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">seconds</span>
+    <span class="n">conBuff</span> <span class="p">:</span> <span class="nb">int</span> <span class="ow">or</span> <span class="nb">float</span>
+        <span class="n">The</span> <span class="n">amount</span> <span class="n">of</span> <span class="n">data</span><span class="p">,</span> <span class="ow">in</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">to</span> <span class="n">download</span> <span class="n">at</span> <span class="n">the</span> <span class="n">end</span> <span class="n">of</span> <span class="n">the</span> 
+        <span class="n">conDatDuration</span><span class="o">.</span> <span class="n">Ideally</span> <span class="n">should</span> <span class="n">be</span> <span class="n">equal</span> <span class="n">to</span> <span class="n">template</span> <span class="n">length</span><span class="p">,</span> <span class="n">important</span> 
+        <span class="ow">in</span> <span class="n">order</span> <span class="n">to</span> <span class="n">avoid</span> <span class="n">missing</span> <span class="n">potential</span> <span class="n">events</span> <span class="n">at</span> <span class="n">the</span> <span class="n">end</span> <span class="n">of</span> <span class="n">a</span> <span class="n">stream</span>
+    <span class="n">timeBeforeOrigin</span> <span class="p">:</span> <span class="nb">int</span> <span class="ow">or</span> <span class="nb">float</span>
+        <span class="n">Seconds</span> <span class="n">before</span> <span class="n">origin</span> <span class="n">of</span> <span class="n">each</span> <span class="n">event</span> <span class="n">to</span> <span class="n">fetch</span> <span class="p">(</span><span class="n">used</span> <span class="ow">in</span> <span class="n">getTemData</span><span class="p">)</span>
+    <span class="n">timeAfterOrigin</span> <span class="p">:</span> <span class="nb">int</span> <span class="ow">or</span> <span class="nb">float</span>
+        <span class="n">Seconds</span> <span class="n">after</span> <span class="n">origin</span> <span class="n">of</span> <span class="n">each</span> <span class="n">event</span> <span class="n">to</span> <span class="n">fetch</span> <span class="p">(</span><span class="n">used</span> <span class="ow">in</span> <span class="n">getTemData</span><span class="p">)</span>
+    <span class="n">checkData</span> <span class="p">:</span> <span class="nb">bool</span>
+        <span class="n">If</span> <span class="kc">True</span> <span class="n">apply</span> <span class="n">some</span> <span class="n">data</span> <span class="n">checks</span> <span class="n">before</span> <span class="n">returning</span> <span class="n">streams</span><span class="p">,</span> <span class="n">can</span> <span class="n">be</span> <span class="n">useful</span>
+        <span class="k">for</span> <span class="n">older</span> <span class="n">data</span> <span class="n">sets</span><span class="o">.</span> 
+    <span class="n">fillZeros</span> <span class="p">:</span> <span class="nb">bool</span>
+        <span class="n">If</span> <span class="kc">True</span> <span class="n">fill</span> <span class="n">data</span> <span class="n">that</span> <span class="n">are</span> <span class="ow">not</span> <span class="n">available</span> <span class="k">with</span> <span class="mi">0</span><span class="n">s</span> <span class="p">(</span><span class="n">provided</span> <span class="n">some</span> <span class="n">data</span> <span class="n">are</span>
+        <span class="n">available</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Some of the more important parameters to pay attention to are the ones controlling the duration of files and the response removal.</p>
+<ul class="simple">
+<li>Parameters that control data duration, number of files, and file type:<ol>
+<li>timeBeforeOrigin</li>
+<li>timeAfterOrigin</li>
+<li>conDatDuration</li>
+<li>secBuf</li>
+</ol>
+</li>
+<li>Parameters that control response removal (more on obspy response removal <a class="reference external" href="https://docs.obspy.org/packages/autogen/obspy.core.stream.Stream.remove_response.html#obspy.core.stream.Stream.remove_response">here</a>)<ol>
+<li>removeResponse (True or False)</li>
+<li>opType (“DISP” (m), “VEL” (m/s), or “ACC” (m/s^2))</li>
+<li>prefilt</li>
+</ol>
+</li>
+</ul>
+<p>Also, for less than perfect data, the fillZeros parameter can be very important to avoid discarding data with small gaps. More on this in the <a class="reference internal" href="../Clustering/clustering.html"><span class="doc">clustering section</span></a>.</p>
+</div>
+<div class="section" id="datafetcher-with-local-directories">
+<h2>DataFetcher with local directories<a class="headerlink" href="#datafetcher-with-local-directories" title="Permalink to this headline">¶</a></h2>
+<p>Often it can be faster to download, preform some processing, and save data once rather than using clients each time detex needs seismic data. This is not always the case, however, if a database on the same network as your workstation is the remote client you wish to use. As an example, let’s create a local data directory and then set up a DataFetcher instance to pull data from it.</p>
+<div class="section" id="create-local-directories">
+<h3>Create local directories<a class="headerlink" href="#create-local-directories" title="Permalink to this headline">¶</a></h3>
+<p>In order to create the data directories we first need to let Detex know which stations and events it should look for. To do this we use the template key and station key files (more on that in the <a class="reference internal" href="../RequiredFiles/required_files.html"><span class="doc">required files section</span></a>.</p>
+<p>For this example lets use a subset of the template key and station key used in the intro tutorial.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">detex</span>
+<span class="n">stakey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="s1">&#39;StationKey.csv&#39;</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="s1">&#39;station&#39;</span><span class="p">)</span>
+<span class="n">stakey</span>
+</pre></div>
+</div>
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>NETWORK</th>
+      <th>STATION</th>
+      <th>STARTTIME</th>
+      <th>ENDTIME</th>
+      <th>LAT</th>
+      <th>LON</th>
+      <th>ELEVATION</th>
+      <th>CHANNELS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>TA</td>
+      <td>M17A</td>
+      <td>2009-04-01T00:00:00</td>
+      <td>2009-04-01T06:00:00</td>
+      <td>41.4729</td>
+      <td>-110.6664</td>
+      <td>2101</td>
+      <td>BHE-BHN-BHZ</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>TA</td>
+      <td>M18A</td>
+      <td>2009-04-01T00:00:00</td>
+      <td>2009-04-01T06:00:00</td>
+      <td>41.4272</td>
+      <td>-110.0674</td>
+      <td>2103</td>
+      <td>BHE-BHN-BHZ</td>
+    </tr>
+  </tbody>
+</table>
+</div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">temkey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="s1">&#39;TemplateKey.csv&#39;</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="s1">&#39;template&#39;</span><span class="p">)</span>
+<span class="n">temkey</span>
+</pre></div>
+</div>
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>CONTRIBUTOR</th>
+      <th>NAME</th>
+      <th>TIME</th>
+      <th>LAT</th>
+      <th>LON</th>
+      <th>DEPTH</th>
+      <th>MTYPE</th>
+      <th>MAG</th>
+      <th>STATIONKEY</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>ANF</td>
+      <td>2008-03-24T17-54-19</td>
+      <td>2008-03-24T17-54-19</td>
+      <td>41.7268</td>
+      <td>-110.6584</td>
+      <td>7.2619</td>
+      <td>ML</td>
+      <td>2.01</td>
+      <td>StationKey.csv</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>ANF</td>
+      <td>2008-03-25T16-35-03</td>
+      <td>2008-03-25T16-35-03</td>
+      <td>41.7993</td>
+      <td>-110.5818</td>
+      <td>7.5726</td>
+      <td>ML</td>
+      <td>1.75</td>
+      <td>StationKey.csv</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>ANF</td>
+      <td>2008-03-28T20-41-02</td>
+      <td>2008-03-28T20-41-02</td>
+      <td>41.6896</td>
+      <td>-110.6455</td>
+      <td>7.2846</td>
+      <td>ML</td>
+      <td>1.88</td>
+      <td>StationKey.csv</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>ANF</td>
+      <td>2008-04-04T18-08-51</td>
+      <td>2008-04-04T18-08-51</td>
+      <td>41.7077</td>
+      <td>-110.6730</td>
+      <td>0.0898</td>
+      <td>ML</td>
+      <td>2.62</td>
+      <td>StationKey.csv</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>ANF</td>
+      <td>2008-04-28T16-55-58</td>
+      <td>2008-04-28T16-55-58</td>
+      <td>41.7997</td>
+      <td>-110.6390</td>
+      <td>8.5077</td>
+      <td>ML</td>
+      <td>2.39</td>
+      <td>StationKey.csv</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>ANF</td>
+      <td>2008-05-02T15-04-29</td>
+      <td>2008-05-02T15-04-29</td>
+      <td>41.6946</td>
+      <td>-110.6193</td>
+      <td>9.0421</td>
+      <td>ML</td>
+      <td>1.74</td>
+      <td>StationKey.csv</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>ANF</td>
+      <td>2008-06-06T19-39-39</td>
+      <td>2008-06-06T19-39-39</td>
+      <td>41.7436</td>
+      <td>-110.6124</td>
+      <td>7.2227</td>
+      <td>ML</td>
+      <td>1.88</td>
+      <td>StationKey.csv</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>ANF</td>
+      <td>2008-06-19T19-14-39</td>
+      <td>2008-06-19T19-14-39</td>
+      <td>41.7503</td>
+      <td>-110.6070</td>
+      <td>6.8870</td>
+      <td>ML</td>
+      <td>1.88</td>
+      <td>StationKey.csv</td>
+    </tr>
+  </tbody>
+</table>
+</div><p>Next we need to call makeDataDirectories (or getAllData which was kept for backward compatibility).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">time</span> <span class="n">detex</span><span class="o">.</span><span class="n">getdata</span><span class="o">.</span><span class="n">makeDataDirectories</span><span class="p">()</span> <span class="c1"># make directories and time how long it takes (the %time magic only works in ipython)</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Getting</span> <span class="n">template</span> <span class="n">waveforms</span>
+<span class="n">EventWaveForms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">indexed</span><span class="p">,</span> <span class="n">indexing</span> <span class="n">now</span>
+<span class="n">Getting</span> <span class="n">continuous</span> <span class="n">data</span>
+<span class="n">ContinuousWaveForms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">indexed</span><span class="p">,</span> <span class="n">indexing</span> <span class="n">now</span>
+<span class="n">finished</span> <span class="n">makeDataDirectories</span> <span class="n">call</span>
+<span class="n">CPU</span> <span class="n">times</span><span class="p">:</span> <span class="n">user</span> <span class="mf">34.9</span> <span class="n">s</span><span class="p">,</span> <span class="n">sys</span><span class="p">:</span> <span class="mi">1</span><span class="nb">min</span> <span class="mi">24</span><span class="n">s</span><span class="p">,</span> <span class="n">total</span><span class="p">:</span> <span class="mi">1</span><span class="nb">min</span> <span class="mi">58</span><span class="n">s</span>
+<span class="n">Wall</span> <span class="n">time</span><span class="p">:</span> <span class="mi">1</span><span class="nb">min</span> <span class="mi">13</span><span class="n">s</span>
+
+<span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">derrick</span><span class="o">/</span><span class="n">anaconda</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">python2</span><span class="o">.</span><span class="mi">7</span><span class="o">/</span><span class="n">site</span><span class="o">-</span><span class="n">packages</span><span class="o">/</span><span class="n">obspy</span><span class="o">/</span><span class="n">mseed</span><span class="o">/</span><span class="n">core</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">610</span><span class="p">:</span> <span class="ne">UserWarning</span><span class="p">:</span> <span class="n">The</span> <span class="n">encoding</span> <span class="n">specified</span> <span class="ow">in</span> <span class="n">trace</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">mseed</span><span class="o">.</span><span class="n">encoding</span> <span class="n">does</span> <span class="ow">not</span> <span class="n">match</span> <span class="n">the</span> <span class="n">dtype</span> <span class="n">of</span> <span class="n">the</span> <span class="n">data</span><span class="o">.</span>
+<span class="n">A</span> <span class="n">suitable</span> <span class="n">encoding</span> <span class="n">will</span> <span class="n">be</span> <span class="n">chosen</span><span class="o">.</span>
+  <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="ne">UserWarning</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Before we look at the downloaded data lets discuss some of the parameters that you should pay attention to when calling the makeDataDirectories function. You should notice that many of the makeDataDirectories function’s input arguments are similar to DataFetchers arguments. This is because under the hood the makeDataDirectories function is simply using a DataFetcher attached to a client (IRIS by default). If you wanted to use something besides IRIS you would just need to pass a DataFetcher instance attached to another client as the fetch argument.</p>
+<p>One unique argument that makeDataDirectories needs is the formatOut, which is the format to use when saving the data to disk. Any format obspy can read/write should be acceptable. Options are: ‘mseed’, ‘sac’, ‘GSE2’, ‘sacxy’, ‘q’, ‘sh_asc’, ‘slist’, ‘tspair’, ‘segy’, ‘su’, ‘pickle’, ‘h5’ (if obspyh5 is installed). Default is mseed, although the makeDataDirectories call by default will remove instrument response thus necessitating that the data are in a float format and therefore devaluing the mseed compression advantage.</p>
+<p>I recommend you look at the entire doc string of the function, but I wont print it here. You should think about what parameters will work best for your data set before just using the defaults.</p>
+<p>Now let’s take a look at the newly created data directories. This is most easily accomplished by reading the SQLite database that was created to index the directories.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="n">index_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;ContinuousWaveForms&#39;</span><span class="p">,</span> <span class="s1">&#39;.index.db&#39;</span><span class="p">)</span>
+<span class="n">ind</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">loadSQLite</span><span class="p">(</span><span class="n">index_file</span><span class="p">,</span> <span class="s1">&#39;ind&#39;</span><span class="p">)</span>
+<span class="n">ind</span>
+</pre></div>
+</div>
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Path</th>
+      <th>FileName</th>
+      <th>Starttime</th>
+      <th>Endtime</th>
+      <th>Gaps</th>
+      <th>Nc</th>
+      <th>Nt</th>
+      <th>Duration</th>
+      <th>Station</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>[0, 0, 0, 0]</td>
+      <td>TA.M17A.2009-091T06-00-00.msd</td>
+      <td>1238565600</td>
+      <td>1238569320</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M17A</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>[0, 0, 0, 0]</td>
+      <td>TA.M17A.2009-091T00-00-00.msd</td>
+      <td>1238544000</td>
+      <td>1238547720</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M17A</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>[0, 0, 0, 0]</td>
+      <td>TA.M17A.2009-091T02-00-00.msd</td>
+      <td>1238551200</td>
+      <td>1238554920</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M17A</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>[0, 0, 0, 0]</td>
+      <td>TA.M17A.2009-091T03-00-00.msd</td>
+      <td>1238554800</td>
+      <td>1238558520</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000001</td>
+      <td>TA.M17A</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>[0, 0, 0, 0]</td>
+      <td>TA.M17A.2009-091T01-00-00.msd</td>
+      <td>1238547600</td>
+      <td>1238551320</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M17A</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>[0, 0, 0, 0]</td>
+      <td>TA.M17A.2009-091T05-00-00.msd</td>
+      <td>1238562000</td>
+      <td>1238565720</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M17A</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>[0, 0, 0, 0]</td>
+      <td>TA.M17A.2009-091T04-00-00.msd</td>
+      <td>1238558400</td>
+      <td>1238562120</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M17A</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>[0, 1, 0, 0]</td>
+      <td>TA.M18A.2009-091T00-00-00.msd</td>
+      <td>1238544000</td>
+      <td>1238547720</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M18A</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>[0, 1, 0, 0]</td>
+      <td>TA.M18A.2009-091T02-00-00.msd</td>
+      <td>1238551200</td>
+      <td>1238554920</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000001</td>
+      <td>TA.M18A</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>[0, 1, 0, 0]</td>
+      <td>TA.M18A.2009-091T05-00-00.msd</td>
+      <td>1238562000</td>
+      <td>1238565720</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M18A</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>[0, 1, 0, 0]</td>
+      <td>TA.M18A.2009-091T04-00-00.msd</td>
+      <td>1238558400</td>
+      <td>1238562120</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M18A</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>[0, 1, 0, 0]</td>
+      <td>TA.M18A.2009-091T06-00-00.msd</td>
+      <td>1238565600</td>
+      <td>1238569320</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M18A</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>[0, 1, 0, 0]</td>
+      <td>TA.M18A.2009-091T03-00-00.msd</td>
+      <td>1238554800</td>
+      <td>1238558520</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M18A</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>[0, 1, 0, 0]</td>
+      <td>TA.M18A.2009-091T01-00-00.msd</td>
+      <td>1238547600</td>
+      <td>1238551320</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3720.000000</td>
+      <td>TA.M18A</td>
+    </tr>
+  </tbody>
+</table>
+</div><p>The fields in the database table “ind” are as follows:</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th align="center">Field</th>
+<th align="center">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="center">Path</td>
+<td align="center">A list of indicies to reference values in the indkey table for building absolute paths</td>
+</tr>
+<tr>
+<td align="center">FileName</td>
+<td align="center">The name of the particular file represented by the current row</td>
+</tr>
+<tr>
+<td align="center">Starttime</td>
+<td align="center">time stamp of the start time in the file</td>
+</tr>
+<tr>
+<td align="center">Endtime</td>
+<td align="center">time stamp of the end time in the file</td>
+</tr>
+<tr>
+<td align="center">Gaps</td>
+<td align="center">The total number of gaps in the file</td>
+</tr>
+<tr>
+<td align="center">Nc</td>
+<td align="center">The number of unique channels</td>
+</tr>
+<tr>
+<td align="center">Nt</td>
+<td align="center">The number of traces (without gaps Nc = Nt)</td>
+</tr>
+<tr>
+<td align="center">Duration</td>
+<td align="center">Duration of seismic data in seconds</td>
+</tr>
+<tr>
+<td align="center">Station</td>
+<td align="center">network.station</td>
+</tr>
+</tbody>
+</table><p>When the DataFetcher loads files from a directory it first reads the index to find the paths to load. Because of this, the directory structure not important. For example, if you already have a directory that contains some files in an obspy readable format you can index it with the detex.util.indexDirectory function. Once indexed the directory can be used by the DataFetcher class.</p>
+<p>It can be useful to use the index for data quality checks. For example, let’s look for files that are shorter than expected, that are missing channels, or that have gaps (even though we can see these TA data don’t have any such issues).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># look for gaps</span>
+<span class="n">ind_gaps</span> <span class="o">=</span> <span class="n">ind</span><span class="p">[</span><span class="n">ind</span><span class="o">.</span><span class="n">Gaps</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+<span class="k">print</span><span class="p">(</span><span class="s2">&quot;There are </span><span class="si">%d</span><span class="s2"> files with gaps&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">ind_gaps</span><span class="p">))</span>
+
+<span class="c1"># Look for durations at least 2 minutes less than the expected duration</span>
+<span class="n">expected_duration</span> <span class="o">=</span> <span class="mi">3720</span>
+<span class="n">ind_short</span> <span class="o">=</span> <span class="n">ind</span><span class="p">[</span><span class="mi">3720</span> <span class="o">-</span> <span class="n">ind</span><span class="o">.</span><span class="n">Duration</span> <span class="o">&gt;</span> <span class="mi">120</span><span class="p">]</span>
+<span class="k">print</span><span class="p">(</span><span class="s2">&quot;There are </span><span class="si">%d</span><span class="s2"> files with shorter than expected durations&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">ind_short</span><span class="p">))</span>
+
+<span class="c1"># look for missing channels</span>
+<span class="n">expected_channels</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">ind_missing</span> <span class="o">=</span> <span class="n">ind</span><span class="p">[</span><span class="n">ind</span><span class="o">.</span><span class="n">Nc</span> <span class="o">&lt;</span> <span class="n">expected_channels</span><span class="p">]</span>
+<span class="k">print</span><span class="p">(</span><span class="s2">&quot;There are </span><span class="si">%d</span><span class="s2"> files with less than </span><span class="si">%d</span><span class="s2"> channels&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ind_missing</span><span class="p">),</span> <span class="n">expected_channels</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">There</span> <span class="n">are</span> <span class="mi">0</span> <span class="n">files</span> <span class="k">with</span> <span class="n">gaps</span>
+<span class="n">There</span> <span class="n">are</span> <span class="mi">0</span> <span class="n">files</span> <span class="k">with</span> <span class="n">shorter</span> <span class="n">than</span> <span class="n">expected</span> <span class="n">durations</span>
+<span class="n">There</span> <span class="n">are</span> <span class="mi">0</span> <span class="n">files</span> <span class="k">with</span> <span class="n">less</span> <span class="n">than</span> <span class="mi">3</span> <span class="n">channels</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="initiate-datafetcher">
+<h3>Initiate DataFetcher<a class="headerlink" href="#initiate-datafetcher" title="Permalink to this headline">¶</a></h3>
+<p>Now we are ready to create a DataFetcher instance and point it at the newly created directory. We will also explore some of the DataFetcher methods.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create two fetchers, one pointed at the continuous data and the other at the event data</span>
+<span class="n">con_fetcher</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">getdata</span><span class="o">.</span><span class="n">DataFetcher</span><span class="p">(</span><span class="s1">&#39;dir&#39;</span><span class="p">,</span> <span class="n">directoryName</span><span class="o">=</span><span class="s1">&#39;ContinuousWaveForms&#39;</span><span class="p">,</span> <span class="n">removeResponse</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+<span class="n">eve_fetcher</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">getdata</span><span class="o">.</span><span class="n">DataFetcher</span><span class="p">(</span><span class="s1">&#39;dir&#39;</span><span class="p">,</span> <span class="n">directoryName</span><span class="o">=</span><span class="s1">&#39;EventWaveForms&#39;</span><span class="p">,</span> <span class="n">removeResponse</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>As of version 1.0.4 the DataFetcher has 3 public methods:</p>
+<ol class="simple">
+<li>getStream - fetches an a stream from an arbitrary network, station, channel, location (which the user must define). If no data are fetchable then None is returned.</li>
+<li>getConData - creates a generator for fetching all data avaliable for the stations, channels, and date ranges found in a station key.</li>
+<li>getTemData - fetches data related to those described by the template key, but also needs a station key to know which stations to look for.
+Let’s look at an example use of each method:</li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># getStream example</span>
+<span class="kn">import</span> <span class="nn">obspy</span>
+
+<span class="c1">## set variables</span>
+<span class="n">utc1</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="s1">&#39;2009-091T04-13-00&#39;</span><span class="p">)</span> <span class="o">-</span> <span class="mi">5</span>
+<span class="n">utc2</span> <span class="o">=</span> <span class="n">utc1</span> <span class="o">+</span> <span class="mi">60</span>
+<span class="n">net</span> <span class="o">=</span> <span class="s1">&#39;TA&#39;</span>
+<span class="n">sta</span> <span class="o">=</span> <span class="s1">&#39;M17A&#39;</span>
+<span class="n">chan</span> <span class="o">=</span> <span class="s1">&#39;BH?&#39;</span>
+
+<span class="c1">## fetch</span>
+<span class="n">st</span> <span class="o">=</span> <span class="n">con_fetcher</span><span class="o">.</span><span class="n">getStream</span><span class="p">(</span><span class="n">utc1</span><span class="p">,</span> <span class="n">utc2</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">chan</span><span class="p">)</span>
+
+<span class="c1">## plot the boring data</span>
+<span class="o">%</span><span class="n">pylab</span> <span class="n">inline</span> 
+<span class="n">st</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Populating</span> <span class="n">the</span> <span class="n">interactive</span> <span class="n">namespace</span> <span class="kn">from</span> <span class="nn">numpy</span> <span class="ow">and</span> <span class="n">matplotlib</span>
+</pre></div>
+</div>
+<p><img alt="../../../_images/output_15_1.png" src="../../../_images/output_15_1.png" />png</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># getConData example</span>
+
+<span class="c1">## Read station key and use only TA M17A</span>
+
+<span class="n">stakey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="s1">&#39;StationKey.csv&#39;</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="s1">&#39;station&#39;</span><span class="p">)</span>
+<span class="n">stakey</span> <span class="o">=</span> <span class="n">stakey</span><span class="p">[</span><span class="n">stakey</span><span class="o">.</span><span class="n">STATION</span><span class="o">==</span><span class="s1">&#39;M17A&#39;</span><span class="p">]</span>
+
+<span class="c1">## Create a generator for fetching continuous data</span>
+<span class="n">congen</span> <span class="o">=</span> <span class="n">con_fetcher</span><span class="o">.</span><span class="n">getConData</span><span class="p">(</span><span class="n">stakey</span><span class="p">)</span> <span class="c1"># note if we dont pass a duration the default is used</span>
+
+<span class="c1">## loop over generator and calculate sta/lta values to see if we can find an event</span>
+<span class="kn">from</span> <span class="nn">obspy.signal.trigger</span> <span class="kn">import</span> <span class="n">classicSTALTA</span> <span class="c1"># for simplicity let&#39;s use the basic sta/lta</span>
+<span class="kn">from</span> <span class="nn">obspy.signal.trigger</span> <span class="kn">import</span> <span class="n">plotTrigger</span>
+
+<span class="n">sta</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="c1"># short term average in seconds</span>
+<span class="n">lta</span> <span class="o">=</span> <span class="mi">2</span> <span class="c1"># long term average in seconds</span>
+<span class="n">ratio_max</span> <span class="o">=</span> <span class="mi">0</span> <span class="c1"># int variables to keep track of max and time it occurs</span>
+<span class="n">time_max</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">trace_max</span> <span class="o">=</span> <span class="bp">None</span>
+<span class="n">cft_max</span> <span class="o">=</span> <span class="bp">None</span>
+
+<span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="n">congen</span><span class="p">:</span> <span class="c1"># iterate through the generator until it is exhausted</span>
+    <span class="n">trace</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">component</span> <span class="o">=</span> <span class="s1">&#39;z&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># select vertical component</span>
+    <span class="n">trace</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="s1">&#39;bandpass&#39;</span><span class="p">,</span> <span class="n">freqmin</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">freqmax</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">zerophase</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">corners</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="c1">#filter</span>
+    <span class="n">sr</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="c1"># get sampling rate</span>
+    <span class="n">starttime</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">starttime</span>
+    <span class="n">cft</span> <span class="o">=</span> <span class="n">classicSTALTA</span><span class="p">(</span><span class="n">trace</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">sta</span> <span class="o">*</span> <span class="n">sr</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">lta</span> <span class="o">*</span> <span class="n">sr</span><span class="p">))</span> <span class="c1"># run sta/lta</span>
+    <span class="n">cft_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">cft</span><span class="p">)</span> <span class="c1"># get max value</span>
+    <span class="k">if</span> <span class="n">cft_max</span> <span class="o">&gt;</span> <span class="n">ratio_max</span><span class="p">:</span> <span class="c1"># if the max is greater than old max</span>
+        <span class="n">ratio_max</span> <span class="o">=</span> <span class="n">cft_max</span> <span class="c1"># set new max</span>
+        <span class="n">time_max</span> <span class="o">=</span> <span class="n">starttime</span> <span class="o">+</span> <span class="n">cft</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span><span class="o">/</span><span class="nb">float</span><span class="p">(</span><span class="n">sr</span><span class="p">)</span> <span class="c1"># set time max</span>
+        <span class="n">trace_max</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">cft_max</span> <span class="o">=</span> <span class="n">cft</span>
+
+<span class="k">print</span><span class="p">(</span><span class="s2">&quot;The max sta/lta was </span><span class="si">%.2f</span><span class="s2"> occured at </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ratio_max</span><span class="p">,</span> <span class="n">time_max</span><span class="p">))</span>
+<span class="n">plotTrigger</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">cft</span><span class="p">,</span> <span class="n">ratio_max</span><span class="o">*.</span><span class="mi">92</span><span class="p">,</span> <span class="n">ratio_max</span><span class="o">/</span><span class="mf">1.5</span><span class="p">)</span>
+
+<span class="c1">## Let&#39;s get a closer look</span>
+
+<span class="n">st</span> <span class="o">=</span> <span class="n">con_fetcher</span><span class="o">.</span><span class="n">getStream</span><span class="p">(</span><span class="n">time_max</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="n">time_max</span><span class="o">+</span><span class="mi">35</span><span class="p">,</span> <span class="s1">&#39;TA&#39;</span><span class="p">,</span> <span class="s1">&#39;M17A&#39;</span><span class="p">,</span> <span class="s1">&#39;BHZ&#39;</span><span class="p">)</span>
+<span class="n">st</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="s1">&#39;bandpass&#39;</span><span class="p">,</span> <span class="n">freqmin</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">freqmax</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">zerophase</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">corners</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">st</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+        
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">The</span> <span class="nb">max</span> <span class="n">sta</span><span class="o">/</span><span class="n">lta</span> <span class="n">was</span> <span class="mf">3.73</span> <span class="n">occured</span> <span class="n">at</span> <span class="mi">2009</span><span class="o">-</span><span class="mi">04</span><span class="o">-</span><span class="mi">01</span><span class="n">T01</span><span class="p">:</span><span class="mi">44</span><span class="p">:</span><span class="mf">09.950001</span><span class="n">Z</span>
+
+<span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">derrick</span><span class="o">/</span><span class="n">anaconda</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">python2</span><span class="o">.</span><span class="mi">7</span><span class="o">/</span><span class="n">site</span><span class="o">-</span><span class="n">packages</span><span class="o">/</span><span class="n">obspy</span><span class="o">/</span><span class="n">signal</span><span class="o">/</span><span class="n">trigger</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">348</span><span class="p">:</span> <span class="n">VisibleDeprecationWarning</span><span class="p">:</span> <span class="n">boolean</span> <span class="n">index</span> <span class="n">did</span> <span class="ow">not</span> <span class="n">match</span> <span class="n">indexed</span> <span class="n">array</span> <span class="n">along</span> <span class="n">dimension</span> <span class="mi">0</span><span class="p">;</span> <span class="n">dimension</span> <span class="ow">is</span> <span class="mi">435</span> <span class="n">but</span> <span class="n">corresponding</span> <span class="n">boolean</span> <span class="n">dimension</span> <span class="ow">is</span> <span class="mi">434</span>
+  <span class="n">of</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">ind2</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">ind2</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+</pre></div>
+</div>
+<p><img alt="../../../_images/output_16_2.png" src="../../../_images/output_16_2.png" />png</p>
+<p><img alt="../../../_images/output_16_3.png" src="../../../_images/output_16_3.png" />png</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># getConData example</span>
+
+<span class="c1">## Create stream generator</span>
+<span class="n">evegen</span> <span class="o">=</span> <span class="n">eve_fetcher</span><span class="o">.</span><span class="n">getTemData</span><span class="p">(</span><span class="s2">&quot;TemplateKey.csv&quot;</span><span class="p">,</span> <span class="s2">&quot;StationKey.csv&quot;</span><span class="p">)</span>
+<span class="c1"># note: the temkey and stakey parameters can either be paths to csv files or DataFrames</span>
+
+<span class="c1">## iterate through each of the known events plot a spectrogram of the one with highest amplitude</span>
+<span class="n">amp_max</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">tr_max</span> <span class="o">=</span> <span class="bp">None</span>
+<span class="k">for</span> <span class="n">st</span><span class="p">,</span> <span class="n">evename</span> <span class="ow">in</span> <span class="n">evegen</span><span class="p">:</span>
+    <span class="n">trace</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">component</span> <span class="o">=</span> <span class="s1">&#39;z&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">trace</span><span class="o">.</span><span class="n">detrend</span><span class="p">(</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+    <span class="n">trace</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="s1">&#39;bandpass&#39;</span><span class="p">,</span> <span class="n">freqmin</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">freqmax</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">zerophase</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">corners</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">z_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">trace</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">z_max</span> <span class="o">&gt;</span> <span class="n">amp_max</span><span class="p">:</span>
+        <span class="n">amp_max</span> <span class="o">=</span> <span class="n">z_max</span>
+        <span class="n">tr_max</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">tr_max</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+<span class="n">tr_max</span><span class="o">.</span><span class="n">spectrogram</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><img alt="../../../_images/output_17_0.png" src="../../../_images/output_17_0.png" />png</p>
+<p><img alt="../../../_images/output_17_1.png" src="../../../_images/output_17_1.png" />png</p>
+</div>
+</div>
+<div class="section" id="datafetcher-with-clients">
+<h2>DataFetcher with clients<a class="headerlink" href="#datafetcher-with-clients" title="Permalink to this headline">¶</a></h2>
+<p>Detex should be able to handle a wide variety of obspy client types, including FDSN, NEIC, EARTHWORM, etc. However, as of version 1.0.4 I have only tested IRIS extensively so using other clients may take a bit of debugging. More tests and bug fixes will follow in future versions.</p>
+<div class="section" id="iris-fdsn-client">
+<h3>IRIS FDSN client<a class="headerlink" href="#iris-fdsn-client" title="Permalink to this headline">¶</a></h3>
+<p>In order to use the DataFetcher we first need to set up a client object. We will create an FDSN client then initiate an instance of the DataFetcher class and use the getStream function to fetch an obspy stream.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">detex</span>
+<span class="kn">import</span> <span class="nn">obspy</span>
+<span class="kn">from</span> <span class="nn">obspy.fdsn</span> <span class="kn">import</span> <span class="n">Client</span>
+
+<span class="c1">#setup client</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="s2">&quot;IRIS&quot;</span><span class="p">)</span>
+
+<span class="c1"># setup fetcher</span>
+<span class="n">fetcher</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">getdata</span><span class="o">.</span><span class="n">DataFetcher</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s1">&#39;client&#39;</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="n">client</span><span class="p">)</span>
+
+<span class="c1"># set info</span>
+<span class="n">utc1</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="s1">&#39;2009-03-19T19-06-07&#39;</span><span class="p">)</span> <span class="o">-</span> <span class="mi">5</span>
+<span class="n">utc2</span> <span class="o">=</span> <span class="n">utc1</span> <span class="o">+</span> <span class="mi">60</span>
+<span class="n">net</span> <span class="o">=</span> <span class="s1">&#39;TA&#39;</span>
+<span class="n">sta</span> <span class="o">=</span> <span class="s1">&#39;M17A&#39;</span>
+<span class="n">chan</span> <span class="o">=</span> <span class="s1">&#39;BH?&#39;</span>
+
+<span class="c1"># fetch a stream</span>
+<span class="n">st</span> <span class="o">=</span> <span class="n">fetcher</span><span class="o">.</span><span class="n">getStream</span><span class="p">(</span><span class="n">utc1</span><span class="p">,</span> <span class="n">utc2</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">chan</span><span class="p">)</span>
+
+<span class="c1"># plot waveforms</span>
+<span class="o">%</span><span class="n">pylab</span> <span class="n">inline</span> 
+<span class="n">st</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="s1">&#39;bandpass&#39;</span><span class="p">,</span> <span class="n">freqmin</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">freqmax</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">corners</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">zerophase</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">st</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Populating the interactive namespace from numpy and matplotlib
+
+WARNING: pylab import has clobbered these variables: [&#39;trace&#39;]
+`%matplotlib` prevents importing * from pylab and numpy
+</pre></div>
+</div>
+<p><img alt="../../../_images/output_19_2.png" src="../../../_images/output_19_2.png" />png</p>
+<p>If the waveforms look strange it is because this event is actually a blast at a surface coal mine.</p>
+<p>The other methods demonstrated in previous sections also work with the DataFetcher attached to IRIS, so I wont illustrate them again here.</p>
+<p>It should be noted that by default the instrument responses have been removed. This can be controlled with the removeResponse input argument which is either set to True or False.</p>
+<p>This should give you all the information you need on how detex gets its data and how to set up a custom DataFetcher to be used by other detex classes.</p>
+</div>
+</div>
+</div>
+<div class="section" id="next-section">
+<h1>Next Section<a class="headerlink" href="#next-section" title="Permalink to this headline">¶</a></h1>
+<p>The <a class="reference internal" href="../Clustering/clustering.html"><span class="doc">next section</span></a> covers how to perform waveform similarity analysis in preparation for subspace detection.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">detex</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../detex.html">detex package</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Derrick Chambers.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/tutorial/Advanced/GetData/get_data.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

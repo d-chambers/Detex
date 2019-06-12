@@ -1,0 +1,699 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Subspace Creation &#8212; detex __version__ = 1.0.9 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  
+<style>
+/* CSS for nbsphinx extension */
+
+/* remove conflicting styling from Sphinx themes */
+div.nbinput,
+div.nbinput div.prompt,
+div.nbinput div.input_area,
+div.nbinput div[class*=highlight],
+div.nbinput div[class*=highlight] pre,
+div.nboutput,
+div.nbinput div.prompt,
+div.nbinput div.output_area,
+div.nboutput div[class*=highlight],
+div.nboutput div[class*=highlight] pre {
+    background: none;
+    border: none;
+    padding: 0 0;
+    margin: 0;
+    box-shadow: none;
+}
+
+/* avoid gaps between output lines */
+div.nboutput div[class*=highlight] pre {
+    line-height: normal;
+}
+
+/* input/output containers */
+div.nbinput,
+div.nboutput {
+    display: -webkit-flex;
+    display: flex;
+    align-items: flex-start;
+    margin: 0;
+    width: 100%;
+}
+@media (max-width: 540px) {
+    div.nbinput,
+    div.nboutput {
+        flex-direction: column;
+    }
+}
+
+/* input container */
+div.nbinput {
+    padding-top: 5px;
+}
+
+/* last container */
+div.nblast {
+    padding-bottom: 5px;
+}
+
+/* input prompt */
+div.nbinput div.prompt pre {
+    color: #307FC1;
+}
+
+/* output prompt */
+div.nboutput div.prompt pre {
+    color: #BF5B3D;
+}
+
+/* all prompts */
+div.nbinput div.prompt,
+div.nboutput div.prompt {
+    min-width: 5ex;
+    padding-top: 0.4em;
+    padding-right: 0.4em;
+    text-align: right;
+    flex: 0;
+}
+@media (max-width: 540px) {
+    div.nbinput div.prompt,
+    div.nboutput div.prompt {
+        text-align: left;
+        padding: 0.4em;
+    }
+    div.nboutput div.prompt.empty {
+        padding: 0;
+    }
+}
+
+/* disable scrollbars on prompts */
+div.nbinput div.prompt pre,
+div.nboutput div.prompt pre {
+    overflow: hidden;
+}
+
+/* input/output area */
+div.nbinput div.input_area,
+div.nboutput div.output_area {
+    padding: 0.4em;
+    -webkit-flex: 1;
+    flex: 1;
+    overflow: auto;
+}
+@media (max-width: 540px) {
+    div.nbinput div.input_area,
+    div.nboutput div.output_area {
+        width: 100%;
+    }
+}
+
+/* input area */
+div.nbinput div.input_area {
+    border: 1px solid #e0e0e0;
+    border-radius: 2px;
+    background: #f5f5f5;
+}
+
+/* override MathJax center alignment in output cells */
+div.nboutput div[class*=MathJax] {
+    text-align: left !important;
+}
+
+/* override sphinx.ext.imgmath center alignment in output cells */
+div.nboutput div.math p {
+    text-align: left;
+}
+
+/* standard error */
+div.nboutput div.output_area.stderr {
+    background: #fdd;
+}
+
+/* ANSI colors */
+.ansi-black-fg { color: #3E424D; }
+.ansi-black-bg { background-color: #3E424D; }
+.ansi-black-intense-fg { color: #282C36; }
+.ansi-black-intense-bg { background-color: #282C36; }
+.ansi-red-fg { color: #E75C58; }
+.ansi-red-bg { background-color: #E75C58; }
+.ansi-red-intense-fg { color: #B22B31; }
+.ansi-red-intense-bg { background-color: #B22B31; }
+.ansi-green-fg { color: #00A250; }
+.ansi-green-bg { background-color: #00A250; }
+.ansi-green-intense-fg { color: #007427; }
+.ansi-green-intense-bg { background-color: #007427; }
+.ansi-yellow-fg { color: #DDB62B; }
+.ansi-yellow-bg { background-color: #DDB62B; }
+.ansi-yellow-intense-fg { color: #B27D12; }
+.ansi-yellow-intense-bg { background-color: #B27D12; }
+.ansi-blue-fg { color: #208FFB; }
+.ansi-blue-bg { background-color: #208FFB; }
+.ansi-blue-intense-fg { color: #0065CA; }
+.ansi-blue-intense-bg { background-color: #0065CA; }
+.ansi-magenta-fg { color: #D160C4; }
+.ansi-magenta-bg { background-color: #D160C4; }
+.ansi-magenta-intense-fg { color: #A03196; }
+.ansi-magenta-intense-bg { background-color: #A03196; }
+.ansi-cyan-fg { color: #60C6C8; }
+.ansi-cyan-bg { background-color: #60C6C8; }
+.ansi-cyan-intense-fg { color: #258F8F; }
+.ansi-cyan-intense-bg { background-color: #258F8F; }
+.ansi-white-fg { color: #C5C1B4; }
+.ansi-white-bg { background-color: #C5C1B4; }
+.ansi-white-intense-fg { color: #A1A6B2; }
+.ansi-white-intense-bg { background-color: #A1A6B2; }
+
+.ansi-default-inverse-fg { color: #FFFFFF; }
+.ansi-default-inverse-bg { background-color: #000000; }
+
+.ansi-bold { font-weight: bold; }
+.ansi-underline { text-decoration: underline; }
+
+/* Some additional styling taken form the Jupyter notebook CSS */
+div.rendered_html table {
+  border: none;
+  border-collapse: collapse;
+  border-spacing: 0;
+  color: black;
+  font-size: 12px;
+  table-layout: fixed;
+}
+div.rendered_html thead {
+  border-bottom: 1px solid black;
+  vertical-align: bottom;
+}
+div.rendered_html tr,
+div.rendered_html th,
+div.rendered_html td {
+  text-align: right;
+  vertical-align: middle;
+  padding: 0.5em 0.5em;
+  line-height: normal;
+  white-space: normal;
+  max-width: none;
+  border: none;
+}
+div.rendered_html th {
+  font-weight: bold;
+}
+div.rendered_html tbody tr:nth-child(odd) {
+  background: #f5f5f5;
+}
+div.rendered_html tbody tr:hover {
+  background: rgba(66, 165, 245, 0.2);
+}
+</style>
+<div class="section" id="Subspace-Creation">
+<h1>Subspace Creation<a class="headerlink" href="#Subspace-Creation" title="Permalink to this headline">¶</a></h1>
+<p>The next step in the detex workflow is to create a SubSpace object from a given cluster. Before we get too far into this let’s look at a new data set.</p>
+<div class="section" id="The-data-set">
+<h2>The data set<a class="headerlink" href="#The-data-set" title="Permalink to this headline">¶</a></h2>
+<p>The data we will be working with are from a waste water injection site in Ohio. An excellent article on this site was recently published. Its reference is:</p>
+<p>Friberg, Paul A., Glenda M. Besana‐Ostman, and Ilya Dricker. “Characterization of an earthquake sequence triggered by hydraulic fracturing in Harrison County, Ohio.” Seismological Research Letters (2014).</p>
+<p>The station key, template key, look like this:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython2 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">detex</span>
+<span class="o">%</span><span class="k">matplotlib</span> inline
+<span class="c1"># display station key</span>
+<span class="n">stakey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="s2">&quot;StationKey.csv&quot;</span><span class="p">,</span> <span class="s2">&quot;station&quot;</span><span class="p">)</span>
+<span class="n">stakey</span>
+
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>NETWORK</th>
+      <th>STATION</th>
+      <th>STARTTIME</th>
+      <th>ENDTIME</th>
+      <th>LAT</th>
+      <th>LON</th>
+      <th>ELEVATION</th>
+      <th>CHANNELS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>TA</td>
+      <td>O53A</td>
+      <td>2013-09-06T00-00-00</td>
+      <td>2013-09-16T00-00-00</td>
+      <td>40.2493</td>
+      <td>-81.2129</td>
+      <td>320</td>
+      <td>BHZ-BHN-BHE</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>TA</td>
+      <td>O52A</td>
+      <td>2013-09-06T00-00-00</td>
+      <td>2013-09-16T00-00-00</td>
+      <td>40.1158</td>
+      <td>-81.8361</td>
+      <td>331</td>
+      <td>BHZ-BHN-BHE</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython2 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">temkey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="s2">&quot;TemplateKey.csv&quot;</span><span class="p">,</span> <span class="s2">&quot;template&quot;</span><span class="p">)</span>
+<span class="n">temkey</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>TIME</th>
+      <th>NAME</th>
+      <th>LAT</th>
+      <th>LON</th>
+      <th>MAG</th>
+      <th>DEPTH</th>
+      <th>STMP</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2013-10-02T00-01-28.31</td>
+      <td>2013-10-02T00-01-28.31</td>
+      <td>40.218167</td>
+      <td>-81.23250</td>
+      <td>1.6</td>
+      <td>1.01</td>
+      <td>2013-10-02T00:01:28.310000Z</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2013-10-02T01-43-30.31</td>
+      <td>2013-10-02T01-43-30.31</td>
+      <td>40.241500</td>
+      <td>-81.22433</td>
+      <td>1.6</td>
+      <td>4.36</td>
+      <td>2013-10-02T01:43:30.310000Z</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2013-10-02T01-52-48.36</td>
+      <td>2013-10-02T01-52-48.36</td>
+      <td>40.234333</td>
+      <td>-81.20250</td>
+      <td>1.6</td>
+      <td>3.64</td>
+      <td>2013-10-02T01:52:48.360000Z</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2013-10-02T03-03-14.81</td>
+      <td>2013-10-02T03-03-14.81</td>
+      <td>40.246500</td>
+      <td>-81.23817</td>
+      <td>1.8</td>
+      <td>4.01</td>
+      <td>2013-10-02T03:03:14.810000Z</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2013-10-02T03-19-11.57</td>
+      <td>2013-10-02T03-19-11.57</td>
+      <td>40.233660</td>
+      <td>-81.23250</td>
+      <td>2.0</td>
+      <td>2.22</td>
+      <td>2013-10-02T03:19:11.570000Z</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>2013-10-02T10:06:57.34</td>
+      <td>2013-10-02T10:06:57.34</td>
+      <td>40.244500</td>
+      <td>-81.23200</td>
+      <td>2.0</td>
+      <td>4.14</td>
+      <td>2013-10-02T10:06:57.340000Z</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>2013-10-03T14-40-40.91</td>
+      <td>2013-10-03T14-40-40.91</td>
+      <td>40.211170</td>
+      <td>-81.20617</td>
+      <td>1.7</td>
+      <td>2.10</td>
+      <td>2013-10-03T14:40:40.910000Z</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>2013-10-05T00-16-15.76</td>
+      <td>2013-10-05T00-16-15.76</td>
+      <td>40.241330</td>
+      <td>-81.25430</td>
+      <td>2.2</td>
+      <td>4.55</td>
+      <td>2013-10-05T00:16:15.760000Z</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>2013-10-08T06-25-47.96</td>
+      <td>2013-10-08T06-25-47.96</td>
+      <td>40.223660</td>
+      <td>-81.22167</td>
+      <td>1.7</td>
+      <td>2.44</td>
+      <td>2013-10-08T06:25:47.960000Z</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>2013-10-19T06-48-40.01</td>
+      <td>2013-10-19T06-48-40.01</td>
+      <td>40.226600</td>
+      <td>-81.23733</td>
+      <td>1.9</td>
+      <td>2.07</td>
+      <td>2013-10-19T06:48:40.010000Z</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<p>Additionally, we know when a nearby well began injection and ceased injection</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython2 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">obspy</span>
+<span class="n">start_inject</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="s1">&#39;2013-09-07T01:45:00&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span>
+<span class="n">stop_inject</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="s1">&#39;2013-10-06T13:18:00&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span>
+
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="Setup">
+<h2>Setup<a class="headerlink" href="#Setup" title="Permalink to this headline">¶</a></h2>
+<p>Now we need to get the data and perform the waveform clustering. This will probably take about 20 minutes depending on your internet connection.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython2 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">detex</span><span class="o">.</span><span class="n">getdata</span><span class="o">.</span><span class="n">makeDataDirectories</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Getting template waveforms
+Getting continuous data
+finished makeDataDirectories call
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/derrick_chambers/anaconda3/envs/detex/lib/python2.7/site-packages/obspy/core/util/deprecation_helpers.py:67: ObsPyDeprecationWarning: Module &#39;obspy.station&#39; is deprecated and will stop working with the next ObsPy version. Please import module &#39;obspy.core.inventory&#39;instead.
+  warnings.warn(msg, ObsPyDeprecationWarning)
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython2 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">detex</span>
+<span class="o">%</span><span class="k">matplotlib</span> inline
+<span class="n">cl</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">createCluster</span><span class="p">()</span>
+<span class="n">cl</span><span class="o">.</span><span class="n">dendro</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Cannot remove response without a valid inventoryArg, setting removeResponse to False
+Starting IO operations and data checks
+performing cluster analysis on TA.O52A
+performing cluster analysis on TA.O53A
+ccReq for station TA.O52A updated to ccReq=0.500
+ccReq for station TA.O53A updated to ccReq=0.500
+writing ClusterStream instance as clust.pkl
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_7_1.png" src="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_7_1.png" />
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_7_2.png" src="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_7_2.png" />
+</div>
+</div>
+<p>The 10 events we have selected are very similar, so I am going to leave them in one cluster. Let’s see where they plot according to the ANF catalog.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython2 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">cl</span><span class="o">.</span><span class="n">plotEvents</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/derrick_chambers/anaconda3/envs/detex/lib/python2.7/site-packages/obspy/core/util/deprecation_helpers.py:67: ObsPyDeprecationWarning: Module &#39;obspy.core.util.geodetics&#39; is deprecated and will stop working with the next ObsPy version. Please import module &#39;obspy.geodetics&#39;instead.
+  warnings.warn(msg, ObsPyDeprecationWarning)
+/home/derrick_chambers/anaconda3/envs/detex/lib/python2.7/site-packages/obspy/core/util/deprecation_helpers.py:57: ObsPyDeprecationWarning: Function &#39;obspy.geodetics.gps2DistAzimuth&#39; is deprecated and will stop working with the next ObsPy version. Please use &#39;obspy.geodetics.base.gps2dist_azimuth&#39; instead.
+  warnings.warn(msg, ObsPyDeprecationWarning)
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_1.png" src="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_1.png" />
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_2.png" src="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_2.png" />
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_3.png" src="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_3.png" />
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_4.png" src="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_4.png" />
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_5.png" src="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_5.png" />
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_6.png" src="../../../_images/tutorial_Advanced_SubspaceDetction_Subspace_9_6.png" />
+</div>
+</div>
+</div>
+<div class="section" id="Create-subspace">
+<h2>Create subspace<a class="headerlink" href="#Create-subspace" title="Permalink to this headline">¶</a></h2>
+<p>Next we are ready to create the subspace object. The SubSpace class requires a ClusterStream instance for input. You can pass it directly to the SubSpace class via the “cl” keyword in the init method or detex will look for a pickeled instance with the default name of “clust.pkl” in the current working directly. Whenever you create a cluster object or update its correlation coeficient requirement it is pickeled (saved to disk) with the default name. In this case we will just use the default.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython2 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">ss</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">createSubSpace</span><span class="p">()</span> <span class="c1"># we could also use ss = detex.construct.createSubSpace()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Cannot remove response without a valid inventoryArg, setting removeResponse to False
+Starting Subspace Construction
+Finished CreateSubSpace call
+</pre></div></div>
+</div>
+</div>
+<div class="section" id="Attach-picks">
+<h2>Attach picks<a class="headerlink" href="#Attach-picks" title="Permalink to this headline">¶</a></h2>
+<p>Now we can attach the picks. These are contained in a csv that is name “PhasePicks.csv” by defualt. I created the csv by calling detex.util.pickPhases. The pickPhases function uses an altered version of streamPick (<a class="reference external" href="https://github.com/miili/StreamPick">https://github.com/miili/StreamPick</a>) which is a fantistic light-weight gui for making phase picks.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython2 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">ss</span><span class="o">.</span><span class="n">attachPickTimes</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="SVD-and-set-thresholds">
+<h2>SVD and set thresholds<a class="headerlink" href="#SVD-and-set-thresholds" title="Permalink to this headline">¶</a></h2>
+<p>Next we need to call the SVD method of the SubSpace class. It will perform the singular value decomposition in order to create an ortho-normal representation of the aligned waveforms. This is done primarily as a method of dimensionality reduction. The main method for determining how many dimensions a subspace needs to represent the events that went into it well is through an average percent energy capture requirement. If you are not sure what I am talking about take a look at figure 8 of Dave
+Haris’ <a class="reference external" href="https://e-reports-ext.llnl.gov/pdf/335299.pdf">subspace paper</a>.</p>
+<p>After these steps are complete the SVD function will try to determine a threshold of detection that is significant. This is done by running the subspace detector over continuous data.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">detex</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../detex.html">detex package</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Derrick Chambers.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/tutorial/Advanced/SubspaceDetction/Subspace.ipynb.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,1585 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Clustering &#8212; detex __version__ = 1.0.9 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="clustering">
+<h1>Clustering<a class="headerlink" href="#clustering" title="Permalink to this headline">¶</a></h1>
+<p>This segment of the tutorial will teach you how to preform waveform similarity clustering in detex. The function used to preform clustering is createCluster of the construct module. The results are then stored in an instance of the ClusterStream class. Let’s start by looking at the createCluster function and some important parameters that go into it, then we will look at the ClusterStream class its methods.</p>
+<div class="section" id="createcluster">
+<h2>CreateCluster<a class="headerlink" href="#createcluster" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">detex</span>
+<span class="n">version</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">__version__</span>
+<span class="k">print</span> <span class="p">(</span><span class="s2">&quot;Detex version is </span><span class="si">%s</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">version</span><span class="p">)</span>
+<span class="k">print</span> <span class="p">(</span><span class="n">detex</span><span class="o">.</span><span class="n">construct</span><span class="o">.</span><span class="n">createCluster</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Detex</span> <span class="n">version</span> <span class="ow">is</span> <span class="mf">1.0</span><span class="o">.</span><span class="mi">5</span>
+
+ 
+    <span class="n">Function</span> <span class="n">to</span> <span class="n">create</span> <span class="n">an</span> <span class="n">instance</span> <span class="n">of</span> <span class="n">the</span> <span class="n">ClusterStream</span> <span class="k">class</span> 
+    
+    <span class="nc">Parameters</span>
+    <span class="o">-------</span>
+    <span class="n">CCreq</span> <span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">1</span>
+        <span class="n">The</span> <span class="n">minimum</span> <span class="n">correlation</span> <span class="n">coefficient</span> <span class="k">for</span> <span class="n">grouping</span> <span class="n">waveforms</span><span class="o">.</span> 
+        <span class="mf">0.0</span> <span class="n">results</span> <span class="ow">in</span> <span class="nb">all</span> <span class="n">waveforms</span> <span class="n">grouping</span> <span class="n">together</span> <span class="ow">and</span> <span class="mf">1.0</span> <span class="n">will</span> <span class="ow">not</span>
+        <span class="n">form</span> <span class="nb">any</span> <span class="n">groups</span><span class="o">.</span>
+    <span class="n">fetch_arg</span> <span class="p">:</span> <span class="nb">str</span> <span class="ow">or</span> <span class="n">detex</span><span class="o">.</span><span class="n">getdata</span><span class="o">.</span><span class="n">DataFetcher</span> <span class="n">instance</span>
+        <span class="n">Fetch_arg</span> <span class="n">of</span> <span class="n">detex</span><span class="o">.</span><span class="n">getdata</span><span class="o">.</span><span class="n">quickFetch</span><span class="p">,</span> <span class="n">see</span> <span class="n">docs</span> <span class="k">for</span> <span class="n">details</span><span class="o">.</span>
+    <span class="n">filt</span> <span class="p">:</span> <span class="nb">list</span>
+        <span class="n">A</span> <span class="nb">list</span> <span class="n">of</span> <span class="n">the</span> <span class="n">required</span> <span class="nb">input</span> <span class="n">parameters</span> <span class="k">for</span> <span class="n">the</span> <span class="n">obspy</span> <span class="n">bandpass</span> 
+        <span class="nb">filter</span> <span class="p">[</span><span class="n">freqmin</span><span class="p">,</span> <span class="n">freqmax</span><span class="p">,</span> <span class="n">corners</span><span class="p">,</span> <span class="n">zerophase</span><span class="p">]</span><span class="o">.</span>
+    <span class="n">stationKey</span> <span class="p">:</span> <span class="nb">str</span> <span class="ow">or</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+        <span class="n">Path</span> <span class="n">to</span> <span class="n">the</span> <span class="n">station</span> <span class="n">key</span> <span class="ow">or</span> <span class="n">DataFrame</span> <span class="n">of</span> <span class="n">station</span> <span class="n">key</span><span class="o">.</span>
+    <span class="n">templateKey</span> <span class="p">:</span> <span class="nb">str</span> <span class="ow">or</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+        <span class="n">Path</span> <span class="n">to</span> <span class="n">the</span> <span class="n">template</span> <span class="n">key</span> <span class="ow">or</span> <span class="n">loaded</span> <span class="n">template</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">DataFrame</span><span class="o">.</span>
+    <span class="n">trim</span> <span class="p">:</span> <span class="nb">list</span> 
+        <span class="n">A</span> <span class="nb">list</span> <span class="k">with</span> <span class="n">seconds</span> <span class="n">to</span> <span class="n">trim</span> <span class="kn">from</span> <span class="nn">events</span> <span class="k">with</span> <span class="n">respect</span> <span class="n">to</span> <span class="n">the</span> <span class="n">origin</span> 
+        <span class="n">time</span> <span class="n">reported</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">template</span> <span class="n">key</span><span class="o">.</span> <span class="n">The</span> <span class="n">default</span> <span class="n">value</span> <span class="n">of</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">120</span><span class="p">]</span> 
+        <span class="n">means</span> <span class="n">each</span> <span class="n">event</span> <span class="n">will</span> <span class="n">be</span> <span class="n">trimmed</span> <span class="n">to</span> <span class="n">only</span> <span class="n">contain</span> <span class="mi">10</span> <span class="n">seconds</span> <span class="n">before</span> 
+        <span class="n">its</span> <span class="n">origin</span> <span class="n">time</span> <span class="ow">and</span> <span class="mi">120</span> <span class="n">seconds</span> <span class="n">after</span><span class="o">.</span> <span class="n">The</span> <span class="n">larger</span> <span class="n">the</span> <span class="n">values</span> <span class="n">of</span> <span class="n">this</span> 
+        <span class="n">argument</span> <span class="n">the</span> <span class="n">longer</span> <span class="n">the</span> <span class="n">computation</span> <span class="n">time</span> <span class="ow">and</span> <span class="n">chance</span> <span class="n">of</span> <span class="n">misalignment</span><span class="p">,</span>
+        <span class="n">but</span> <span class="n">values</span> <span class="n">that</span> <span class="n">are</span> <span class="n">too</span> <span class="n">small</span> <span class="n">may</span> <span class="n">trim</span> <span class="n">out</span> <span class="n">desired</span> <span class="n">phases</span> <span class="n">of</span> <span class="n">the</span>
+        <span class="n">waveform</span><span class="o">.</span> 
+    <span class="n">saveClust</span> <span class="p">:</span> <span class="nb">bool</span>
+        <span class="n">If</span> <span class="n">true</span> <span class="n">save</span> <span class="n">the</span> <span class="n">cluster</span> <span class="nb">object</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">current</span> <span class="n">working</span> 
+        <span class="n">directory</span><span class="o">.</span> <span class="n">The</span> <span class="n">name</span> <span class="ow">is</span> <span class="n">controlled</span> <span class="n">by</span> <span class="n">the</span> <span class="n">fileName</span> <span class="n">parameter</span><span class="o">.</span> 
+    <span class="n">fileName</span> <span class="p">:</span> <span class="nb">str</span>
+        <span class="n">Path</span> <span class="p">(</span><span class="ow">or</span> <span class="n">name</span><span class="p">)</span> <span class="n">to</span> <span class="n">save</span> <span class="n">the</span> <span class="n">clustering</span> <span class="n">instance</span><span class="p">,</span> <span class="n">only</span> <span class="n">used</span> 
+        <span class="k">if</span> <span class="n">saveClust</span> <span class="ow">is</span> <span class="kc">True</span><span class="o">.</span>
+    <span class="n">decimate</span> <span class="p">:</span> <span class="nb">int</span> <span class="ow">or</span> <span class="kc">None</span>
+        <span class="n">A</span> <span class="n">decimation</span> <span class="n">factor</span> <span class="n">to</span> <span class="n">apply</span> <span class="n">to</span> <span class="nb">all</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">order</span> <span class="n">to</span> <span class="n">decrease</span> <span class="n">run</span> 
+        <span class="n">time</span><span class="o">.</span> <span class="n">Can</span> <span class="n">be</span> <span class="n">very</span> <span class="n">useful</span> <span class="k">if</span> <span class="n">the</span> <span class="n">the</span> <span class="n">data</span> <span class="n">are</span> <span class="n">oversampled</span><span class="o">.</span> <span class="n">For</span> 
+        <span class="n">example</span><span class="p">,</span> <span class="k">if</span> <span class="n">the</span> <span class="n">data</span> <span class="n">are</span> <span class="n">sampled</span> <span class="n">at</span> <span class="mi">200</span> <span class="n">Hz</span> <span class="n">but</span> <span class="n">a</span> <span class="mi">1</span> <span class="n">to</span> <span class="mi">10</span> <span class="n">Hz</span> 
+        <span class="n">bandpass</span> <span class="nb">filter</span> <span class="ow">is</span> <span class="n">applied</span> <span class="n">it</span> <span class="n">may</span> <span class="n">be</span> <span class="n">appropriate</span> <span class="n">to</span> <span class="n">apply</span> <span class="n">a</span> 
+        <span class="n">decimation</span> <span class="n">factor</span> <span class="n">of</span> <span class="mi">5</span> <span class="n">to</span> <span class="n">bring</span> <span class="n">the</span> <span class="n">sampling</span> <span class="n">rate</span> <span class="n">down</span> <span class="n">to</span> <span class="mi">40</span> <span class="n">hz</span><span class="o">.</span> 
+    <span class="n">dytpe</span> <span class="p">:</span> <span class="nb">str</span>
+        <span class="n">An</span> <span class="n">option</span> <span class="n">to</span> <span class="n">recast</span> <span class="n">data</span> <span class="nb">type</span> <span class="n">of</span> <span class="n">the</span> <span class="n">seismic</span> <span class="n">data</span><span class="o">.</span> <span class="n">Options</span> <span class="n">are</span><span class="p">:</span>
+            <span class="n">double</span><span class="o">-</span> <span class="n">numpy</span> <span class="nb">float</span> <span class="mi">64</span>
+            <span class="n">single</span><span class="o">-</span> <span class="n">numpy</span> <span class="nb">float</span> <span class="mi">32</span><span class="p">,</span> <span class="n">much</span> <span class="n">faster</span> <span class="ow">and</span> <span class="n">amenable</span> <span class="n">to</span> <span class="n">cuda</span> <span class="n">GPU</span> 
+            <span class="n">processing</span><span class="p">,</span> <span class="n">sacrifices</span> <span class="n">precision</span><span class="o">.</span>
+    <span class="n">eventsOnAllStations</span> <span class="p">:</span> <span class="nb">bool</span>
+        <span class="n">If</span> <span class="kc">True</span> <span class="n">only</span> <span class="n">use</span> <span class="n">the</span> <span class="n">events</span> <span class="n">that</span> <span class="n">occur</span> <span class="n">on</span> <span class="nb">all</span> <span class="n">stations</span><span class="p">,</span> <span class="k">if</span> 
+        <span class="n">false</span> <span class="n">let</span> <span class="n">each</span> <span class="n">station</span> <span class="n">have</span> <span class="n">an</span> <span class="n">independent</span> <span class="n">event</span> <span class="nb">list</span><span class="o">.</span>
+    <span class="n">enforceOrigin</span> <span class="p">:</span> <span class="nb">bool</span>
+        <span class="n">If</span> <span class="kc">True</span> <span class="n">make</span> <span class="n">sure</span> <span class="n">each</span> <span class="n">trace</span> <span class="n">starts</span> <span class="n">at</span> <span class="n">the</span> <span class="n">reported</span> <span class="n">origin</span> <span class="n">time</span> <span class="ow">in</span> 
+        <span class="n">the</span> <span class="n">template</span> <span class="n">key</span><span class="o">.</span> <span class="n">If</span> <span class="ow">not</span> <span class="n">trim</span> <span class="ow">or</span> <span class="n">merge</span> <span class="k">with</span> <span class="n">zeros</span><span class="o">.</span> <span class="n">Required</span>  <span class="k">for</span> 
+        <span class="n">lag</span> <span class="n">times</span> <span class="n">to</span> <span class="n">be</span> <span class="n">meaningful</span> <span class="k">for</span> <span class="n">hypoDD</span> <span class="nb">input</span><span class="o">.</span>
+    <span class="n">fillZeros</span> <span class="p">:</span> <span class="nb">bool</span>
+        <span class="n">If</span> <span class="kc">True</span> <span class="n">fill</span> <span class="n">zeros</span> <span class="kn">from</span> <span class="nn">trim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">to</span> <span class="n">trim</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span> <span class="n">Suggested</span> <span class="k">for</span> <span class="n">older</span> 
+        <span class="n">data</span> <span class="ow">or</span> <span class="k">if</span> <span class="n">only</span> <span class="n">triggered</span> <span class="n">data</span> <span class="n">are</span> <span class="n">available</span><span class="o">.</span>
+        
+    <span class="n">Returns</span>
+    <span class="o">---------</span>
+        <span class="n">An</span> <span class="n">instance</span> <span class="n">of</span> <span class="n">the</span> <span class="n">detex</span> <span class="n">SSClustering</span> <span class="k">class</span>
+</pre></div>
+</div>
+<p>As you can see there are a lot of input arguments, and a lot to think about when creating a cluster object. Let me elaborate on some of the arguments you should pay special attention to.</p>
+<ul class="simple">
+<li>fet_arg - make sure to look at the detex.getdata.quickFetch docs for this one. Basically, if you want to use a custom DataFetcher be sure to pass it to the createCluster call here or else detex will try to use a local directory with the default name of EventWaveForms.</li>
+<li>filt - parameters to apply a bandpass filter to the waveform similarity clustering and ALL all detex downstream operations. Make sure to think about this carefully before simply using the default, as the default values are not appropriate for all data sets.</li>
+<li>fillZeros - a parameter for handling data with gaps. If data are not avaliable for the entire range (defined by template key and trim parameter) detex will simply fill zeros so that each trace will have the length defined by the trim parameter. The created cluster instance can then be used later on by detex, although you should be careful going forward to no include a bunch of the zero data in your detector, more on that later.</li>
+<li>trim - a two element list that defines the length of each waveform. The first element is the time before the origin (as reported in the station key) and the second element is the number of seconds after the reported origin time.</li>
+</ul>
+<div class="section" id="dealing-with-gaps">
+<h3>Dealing with gaps<a class="headerlink" href="#dealing-with-gaps" title="Permalink to this headline">¶</a></h3>
+<p>In order to see how some of these parameters affect the clustering process we will look at an early UUSS dataset that has some issues with gaps. Here are the stations and templates:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stakey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="s1">&#39;StationKey.csv&#39;</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="s1">&#39;station&#39;</span><span class="p">)</span>
+<span class="n">stakey</span>
+</pre></div>
+</div>
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>NETWORK</th>
+      <th>STATION</th>
+      <th>STARTTIME</th>
+      <th>ENDTIME</th>
+      <th>LAT</th>
+      <th>LON</th>
+      <th>ELEVATION</th>
+      <th>CHANNELS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>UU</td>
+      <td>IMU</td>
+      <td>2003-01-03T00:00:00</td>
+      <td>2004-04-04T00:00:00</td>
+      <td>38.6332</td>
+      <td>-113.158</td>
+      <td>1833</td>
+      <td>EHZ</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>UU</td>
+      <td>MSU</td>
+      <td>2003-01-01T00:00:00</td>
+      <td>2004-04-04T00:00:00</td>
+      <td>38.5123</td>
+      <td>-112.177</td>
+      <td>2105</td>
+      <td>EHZ</td>
+    </tr>
+  </tbody>
+</table>
+</div><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">temkey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="s1">&#39;TemplateKey.csv&#39;</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="s1">&#39;template&#39;</span><span class="p">)</span>
+<span class="n">temkey</span>
+</pre></div>
+</div>
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>TIME</th>
+      <th>NAME</th>
+      <th>LAT</th>
+      <th>LON</th>
+      <th>MAG</th>
+      <th>DEPTH</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2002-02-01T04-37-29.94</td>
+      <td>2002-02-01T04-37-29.94</td>
+      <td>38.616833</td>
+      <td>-112.463833</td>
+      <td>1.40</td>
+      <td>2.82</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2002-02-02T03-38-36.21</td>
+      <td>2002-02-02T03-38-36.21</td>
+      <td>38.575667</td>
+      <td>-112.714500</td>
+      <td>1.19</td>
+      <td>1.14</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2002-02-22T22-59-28.69</td>
+      <td>2002-02-22T22-59-28.69</td>
+      <td>38.558667</td>
+      <td>-112.460500</td>
+      <td>2.17</td>
+      <td>1.72</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2002-02-22T23-10-36.58</td>
+      <td>2002-02-22T23-10-36.58</td>
+      <td>38.538667</td>
+      <td>-112.455500</td>
+      <td>0.99</td>
+      <td>5.82</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2002-02-26T11-45-48.87</td>
+      <td>2002-02-26T11-45-48.87</td>
+      <td>38.527333</td>
+      <td>-112.467667</td>
+      <td>1.98</td>
+      <td>4.01</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>2002-02-26T12-09-47.92</td>
+      <td>2002-02-26T12-09-47.92</td>
+      <td>38.558500</td>
+      <td>-112.456500</td>
+      <td>2.39</td>
+      <td>-0.28</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>2002-03-04T02-53-36.92</td>
+      <td>2002-03-04T02-53-36.92</td>
+      <td>38.708000</td>
+      <td>-112.535500</td>
+      <td>1.43</td>
+      <td>-0.14</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>2002-03-04T17-13-19.61</td>
+      <td>2002-03-04T17-13-19.61</td>
+      <td>38.542333</td>
+      <td>-112.455333</td>
+      <td>1.33</td>
+      <td>1.84</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>2002-03-05T00-32-02.35</td>
+      <td>2002-03-05T00-32-02.35</td>
+      <td>38.544667</td>
+      <td>-112.457667</td>
+      <td>1.34</td>
+      <td>2.80</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>2002-03-10T16-03-15.42</td>
+      <td>2002-03-10T16-03-15.42</td>
+      <td>38.722000</td>
+      <td>-112.545000</td>
+      <td>2.50</td>
+      <td>-2.97</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>2002-03-21T20-16-14.74</td>
+      <td>2002-03-21T20-16-14.74</td>
+      <td>38.711333</td>
+      <td>-112.541167</td>
+      <td>2.04</td>
+      <td>1.81</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>2002-03-23T16-39-08.76</td>
+      <td>2002-03-23T16-39-08.76</td>
+      <td>38.701667</td>
+      <td>-112.542333</td>
+      <td>1.32</td>
+      <td>1.23</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>2002-05-12T18-32-19.43</td>
+      <td>2002-05-12T18-32-19.43</td>
+      <td>38.724333</td>
+      <td>-112.539500</td>
+      <td>0.71</td>
+      <td>1.42</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>2002-05-15T15-35-00.17</td>
+      <td>2002-05-15T15-35-00.17</td>
+      <td>38.588667</td>
+      <td>-112.586833</td>
+      <td>0.73</td>
+      <td>3.00</td>
+    </tr>
+    <tr>
+      <th>14</th>
+      <td>2002-07-06T22-05-16.73</td>
+      <td>2002-07-06T22-05-16.73</td>
+      <td>38.512000</td>
+      <td>-112.460833</td>
+      <td>0.35</td>
+      <td>5.78</td>
+    </tr>
+    <tr>
+      <th>15</th>
+      <td>2002-08-01T20-19-21.00</td>
+      <td>2002-08-01T20-19-21.00</td>
+      <td>38.525833</td>
+      <td>-112.455500</td>
+      <td>1.03</td>
+      <td>1.84</td>
+    </tr>
+    <tr>
+      <th>16</th>
+      <td>2002-08-19T19-35-07.44</td>
+      <td>2002-08-19T19-35-07.44</td>
+      <td>38.689000</td>
+      <td>-112.543500</td>
+      <td>0.72</td>
+      <td>5.96</td>
+    </tr>
+    <tr>
+      <th>17</th>
+      <td>2002-08-19T21-09-35.83</td>
+      <td>2002-08-19T21-09-35.83</td>
+      <td>38.685833</td>
+      <td>-112.541833</td>
+      <td>1.17</td>
+      <td>4.54</td>
+    </tr>
+    <tr>
+      <th>18</th>
+      <td>2002-09-07T19-55-27.85</td>
+      <td>2002-09-07T19-55-27.85</td>
+      <td>38.713000</td>
+      <td>-112.647500</td>
+      <td>1.02</td>
+      <td>2.79</td>
+    </tr>
+    <tr>
+      <th>19</th>
+      <td>2002-09-17T14-50-53.10</td>
+      <td>2002-09-17T14-50-53.10</td>
+      <td>38.663167</td>
+      <td>-112.630000</td>
+      <td>0.71</td>
+      <td>0.31</td>
+    </tr>
+    <tr>
+      <th>20</th>
+      <td>2002-10-06T11-57-35.19</td>
+      <td>2002-10-06T11-57-35.19</td>
+      <td>38.645667</td>
+      <td>-112.461667</td>
+      <td>1.31</td>
+      <td>3.64</td>
+    </tr>
+    <tr>
+      <th>21</th>
+      <td>2002-11-05T23-12-44.72</td>
+      <td>2002-11-05T23-12-44.72</td>
+      <td>38.532333</td>
+      <td>-112.466167</td>
+      <td>0.95</td>
+      <td>6.02</td>
+    </tr>
+    <tr>
+      <th>22</th>
+      <td>2002-11-05T23-13-27.56</td>
+      <td>2002-11-05T23-13-27.56</td>
+      <td>38.555167</td>
+      <td>-112.468167</td>
+      <td>1.37</td>
+      <td>2.94</td>
+    </tr>
+    <tr>
+      <th>23</th>
+      <td>2002-11-06T00-44-00.38</td>
+      <td>2002-11-06T00-44-00.38</td>
+      <td>38.527833</td>
+      <td>-112.482167</td>
+      <td>2.05</td>
+      <td>4.09</td>
+    </tr>
+    <tr>
+      <th>24</th>
+      <td>2002-11-06T01-48-04.90</td>
+      <td>2002-11-06T01-48-04.90</td>
+      <td>38.532167</td>
+      <td>-112.463833</td>
+      <td>1.10</td>
+      <td>3.15</td>
+    </tr>
+    <tr>
+      <th>25</th>
+      <td>2002-11-06T02-24-03.05</td>
+      <td>2002-11-06T02-24-03.05</td>
+      <td>38.515833</td>
+      <td>-112.463833</td>
+      <td>0.61</td>
+      <td>6.02</td>
+    </tr>
+    <tr>
+      <th>26</th>
+      <td>2002-11-08T18-27-28.27</td>
+      <td>2002-11-08T18-27-28.27</td>
+      <td>38.534667</td>
+      <td>-112.468500</td>
+      <td>1.29</td>
+      <td>2.43</td>
+    </tr>
+    <tr>
+      <th>27</th>
+      <td>2002-11-08T21-48-47.69</td>
+      <td>2002-11-08T21-48-47.69</td>
+      <td>38.530833</td>
+      <td>-112.470500</td>
+      <td>2.26</td>
+      <td>2.88</td>
+    </tr>
+    <tr>
+      <th>28</th>
+      <td>2002-11-08T22-00-02.41</td>
+      <td>2002-11-08T22-00-02.41</td>
+      <td>38.519500</td>
+      <td>-112.468000</td>
+      <td>1.12</td>
+      <td>2.07</td>
+    </tr>
+    <tr>
+      <th>29</th>
+      <td>2002-11-09T21-38-33.05</td>
+      <td>2002-11-09T21-38-33.05</td>
+      <td>38.548167</td>
+      <td>-112.468333</td>
+      <td>1.22</td>
+      <td>7.83</td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>192</th>
+      <td>2013-10-10T16-10-37.49</td>
+      <td>2013-10-10T16-10-37.49</td>
+      <td>38.597167</td>
+      <td>-112.598167</td>
+      <td>1.96</td>
+      <td>5.21</td>
+    </tr>
+    <tr>
+      <th>193</th>
+      <td>2013-10-10T23-12-49.39</td>
+      <td>2013-10-10T23-12-49.39</td>
+      <td>38.606500</td>
+      <td>-112.612833</td>
+      <td>2.48</td>
+      <td>3.32</td>
+    </tr>
+    <tr>
+      <th>194</th>
+      <td>2013-10-10T23-21-10.54</td>
+      <td>2013-10-10T23-21-10.54</td>
+      <td>38.601833</td>
+      <td>-112.606333</td>
+      <td>2.36</td>
+      <td>3.91</td>
+    </tr>
+    <tr>
+      <th>195</th>
+      <td>2013-10-11T00-26-32.78</td>
+      <td>2013-10-11T00-26-32.78</td>
+      <td>38.603833</td>
+      <td>-112.606833</td>
+      <td>1.34</td>
+      <td>-0.16</td>
+    </tr>
+    <tr>
+      <th>196</th>
+      <td>2013-10-11T10-36-01.05</td>
+      <td>2013-10-11T10-36-01.05</td>
+      <td>38.613667</td>
+      <td>-112.607667</td>
+      <td>0.86</td>
+      <td>-0.01</td>
+    </tr>
+    <tr>
+      <th>197</th>
+      <td>2013-10-11T15-19-47.68</td>
+      <td>2013-10-11T15-19-47.68</td>
+      <td>38.598167</td>
+      <td>-112.608333</td>
+      <td>1.96</td>
+      <td>4.14</td>
+    </tr>
+    <tr>
+      <th>198</th>
+      <td>2013-10-24T09-57-46.49</td>
+      <td>2013-10-24T09-57-46.49</td>
+      <td>38.589167</td>
+      <td>-112.606333</td>
+      <td>1.54</td>
+      <td>1.48</td>
+    </tr>
+    <tr>
+      <th>199</th>
+      <td>2013-11-01T02-56-52.97</td>
+      <td>2013-11-01T02-56-52.97</td>
+      <td>38.734500</td>
+      <td>-112.567167</td>
+      <td>1.31</td>
+      <td>0.69</td>
+    </tr>
+    <tr>
+      <th>200</th>
+      <td>2013-11-10T15-36-35.26</td>
+      <td>2013-11-10T15-36-35.26</td>
+      <td>38.714667</td>
+      <td>-112.526333</td>
+      <td>0.70</td>
+      <td>9.28</td>
+    </tr>
+    <tr>
+      <th>201</th>
+      <td>2013-12-25T05-32-32.15</td>
+      <td>2013-12-25T05-32-32.15</td>
+      <td>38.633833</td>
+      <td>-112.539500</td>
+      <td>0.78</td>
+      <td>-0.10</td>
+    </tr>
+    <tr>
+      <th>202</th>
+      <td>2014-01-09T00-10-03.16</td>
+      <td>2014-01-09T00-10-03.16</td>
+      <td>38.554833</td>
+      <td>-112.728833</td>
+      <td>1.93</td>
+      <td>-0.24</td>
+    </tr>
+    <tr>
+      <th>203</th>
+      <td>2014-01-17T12-52-52.03</td>
+      <td>2014-01-17T12-52-52.03</td>
+      <td>38.637500</td>
+      <td>-112.612000</td>
+      <td>-9.99</td>
+      <td>1.49</td>
+    </tr>
+    <tr>
+      <th>204</th>
+      <td>2014-01-17T12-52-55.73</td>
+      <td>2014-01-17T12-52-55.73</td>
+      <td>38.609667</td>
+      <td>-112.613000</td>
+      <td>1.84</td>
+      <td>0.45</td>
+    </tr>
+    <tr>
+      <th>205</th>
+      <td>2014-01-17T16-16-23.71</td>
+      <td>2014-01-17T16-16-23.71</td>
+      <td>38.607667</td>
+      <td>-112.603667</td>
+      <td>0.96</td>
+      <td>1.93</td>
+    </tr>
+    <tr>
+      <th>206</th>
+      <td>2014-02-08T07-14-59.47</td>
+      <td>2014-02-08T07-14-59.47</td>
+      <td>38.664500</td>
+      <td>-112.535667</td>
+      <td>0.86</td>
+      <td>4.32</td>
+    </tr>
+    <tr>
+      <th>207</th>
+      <td>2014-02-10T00-32-14.92</td>
+      <td>2014-02-10T00-32-14.92</td>
+      <td>38.734333</td>
+      <td>-112.521500</td>
+      <td>1.24</td>
+      <td>2.86</td>
+    </tr>
+    <tr>
+      <th>208</th>
+      <td>2014-03-08T20-37-13.43</td>
+      <td>2014-03-08T20-37-13.43</td>
+      <td>38.722000</td>
+      <td>-112.552667</td>
+      <td>0.94</td>
+      <td>4.96</td>
+    </tr>
+    <tr>
+      <th>209</th>
+      <td>2014-03-23T01-26-16.64</td>
+      <td>2014-03-23T01-26-16.64</td>
+      <td>38.674167</td>
+      <td>-112.585833</td>
+      <td>1.92</td>
+      <td>-3.09</td>
+    </tr>
+    <tr>
+      <th>210</th>
+      <td>2014-04-06T08-19-55.40</td>
+      <td>2014-04-06T08-19-55.40</td>
+      <td>38.563000</td>
+      <td>-112.690167</td>
+      <td>1.92</td>
+      <td>1.88</td>
+    </tr>
+    <tr>
+      <th>211</th>
+      <td>2014-05-27T19-04-32.17</td>
+      <td>2014-05-27T19-04-32.17</td>
+      <td>38.594833</td>
+      <td>-112.593833</td>
+      <td>1.20</td>
+      <td>0.38</td>
+    </tr>
+    <tr>
+      <th>212</th>
+      <td>2014-06-05T03-14-06.76</td>
+      <td>2014-06-05T03-14-06.76</td>
+      <td>38.683667</td>
+      <td>-112.533167</td>
+      <td>2.01</td>
+      <td>3.51</td>
+    </tr>
+    <tr>
+      <th>213</th>
+      <td>2014-06-09T11-00-38.18</td>
+      <td>2014-06-09T11-00-38.18</td>
+      <td>38.727000</td>
+      <td>-112.503167</td>
+      <td>0.57</td>
+      <td>1.75</td>
+    </tr>
+    <tr>
+      <th>214</th>
+      <td>2014-06-12T06-03-10.42</td>
+      <td>2014-06-12T06-03-10.42</td>
+      <td>38.678167</td>
+      <td>-112.539500</td>
+      <td>1.70</td>
+      <td>0.99</td>
+    </tr>
+    <tr>
+      <th>215</th>
+      <td>2014-07-11T03-47-35.36</td>
+      <td>2014-07-11T03-47-35.36</td>
+      <td>38.689333</td>
+      <td>-112.579500</td>
+      <td>0.78</td>
+      <td>3.96</td>
+    </tr>
+    <tr>
+      <th>216</th>
+      <td>2014-10-29T10-58-38.16</td>
+      <td>2014-10-29T10-58-38.16</td>
+      <td>38.574833</td>
+      <td>-112.587333</td>
+      <td>1.64</td>
+      <td>3.12</td>
+    </tr>
+    <tr>
+      <th>217</th>
+      <td>2014-10-29T11-01-00.32</td>
+      <td>2014-10-29T11-01-00.32</td>
+      <td>38.592167</td>
+      <td>-112.594500</td>
+      <td>0.94</td>
+      <td>0.46</td>
+    </tr>
+    <tr>
+      <th>218</th>
+      <td>2014-11-15T16-47-50.40</td>
+      <td>2014-11-15T16-47-50.40</td>
+      <td>38.586167</td>
+      <td>-112.600333</td>
+      <td>0.79</td>
+      <td>2.93</td>
+    </tr>
+    <tr>
+      <th>219</th>
+      <td>2014-11-29T14-18-04.87</td>
+      <td>2014-11-29T14-18-04.87</td>
+      <td>38.698167</td>
+      <td>-112.544500</td>
+      <td>0.89</td>
+      <td>0.16</td>
+    </tr>
+    <tr>
+      <th>220</th>
+      <td>2014-12-17T08-52-09.85</td>
+      <td>2014-12-17T08-52-09.85</td>
+      <td>38.579500</td>
+      <td>-112.589833</td>
+      <td>1.47</td>
+      <td>0.23</td>
+    </tr>
+    <tr>
+      <th>221</th>
+      <td>2014-12-21T17-01-29.91</td>
+      <td>2014-12-21T17-01-29.91</td>
+      <td>38.586500</td>
+      <td>-112.587167</td>
+      <td>0.56</td>
+      <td>0.69</td>
+    </tr>
+  </tbody>
+</table>
+<p>222 rows × 6 columns</p>
+</div><p>Because there are so many events it may take some time to get the data. We will skip getting the continuous data because it is not needed for this section of the tutorial. We should probably also start the logger in case we need more info than what is printed to the screen. We will also delete an old logger if there is one.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="s2">&quot;detex_log.log&quot;</span><span class="p">):</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;detex_log.log&quot;</span><span class="p">)</span>
+<span class="n">detex</span><span class="o">.</span><span class="n">setLogger</span><span class="p">()</span>
+<span class="n">detex</span><span class="o">.</span><span class="n">getdata</span><span class="o">.</span><span class="n">makeDataDirectories</span><span class="p">(</span><span class="n">getContinuous</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Getting</span> <span class="n">template</span> <span class="n">waveforms</span>
+<span class="n">EventWaveForms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">indexed</span><span class="p">,</span> <span class="n">indexing</span> <span class="n">now</span>
+<span class="n">finished</span> <span class="n">makeDataDirectories</span> <span class="n">call</span>
+
+<span class="o">/</span><span class="n">home</span><span class="o">/</span><span class="n">derrick</span><span class="o">/</span><span class="n">anaconda</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">python2</span><span class="o">.</span><span class="mi">7</span><span class="o">/</span><span class="n">site</span><span class="o">-</span><span class="n">packages</span><span class="o">/</span><span class="n">obspy</span><span class="o">/</span><span class="n">mseed</span><span class="o">/</span><span class="n">core</span><span class="o">.</span><span class="n">py</span><span class="p">:</span><span class="mi">610</span><span class="p">:</span> <span class="ne">UserWarning</span><span class="p">:</span> <span class="n">The</span> <span class="n">encoding</span> <span class="n">specified</span> <span class="ow">in</span> <span class="n">trace</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">mseed</span><span class="o">.</span><span class="n">encoding</span> <span class="n">does</span> <span class="ow">not</span> <span class="n">match</span> <span class="n">the</span> <span class="n">dtype</span> <span class="n">of</span> <span class="n">the</span> <span class="n">data</span><span class="o">.</span>
+<span class="n">A</span> <span class="n">suitable</span> <span class="n">encoding</span> <span class="n">will</span> <span class="n">be</span> <span class="n">chosen</span><span class="o">.</span>
+  <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="ne">UserWarning</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now we will cluster these events while varying the input arguments. Let’s start by using the defaults.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">time</span> <span class="n">cl</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">createCluster</span><span class="p">()</span> <span class="c1"># notice we can call createCluster from the detex level</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Cannot</span> <span class="n">remove</span> <span class="n">response</span> <span class="n">without</span> <span class="n">a</span> <span class="n">valid</span> <span class="n">inventoryArg</span><span class="p">,</span> <span class="n">setting</span> <span class="n">removeResponse</span> <span class="n">to</span> <span class="kc">False</span>
+<span class="n">Starting</span> <span class="n">IO</span> <span class="n">operations</span> <span class="ow">and</span> <span class="n">data</span> <span class="n">checks</span>
+<span class="mi">2004</span><span class="o">-</span><span class="mi">07</span><span class="o">-</span><span class="mi">29</span><span class="n">T23</span><span class="o">-</span><span class="mi">09</span><span class="o">-</span><span class="mf">58.55</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">IMU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2005</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">02</span><span class="n">T06</span><span class="o">-</span><span class="mi">35</span><span class="o">-</span><span class="mf">22.46</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">IMU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2005</span><span class="o">-</span><span class="mi">09</span><span class="o">-</span><span class="mi">30</span><span class="n">T13</span><span class="o">-</span><span class="mi">47</span><span class="o">-</span><span class="mf">54.79</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">IMU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2005</span><span class="o">-</span><span class="mi">11</span><span class="o">-</span><span class="mi">28</span><span class="n">T16</span><span class="o">-</span><span class="mi">18</span><span class="o">-</span><span class="mf">36.82</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">IMU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2005</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">21</span><span class="n">T04</span><span class="o">-</span><span class="mi">48</span><span class="o">-</span><span class="mf">05.24</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">IMU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2004</span><span class="o">-</span><span class="mi">07</span><span class="o">-</span><span class="mi">29</span><span class="n">T23</span><span class="o">-</span><span class="mi">09</span><span class="o">-</span><span class="mf">58.55</span> <span class="ow">is</span> <span class="n">fractured</span> <span class="ow">or</span> <span class="n">missing</span> <span class="n">data</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2004</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">19</span><span class="n">T20</span><span class="o">-</span><span class="mi">44</span><span class="o">-</span><span class="mf">17.41</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2005</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">02</span><span class="n">T06</span><span class="o">-</span><span class="mi">35</span><span class="o">-</span><span class="mf">22.46</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2005</span><span class="o">-</span><span class="mi">01</span><span class="o">-</span><span class="mi">14</span><span class="n">T01</span><span class="o">-</span><span class="mi">30</span><span class="o">-</span><span class="mf">48.97</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2005</span><span class="o">-</span><span class="mi">08</span><span class="o">-</span><span class="mi">09</span><span class="n">T06</span><span class="o">-</span><span class="mi">35</span><span class="o">-</span><span class="mf">29.44</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2005</span><span class="o">-</span><span class="mi">09</span><span class="o">-</span><span class="mi">30</span><span class="n">T13</span><span class="o">-</span><span class="mi">47</span><span class="o">-</span><span class="mf">54.79</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2005</span><span class="o">-</span><span class="mi">12</span><span class="o">-</span><span class="mi">21</span><span class="n">T04</span><span class="o">-</span><span class="mi">48</span><span class="o">-</span><span class="mf">05.24</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="mi">2006</span><span class="o">-</span><span class="mi">02</span><span class="o">-</span><span class="mi">05</span><span class="n">T23</span><span class="o">-</span><span class="mi">33</span><span class="o">-</span><span class="mf">43.00</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="ow">is</span> <span class="n">out</span> <span class="n">of</span> <span class="n">length</span> <span class="n">tolerance</span><span class="p">,</span> <span class="n">removing</span>
+<span class="n">performing</span> <span class="n">cluster</span> <span class="n">analysis</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">IMU</span>
+<span class="n">performing</span> <span class="n">cluster</span> <span class="n">analysis</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span>
+<span class="n">ccReq</span> <span class="k">for</span> <span class="n">station</span> <span class="n">UU</span><span class="o">.</span><span class="n">IMU</span> <span class="n">updated</span> <span class="n">to</span> <span class="n">ccReq</span><span class="o">=</span><span class="mf">0.500</span>
+<span class="n">ccReq</span> <span class="k">for</span> <span class="n">station</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="n">updated</span> <span class="n">to</span> <span class="n">ccReq</span><span class="o">=</span><span class="mf">0.500</span>
+<span class="n">writing</span> <span class="n">ClusterStream</span> <span class="n">instance</span> <span class="k">as</span> <span class="n">clust</span><span class="o">.</span><span class="n">pkl</span>
+<span class="n">CPU</span> <span class="n">times</span><span class="p">:</span> <span class="n">user</span> <span class="mi">2</span><span class="nb">min</span> <span class="mi">36</span><span class="n">s</span><span class="p">,</span> <span class="n">sys</span><span class="p">:</span> <span class="mi">5</span><span class="nb">min</span> <span class="mi">50</span><span class="n">s</span><span class="p">,</span> <span class="n">total</span><span class="p">:</span> <span class="mi">8</span><span class="nb">min</span> <span class="mi">27</span><span class="n">s</span>
+<span class="n">Wall</span> <span class="n">time</span><span class="p">:</span> <span class="mi">2</span><span class="nb">min</span> <span class="mi">36</span><span class="n">s</span>
+
+<span class="n">No</span> <span class="n">handlers</span> <span class="n">could</span> <span class="n">be</span> <span class="n">found</span> <span class="k">for</span> <span class="n">logger</span> <span class="s2">&quot;detex.getdata.__init__&quot;</span>
+</pre></div>
+</div>
+<p>We see the wall time for the createCluster call was around 2 minutes (on my computer). Let’s make a function to see how many of the original 220 events were actually used</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">check_cluster</span><span class="p">(</span><span class="n">cl</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cl</span><span class="p">:</span>
+        <span class="n">sta</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">station</span>
+        <span class="n">num_events</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">print</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> had </span><span class="si">%d</span><span class="s1"> events used in the analysis&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">num_events</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span>
+<span class="k">def</span> <span class="nf">get_unused_events</span><span class="p">(</span><span class="n">cl</span><span class="p">,</span> <span class="n">temkey</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cl</span><span class="p">:</span>
+        <span class="n">sta</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">station</span>
+        <span class="n">unused</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">temkey</span><span class="o">.</span><span class="n">NAME</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">key</span><span class="p">))</span>
+        <span class="k">print</span> <span class="s1">&#39;Unused events on </span><span class="si">%s</span><span class="s1"> are:</span><span class="se">\n</span><span class="s1"> </span><span class="si">%s</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">sta</span><span class="p">,</span> <span class="n">unused</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">get_info</span><span class="p">(</span><span class="n">cl</span><span class="p">,</span> <span class="n">temkey_in</span><span class="o">=</span><span class="s1">&#39;TemplateKey.csv&#39;</span><span class="p">):</span>
+    <span class="n">temkey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="n">temkey_in</span><span class="p">,</span> <span class="s1">&#39;template&#39;</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s1">&#39;There are </span><span class="si">%d</span><span class="s1"> events in the template key&#39;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">temkey</span><span class="p">)</span> 
+    <span class="n">check_cluster</span><span class="p">(</span><span class="n">cl</span><span class="p">)</span>
+    <span class="n">get_unused_events</span><span class="p">(</span><span class="n">cl</span><span class="p">,</span> <span class="n">temkey</span><span class="p">)</span>
+
+<span class="n">get_info</span><span class="p">(</span><span class="n">cl</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">There</span> <span class="n">are</span> <span class="mi">222</span> <span class="n">events</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">template</span> <span class="n">key</span>
+<span class="n">UU</span><span class="o">.</span><span class="n">IMU</span> <span class="n">had</span> <span class="mi">213</span> <span class="n">events</span> <span class="n">used</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">analysis</span>
+<span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="n">had</span> <span class="mi">214</span> <span class="n">events</span> <span class="n">used</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">analysis</span>
+
+
+<span class="n">Unused</span> <span class="n">events</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">IMU</span> <span class="n">are</span><span class="p">:</span>
+ <span class="p">[</span><span class="s1">&#39;2005-07-28T16-14-45.72&#39;</span><span class="p">,</span> <span class="s1">&#39;2004-07-29T23-09-58.55&#39;</span><span class="p">,</span> <span class="s1">&#39;2005-01-02T06-35-22.46&#39;</span><span class="p">,</span> <span class="s1">&#39;2010-03-04T00-02-53.67&#39;</span><span class="p">,</span> <span class="s1">&#39;2005-07-30T08-58-00.45&#39;</span><span class="p">,</span> <span class="s1">&#39;2005-12-21T04-48-05.24&#39;</span><span class="p">,</span> <span class="s1">&#39;2005-09-30T13-47-54.79&#39;</span><span class="p">,</span> <span class="s1">&#39;2005-11-28T16-18-36.82&#39;</span><span class="p">,</span> <span class="s1">&#39;2009-10-07T18-44-39.86&#39;</span><span class="p">]</span>
+
+<span class="n">Unused</span> <span class="n">events</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="n">are</span><span class="p">:</span>
+ <span class="p">[</span><span class="s1">&#39;2005-09-30T13-47-54.79&#39;</span><span class="p">,</span> <span class="s1">&#39;2004-05-19T20-44-17.41&#39;</span><span class="p">,</span> <span class="s1">&#39;2004-07-29T23-09-58.55&#39;</span><span class="p">,</span> <span class="s1">&#39;2005-01-02T06-35-22.46&#39;</span><span class="p">,</span> <span class="s1">&#39;2005-12-21T04-48-05.24&#39;</span><span class="p">,</span> <span class="s1">&#39;2005-01-14T01-30-48.97&#39;</span><span class="p">,</span> <span class="s1">&#39;2005-08-09T06-35-29.44&#39;</span><span class="p">,</span> <span class="s1">&#39;2006-02-05T23-33-43.00&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Now let’s try using fillZeros as True rather than the default of False. This will force each event waveform to be exactly the length defined by the trim parameter by filling with zeros where necessary.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">time</span> <span class="n">cl2</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">createCluster</span><span class="p">(</span><span class="n">fillZeros</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Cannot</span> <span class="n">remove</span> <span class="n">response</span> <span class="n">without</span> <span class="n">a</span> <span class="n">valid</span> <span class="n">inventoryArg</span><span class="p">,</span> <span class="n">setting</span> <span class="n">removeResponse</span> <span class="n">to</span> <span class="kc">False</span>
+<span class="n">Starting</span> <span class="n">IO</span> <span class="n">operations</span> <span class="ow">and</span> <span class="n">data</span> <span class="n">checks</span>
+<span class="n">performing</span> <span class="n">cluster</span> <span class="n">analysis</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">IMU</span>
+<span class="n">performing</span> <span class="n">cluster</span> <span class="n">analysis</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span>
+<span class="n">ccReq</span> <span class="k">for</span> <span class="n">station</span> <span class="n">UU</span><span class="o">.</span><span class="n">IMU</span> <span class="n">updated</span> <span class="n">to</span> <span class="n">ccReq</span><span class="o">=</span><span class="mf">0.500</span>
+<span class="n">ccReq</span> <span class="k">for</span> <span class="n">station</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="n">updated</span> <span class="n">to</span> <span class="n">ccReq</span><span class="o">=</span><span class="mf">0.500</span>
+<span class="n">writing</span> <span class="n">ClusterStream</span> <span class="n">instance</span> <span class="k">as</span> <span class="n">clust</span><span class="o">.</span><span class="n">pkl</span>
+<span class="n">CPU</span> <span class="n">times</span><span class="p">:</span> <span class="n">user</span> <span class="mi">2</span><span class="nb">min</span> <span class="mi">43</span><span class="n">s</span><span class="p">,</span> <span class="n">sys</span><span class="p">:</span> <span class="mi">5</span><span class="nb">min</span> <span class="mi">36</span><span class="n">s</span><span class="p">,</span> <span class="n">total</span><span class="p">:</span> <span class="mi">8</span><span class="nb">min</span> <span class="mi">20</span><span class="n">s</span>
+<span class="n">Wall</span> <span class="n">time</span><span class="p">:</span> <span class="mi">2</span><span class="nb">min</span> <span class="mi">24</span><span class="n">s</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">get_info</span><span class="p">(</span><span class="n">cl2</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">There</span> <span class="n">are</span> <span class="mi">222</span> <span class="n">events</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">template</span> <span class="n">key</span>
+<span class="n">UU</span><span class="o">.</span><span class="n">IMU</span> <span class="n">had</span> <span class="mi">218</span> <span class="n">events</span> <span class="n">used</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">analysis</span>
+<span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="n">had</span> <span class="mi">222</span> <span class="n">events</span> <span class="n">used</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">analysis</span>
+
+
+<span class="n">Unused</span> <span class="n">events</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">IMU</span> <span class="n">are</span><span class="p">:</span>
+ <span class="p">[</span><span class="s1">&#39;2005-07-28T16-14-45.72&#39;</span><span class="p">,</span> <span class="s1">&#39;2009-10-07T18-44-39.86&#39;</span><span class="p">,</span> <span class="s1">&#39;2010-03-04T00-02-53.67&#39;</span><span class="p">,</span> <span class="s1">&#39;2005-07-30T08-58-00.45&#39;</span><span class="p">]</span>
+
+<span class="n">Unused</span> <span class="n">events</span> <span class="n">on</span> <span class="n">UU</span><span class="o">.</span><span class="n">MSU</span> <span class="n">are</span><span class="p">:</span>
+ <span class="p">[]</span>
+</pre></div>
+</div>
+<p>So setting fill_zeros to True caused detex to use all the events on MSU and all but four on IMU. The four IMU events that went unused were probably due to missing waveforms. We can verify this by looking in the log for indications the that the data were not available to download.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">log</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readLog</span><span class="p">()</span>
+<span class="n">log</span>
+</pre></div>
+</div>
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Time</th>
+      <th>Mod</th>
+      <th>Level</th>
+      <th>Msg</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>2015-12-14 22:26:20,753</td>
+      <td>detex</td>
+      <td>INFO</td>
+      <td>Starting logging, path to log file: /home/derr...</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2015-12-14 22:26:21,050</td>
+      <td>detex.getdata.makeDataDirectories</td>
+      <td>INFO</td>
+      <td>Getting template waveforms</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>2015-12-14 22:26:22,396</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>2015-12-14 22:26:22,402</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>2015-12-14 22:26:22,407</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>2015-12-14 22:26:22,413</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>2015-12-14 22:26:22,419</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>2015-12-14 22:26:22,424</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>2015-12-14 22:26:22,430</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>2015-12-14 22:26:23,903</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>2015-12-14 22:26:23,909</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>11</th>
+      <td>2015-12-14 22:26:23,915</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>2015-12-14 22:26:23,921</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>13</th>
+      <td>2015-12-14 22:26:23,926</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>14</th>
+      <td>2015-12-14 22:26:25,190</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>15</th>
+      <td>2015-12-14 22:26:25,196</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>16</th>
+      <td>2015-12-14 22:26:25,202</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>17</th>
+      <td>2015-12-14 22:26:25,208</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>18</th>
+      <td>2015-12-14 22:26:25,213</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>19</th>
+      <td>2015-12-14 22:26:25,219</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>20</th>
+      <td>2015-12-14 22:26:25,224</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>21</th>
+      <td>2015-12-14 22:26:25,230</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>22</th>
+      <td>2015-12-14 22:26:25,235</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>23</th>
+      <td>2015-12-14 22:26:26,237</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>24</th>
+      <td>2015-12-14 22:26:26,244</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>25</th>
+      <td>2015-12-14 22:26:26,250</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>26</th>
+      <td>2015-12-14 22:26:26,255</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>27</th>
+      <td>2015-12-14 22:26:26,261</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>28</th>
+      <td>2015-12-14 22:26:26,267</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>29</th>
+      <td>2015-12-14 22:26:26,272</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>174</th>
+      <td>2015-12-14 22:30:21,939</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>175</th>
+      <td>2015-12-14 22:30:21,945</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>176</th>
+      <td>2015-12-14 22:30:21,951</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>177</th>
+      <td>2015-12-14 22:30:21,956</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>178</th>
+      <td>2015-12-14 22:30:21,962</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>179</th>
+      <td>2015-12-14 22:30:21,968</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>180</th>
+      <td>2015-12-14 22:30:21,973</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>181</th>
+      <td>2015-12-14 22:30:21,979</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>182</th>
+      <td>2015-12-14 22:30:21,984</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>183</th>
+      <td>2015-12-14 22:30:21,990</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>184</th>
+      <td>2015-12-14 22:30:23,109</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>185</th>
+      <td>2015-12-14 22:30:24,314</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>186</th>
+      <td>2015-12-14 22:30:24,319</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>187</th>
+      <td>2015-12-14 22:30:24,325</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>188</th>
+      <td>2015-12-14 22:30:24,331</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>189</th>
+      <td>2015-12-14 22:30:24,336</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>190</th>
+      <td>2015-12-14 22:30:24,342</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>191</th>
+      <td>2015-12-14 22:30:24,347</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>192</th>
+      <td>2015-12-14 22:30:25,736</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>193</th>
+      <td>2015-12-14 22:30:25,742</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>194</th>
+      <td>2015-12-14 22:30:25,748</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>195</th>
+      <td>2015-12-14 22:30:25,754</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>196</th>
+      <td>2015-12-14 22:30:25,760</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>197</th>
+      <td>2015-12-14 22:30:26,965</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>198</th>
+      <td>2015-12-14 22:30:26,972</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>199</th>
+      <td>2015-12-14 22:30:26,979</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>200</th>
+      <td>2015-12-14 22:30:26,986</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>201</th>
+      <td>2015-12-14 22:30:26,993</td>
+      <td>detex.getdata._dataCheck</td>
+      <td>WARNING</td>
+      <td>Found non-int sampling_rates, rounded to neare...</td>
+    </tr>
+    <tr>
+      <th>202</th>
+      <td>2015-12-14 22:33:46,231</td>
+      <td>detex.getdata.indexDirectory</td>
+      <td>INFO</td>
+      <td>EventWaveForms is not indexed, indexing now</td>
+    </tr>
+    <tr>
+      <th>203</th>
+      <td>2015-12-14 22:33:48,172</td>
+      <td>detex.getdata.makeDataDirectories</td>
+      <td>INFO</td>
+      <td>finished makeDataDirectories call</td>
+    </tr>
+  </tbody>
+</table>
+<p>204 rows × 4 columns</p>
+</div></div>
+<div class="section" id="time-trials">
+<h3>Time Trials<a class="headerlink" href="#time-trials" title="Permalink to this headline">¶</a></h3>
+<p>If you are trying to perform waveform clustering on a large data set it may be worth your time to understand how varying certain parameters can affect runtimes. Let’s isolate a few variables and compare run times from the default values. If you are running this on your computer at home it may take some time, skip ahead if you aren’t interested.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Setup code for time trials</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="k">def</span> <span class="nf">timeit</span><span class="p">(</span><span class="n">func</span><span class="p">):</span> <span class="c1"># decorator for timing function calls</span>
+    <span class="k">def</span> <span class="nf">wraper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">wraper</span>
+
+<span class="nd">@timeit</span>
+<span class="k">def</span> <span class="nf">time_cluster</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">detex</span><span class="o">.</span><span class="n">createCluster</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="kn">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+<span class="n">detex</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="bp">False</span> <span class="c1"># silence detex</span>
+
+<span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;waveform_duration&#39;</span><span class="p">,</span> <span class="s1">&#39;run_time&#39;</span><span class="p">]</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span>
+
+<span class="n">trims</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">120</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">60</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">15</span><span class="p">)]</span>
+
+<span class="k">for</span> <span class="n">trim</span> <span class="ow">in</span> <span class="n">trims</span><span class="p">:</span>
+    <span class="n">rt</span> <span class="o">=</span> <span class="n">time_cluster</span><span class="p">(</span><span class="n">trim</span><span class="o">=</span><span class="n">trim</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">ser</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">([</span><span class="nb">sum</span><span class="p">(</span><span class="n">trim</span><span class="p">),</span> <span class="n">rt</span><span class="p">],</span> <span class="n">index</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)]</span> <span class="o">=</span> <span class="n">ser</span>
+    
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">waveform_duration</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">run_time</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Waveform Length vs Run Times&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;run times (seconds)&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;waveform lengths (seconds)&quot;</span><span class="p">)</span>
+
+    
+    
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">matplotlib</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">Text</span> <span class="n">at</span> <span class="mh">0x7f0ea9cc1290</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p><img alt="../../../_images/output_18_1.png" src="../../../_images/output_18_1.png" />png</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;num_events&#39;</span><span class="p">,</span> <span class="s1">&#39;run_time&#39;</span><span class="p">]</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span>
+
+<span class="n">temkey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="s2">&quot;TemplateKey.csv&quot;</span><span class="p">,</span> <span class="s2">&quot;template&quot;</span><span class="p">)</span>
+
+<span class="n">temkey_lengths</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">150</span><span class="p">,</span> <span class="mi">200</span><span class="p">]</span>
+
+<span class="k">for</span> <span class="n">tkl</span> <span class="ow">in</span> <span class="n">temkey_lengths</span><span class="p">:</span>
+    <span class="n">temkey2</span> <span class="o">=</span> <span class="n">temkey</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="n">rt</span> <span class="o">=</span> <span class="n">time_cluster</span><span class="p">(</span><span class="n">templateKey</span><span class="o">=</span><span class="n">temkey2</span><span class="p">[:</span><span class="n">tkl</span><span class="o">+</span><span class="mi">1</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">ser</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">([</span><span class="n">tkl</span><span class="p">,</span> <span class="n">rt</span><span class="p">],</span> <span class="n">index</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)]</span> <span class="o">=</span> <span class="n">ser</span>
+    
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">num_events</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">run_time</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Number of Events vs Runtimes&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Number of Events&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Runtimes (seconds)&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">matplotlib</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">Text</span> <span class="n">at</span> <span class="mh">0x7f0e2c93a5d0</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p><img alt="../../../_images/output_19_1.png" src="../../../_images/output_19_1.png" />png</p>
+<p>Although a bit more complicated than this, we could qualitatively estimate that changing the waveform length scales the runtime by approximately N (linearly with time) whereas the number of events scales the runtime by approximately N<sup>2</sup> (quadratic with time). Let’s see how decimating the data changes the runtimes.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Test various decimation factors</span>
+<span class="n">rt_base</span> <span class="o">=</span> <span class="n">time_cluster</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">rt_decimate</span> <span class="o">=</span> <span class="n">time_cluster</span><span class="p">(</span><span class="n">decimate</span><span class="o">=</span><span class="mi">2</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="k">print</span><span class="p">(</span><span class="s2">&quot;Base run time: </span><span class="si">%.02f</span><span class="s2">, Decimated run time: </span><span class="si">%.02f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">rt_base</span><span class="p">,</span> <span class="n">rt_decimate</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Base</span> <span class="n">run</span> <span class="n">time</span><span class="p">:</span> <span class="mf">136.88</span><span class="p">,</span> <span class="n">Decimated</span> <span class="n">run</span> <span class="n">time</span><span class="p">:</span> <span class="mf">101.74</span>
+</pre></div>
+</div>
+<p>Interestingly, this didn’t seem to make much of a difference. The original data were sampled at 100 Hz so using a decimation factor of 2 would have reduced the sampling rate to 50 Hz. Since we left the default bandpass filter (1.0 to 10.0 Hz) it might make sense to use a decimation factor of 4 in order to bring the sampling rate down to 25 Hz.</p>
+</div>
+</div>
+<div class="section" id="clusterstream-and-cluster-classes">
+<h2>ClusterStream and Cluster Classes<a class="headerlink" href="#clusterstream-and-cluster-classes" title="Permalink to this headline">¶</a></h2>
+<p>The ClusterStream and Cluster classes are used to control and visualize waveform similarity clustering. These classes are required to define the subspaces used in the detection process.</p>
+<p>The ClusterStream is a container for one or more Cluster instances. There is a cluster instance for each station, although most attributes are accessible from the ClusterStream level. Let’s take create a ClusterStream instance and take a closer look.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">detex</span> <span class="c1"># reimport so we can start here</span>
+<span class="n">detex</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="bp">False</span>
+<span class="n">cl</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">createCluster</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The bulk of the information for the ClusterStream is stored in the trdf attribute, which, of course, is a pandas DataFrame.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cl</span><span class="o">.</span><span class="n">trdf</span>
+</pre></div>
+</div>
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Station</th>
+      <th>Link</th>
+      <th>CCs</th>
+      <th>Lags</th>
+      <th>Subsamp</th>
+      <th>Events</th>
+      <th>Stats</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>UU.IMU</td>
+      <td>[[194.0, 195.0, 0.00121253182149, 2.0], [105.0...</td>
+      <td>1         2         3         4     ...</td>
+      <td>1     2     3    4    5     6     7    8...</td>
+      <td>1         2         3         4     ...</td>
+      <td>[2002-02-01T04-37-29.94, 2002-02-02T03-38-36.2...</td>
+      <td>{u'2002-11-09T21-38-33.05': {u'Nc': 1, u'sampl...</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>UU.MSU</td>
+      <td>[[195.0, 196.0, 0.0035685379758, 2.0], [158.0,...</td>
+      <td>1         2         3         4     ...</td>
+      <td>1     2     3      4     5     6     7   ...</td>
+      <td>1         2         3         4    ...</td>
+      <td>[2002-02-01T04-37-29.94, 2002-02-02T03-38-36.2...</td>
+      <td>{u'2002-11-09T21-38-33.05': {u'Nc': 1, u'sampl...</td>
+    </tr>
+  </tbody>
+</table>
+</div><p>In this DataFrame there is a row for each station. The columns are:</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th align="center">Column</th>
+<th align="center">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="center">CCs</td>
+<td align="center">A matrix of max correlation coef for each station pair</td>
+</tr>
+<tr>
+<td align="center">Lags</td>
+<td align="center">A matrix of lag samples corresponding to the highest correlation coef</td>
+</tr>
+<tr>
+<td align="center">Subsamp</td>
+<td align="center">The decimal fraction determined by subsample extrapolation</td>
+</tr>
+<tr>
+<td align="center">Events</td>
+<td align="center">The name of the events used</td>
+</tr>
+<tr>
+<td align="center">Stats</td>
+<td align="center">Selected stats of the events</td>
+</tr>
+</tbody>
+</table><p>The CCs and Lags are DataFrames that have indices and rows that correspond to an element in the Events list. This is probably best illustrated by an example. Let’s say we want to find the max correlation ceof. between two events and the corresponding number of samples that would be required to shift the first event to line up with the second. First, we need to find where the events we want to find occur in the events list, then we can index them in the lags and ccs.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Here are two events in the list</span>
+<span class="n">ev1</span> <span class="o">=</span> <span class="s1">&#39;2010-07-10T08-57-51.25&#39;</span>
+<span class="n">ev2</span> <span class="o">=</span> <span class="s1">&#39;2014-11-29T14-18-04.87&#39;</span>
+<span class="n">events</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">cl</span><span class="o">.</span><span class="n">trdf</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;Events&#39;</span><span class="p">])</span> <span class="c1"># cast from np array to list</span>
+<span class="c1"># Find the index where each event occurs in the list</span>
+<span class="n">ev1_ind</span> <span class="o">=</span> <span class="n">events</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ev1</span><span class="p">)</span>
+<span class="n">ev2_ind</span> <span class="o">=</span> <span class="n">events</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ev2</span><span class="p">)</span>
+<span class="k">print</span> <span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> index is </span><span class="si">%d</span><span class="s2">, </span><span class="si">%s</span><span class="s2"> index is </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ev1</span><span class="p">,</span> <span class="n">ev1_ind</span><span class="p">,</span> <span class="n">ev2</span><span class="p">,</span> <span class="n">ev2_ind</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">2010</span><span class="o">-</span><span class="mi">07</span><span class="o">-</span><span class="mi">10</span><span class="n">T08</span><span class="o">-</span><span class="mi">57</span><span class="o">-</span><span class="mf">51.25</span> <span class="n">index</span> <span class="ow">is</span> <span class="mi">125</span><span class="p">,</span> <span class="mi">2014</span><span class="o">-</span><span class="mi">11</span><span class="o">-</span><span class="mi">29</span><span class="n">T14</span><span class="o">-</span><span class="mi">18</span><span class="o">-</span><span class="mf">04.87</span> <span class="n">index</span> <span class="ow">is</span> <span class="mi">210</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cc</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">trdf</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;CCs&#39;</span><span class="p">]</span>
+<span class="n">lags</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">trdf</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;Lags&#39;</span><span class="p">]</span>
+<span class="n">coef</span> <span class="o">=</span> <span class="n">cc</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ev1_ind</span><span class="p">,</span> <span class="n">ev2_ind</span><span class="p">]</span>
+<span class="n">lag</span> <span class="o">=</span> <span class="n">lags</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ev1_ind</span><span class="p">,</span> <span class="n">ev2_ind</span><span class="p">]</span>
+<span class="k">print</span> <span class="p">(</span><span class="n">coef</span><span class="p">,</span> <span class="n">lag</span><span class="p">)</span>
+<span class="c1"># events</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="mf">0.12697600464301972</span><span class="p">,</span> <span class="mi">263</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="visualization-methods">
+<h3>Visualization Methods<a class="headerlink" href="#visualization-methods" title="Permalink to this headline">¶</a></h3>
+<p>The ClusterStream has several methods for visualizing. We can create a simple similarity matrix.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cl</span><span class="o">.</span><span class="n">simMatrix</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><img alt="../../../_images/output_31_0.png" src="../../../_images/output_31_0.png" />png</p>
+<p><img alt="../../../_images/output_31_1.png" src="../../../_images/output_31_1.png" />png</p>
+<p>By default the events (x and y axis) are ordered based on origin time. We can also plot them based on the groups the events best fit in.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cl</span><span class="o">.</span><span class="n">simMatrix</span><span class="p">(</span><span class="n">groupClusts</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><img alt="../../../_images/output_33_0.png" src="../../../_images/output_33_0.png" />png</p>
+<p><img alt="../../../_images/output_33_1.png" src="../../../_images/output_33_1.png" />png</p>
+<p>We can visualize and change the clustering structure for each station with the dendro and updateReqCC methods, just as in the intro tutorial.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cl</span><span class="o">.</span><span class="n">dendro</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><img alt="../../../_images/output_35_0.png" src="../../../_images/output_35_0.png" />png</p>
+<p><img alt="../../../_images/output_35_1.png" src="../../../_images/output_35_1.png" />png</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cl</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">updateReqCC</span><span class="p">(</span><span class="o">.</span><span class="mi">6</span><span class="p">)</span>
+<span class="n">cl</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dendro</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><img alt="../../../_images/output_36_0.png" src="../../../_images/output_36_0.png" />png</p>
+<p>We can plot the spatial relations of the events with the plotEvents method. This is used to get a quick and dirty idea of event locations and depths; it still needs a lot of work before it will produce presentable plots. The following is not the best example of a meaningful plot because there are so many colors and different groups but plotEvents can be useful, especially on smaller datasets.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cl</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plotEvents</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><img alt="../../../_images/output_38_0.png" src="../../../_images/output_38_0.png" />png</p>
+<p><img alt="../../../_images/output_38_1.png" src="../../../_images/output_38_1.png" />png</p>
+<p><img alt="../../../_images/output_38_2.png" src="../../../_images/output_38_2.png" />png</p>
+</div>
+</div>
+</div>
+<div class="section" id="next-section">
+<h1>Next section<a class="headerlink" href="#next-section" title="Permalink to this headline">¶</a></h1>
+<p>The <a class="reference external" href="../SubspaceDetection/subspace_detection1">next section</a> covers subspace detection.</p>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">detex</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../detex.html">detex package</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Derrick Chambers.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../../_sources/tutorial/Advanced/Clustering/clustering.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

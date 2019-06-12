@@ -1,0 +1,2084 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>detex package &#8212; detex __version__ = 1.0.9 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Detex" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="detex-package">
+<h1>detex package<a class="headerlink" href="#detex-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-detex.construct">
+<span id="detex-construct-module"></span><h2>detex.construct module<a class="headerlink" href="#module-detex.construct" title="Permalink to this headline">¶</a></h2>
+<p>Created on Thu Oct 29 18:39:50 2015</p>
+<p>&#64;author: derrick</p>
+<dl class="function">
+<dt id="detex.construct.createCluster">
+<code class="descclassname">detex.construct.</code><code class="descname">createCluster</code><span class="sig-paren">(</span><em>CCreq=0.5, fetch_arg=u'EventWaveForms', filt=[1, 10, 2, True], stationKey=u'StationKey.csv', templateKey=u'TemplateKey.csv', trim=[10, 120], saveclust=True, fileName=u'clust.pkl', decimate=None, dtype=u'double', eventsOnAllStations=False, enforceOrigin=False, fillZeros=False, phases=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/construct.html#createCluster"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.construct.createCluster" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to create an instance of the ClusterStream class</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>CCreq</strong> (<em>float</em><em>, </em><em>between 0 and 1</em>) – The minimum correlation coefficient for grouping waveforms.
+0.0 results in all waveforms grouping together and 1.0 will not
+form any groups.</li>
+<li><strong>fetch_arg</strong> (<em>str</em><em> or </em><em>detex.getdata.DataFetcher instance</em>) – Fetch_arg of detex.getdata.quickFetch, see docs for details.</li>
+<li><strong>filt</strong> (<em>list</em>) – A list of the required input parameters for the obspy bandpass
+filter [freqmin, freqmax, corners, zerophase].</li>
+<li><strong>stationKey</strong> (<em>str</em><em> or </em><em>pd.DataFrame</em>) – Path to the station key or DataFrame of station key.</li>
+<li><strong>templateKey</strong> (<em>str</em><em> or </em><em>pd.DataFrame</em>) – Path to the template key or loaded template key in DataFrame.</li>
+<li><strong>trim</strong> (<em>list</em>) – A list with seconds to trim from events with respect to the origin
+time reported in the template key (or optionally a first arivial time,
+see phases param for details). The default value of [10, 120]
+means each event will be trimmed to only contain 10 seconds before
+its origin time and 120 seconds after. The larger the values of this
+argument the longer the computation time and chance of misalignment,
+but values that are too small may trim out desired phases of the
+waveform.</li>
+<li><strong>saveClust</strong> (<em>bool</em>) – If true save the cluster object in the current working
+directory. The name is controlled by the fileName parameter.</li>
+<li><strong>fileName</strong> (<em>str</em>) – Path (or name) to save the clustering instance, only used
+if saveClust is True.</li>
+<li><strong>decimate</strong> (<em>int</em><em> or </em><em>None</em>) – A decimation factor to apply to all data in order to decrease run
+time. Can be very useful if the the data are oversampled. For
+example, if the data are sampled at 200 Hz but a 1 to 10 Hz
+bandpass filter is applied it may be appropriate to apply a
+decimation factor of 5 to bring the sampling rate down to 40 hz.</li>
+<li><strong>dytpe</strong> (<em>str</em>) – <dl class="docutils">
+<dt>An option to recast data type of the seismic data. Options are:</dt>
+<dd>double- numpy float 64
+single- numpy float 32, much faster and amenable to cuda GPU
+processing, sacrifices precision.</dd>
+</dl>
+</li>
+<li><strong>eventsOnAllStations</strong> (<em>bool</em>) – If True only use the events that occur on all stations, if
+false let each station have an independent event list.</li>
+<li><strong>enforceOrigin</strong> (<em>bool</em>) – If True make sure each trace starts at the reported origin time in
+the template key. If not trim or merge with zeros. Required  for
+lag times to be meaningful for hypoDD input.</li>
+<li><strong>fillZeros</strong> (<em>bool</em>) – If True fill zeros from trim[0] to trim[1]. Suggested for older
+data or if only triggered data are available.</li>
+<li><strong>phases</strong> (<em>None</em><em>, </em><em>str</em><em>, or </em><em>instance of DataFrame</em>) – If not None a path to phase picks or a DataFrame of phase picks that
+will be used for trim values rather than referencing the origin time
+of each event. See issue 25 on detex github page for why this
+might be useful.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">An instance of the detex SSClustering class</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.construct.createSubSpace">
+<code class="descclassname">detex.construct.</code><code class="descname">createSubSpace</code><span class="sig-paren">(</span><em>Pf=1e-12</em>, <em>clust=u'clust.pkl'</em>, <em>minEvents=2</em>, <em>dtype=u'double'</em>, <em>conDatFetcher=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/construct.html#createSubSpace"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.construct.createSubSpace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to create subspaces on all available stations based on the
+clusters in Clustering object which will either be passed directly as the
+keyword clust or will be loaded from the path in clustFile</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>Pf</strong> (<em>float</em>) – The probability of false detection as modeled by the statistical
+framework in Harris 2006 Theory (eq 20, not yet supported)
+Or by fitting a PDF to an empirical estimation of the null space
+(similar to Wiechecki-Vergara 2001). Thresholds are not set until
+calling the SVD function of the subspace stream class.</li>
+<li><strong>clust</strong> (<em>str</em><em> or </em><em>instance of detex.subspace.ClusterStream</em>) – The path to a pickled instance of ClusterStream or an instance of
+ClusterStream. Used in defining the subspaces.</li>
+<li><strong>minEvents</strong> (<em>int</em>) – The Min number of events that must be in a cluster in order for a
+subspace to be created from that cluster.</li>
+<li><strong>dtype</strong> (<em>str</em><em> (</em><em>'single'</em><em> or </em><em>'double'</em><em>)</em>) – <dl class="docutils">
+<dt>The data type of the numpy arrays used in the detections. Options are:</dt>
+<dd>single- a np.float32, slightly faster (~30%) less precise
+double- a np.float64 (default)</dd>
+</dl>
+</li>
+<li><strong>conDatFetcher</strong> (<em>None</em><em>, </em><em>str</em><em>, or </em><em>instance of detex.getdata.DataFetcher</em>) – Parameter to indicate how continuous data will be fetched in the newly
+created instance of SubSpace. Descriptions are the three accepted types
+are:
+1. (None) If None is passed detex will try to deduce the appropriate
+type of DataFetcher from the event datafetcher attached to cluster
+instance.
+2. (str) conDatFetcher is a string it will be passed to
+detex.getdata.quickFetch function which expects a path to the
+directory where the data are stored or a valid DataFetcher method.
+See the docs of the quickFetch function in detex.getdata for more info.
+3. (instance of detex.getdata.DataFetcher) If an instance of
+detex.getdata.DataFetcher is passed then it will be used as the
+continuous data fetcher.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><ul class="simple">
+<li><em>An instance of the SubSpace class</em> – Note</li>
+<li><em>———-</em></li>
+<li><em>Most of the parameters that define how to fetch seismic data, which events</em></li>
+<li><em>and stations to use in the analysis, filter parameters, etc. are already</em></li>
+<li><em>defined in the cluster (ClusterStream) instance.</em></li>
+</ul>
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.construct.fast_normcorr">
+<code class="descclassname">detex.construct.</code><code class="descname">fast_normcorr</code><span class="sig-paren">(</span><em>t</em>, <em>s</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/construct.html#fast_normcorr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.construct.fast_normcorr" title="Permalink to this definition">¶</a></dt>
+<dd><p>fast normalized cc</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.construct.multiplex">
+<code class="descclassname">detex.construct.</code><code class="descname">multiplex</code><span class="sig-paren">(</span><em>st</em>, <em>Nc=None</em>, <em>trimTolerance=15</em>, <em>template=False</em>, <em>returnlist=False</em>, <em>retst=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/construct.html#multiplex"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.construct.multiplex" title="Permalink to this definition">¶</a></dt>
+<dd><p>Multiplex an obspy stream object
+:param st: The stream containing the data to multiplex.
+:type st: instance of obspy stream
+:param Nc: if not None the number of channels in stream, else try to determine
+:type Nc: None or int
+:param trimTolerance: The number of samples each channel can vary before being rejected
+:type trimTolerance: int
+:param Template: If True st is a template waveform, therefore an exception will be</p>
+<blockquote>
+<div>raised if trimeTolerance is exceeded</div></blockquote>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>returnlist</strong> (<em>bool</em>) – If true also return np array of un-multiplexed data as a list</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">list with multiplexed data and other desired waveforms</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-detex.detect">
+<span id="detex-detect-module"></span><h2>detex.detect module<a class="headerlink" href="#module-detex.detect" title="Permalink to this headline">¶</a></h2>
+<p>Created on Thu Nov 12 20:21:46 2015</p>
+<p>&#64;author: derrick</p>
+</div>
+<div class="section" id="module-detex.fas">
+<span id="detex-fas-module"></span><h2>detex.fas module<a class="headerlink" href="#module-detex.fas" title="Permalink to this headline">¶</a></h2>
+<p>Created on Thu Oct 29 21:26:48 2015</p>
+<p>&#64;author: derrick
+fas = false alarm stats</p>
+</div>
+<div class="section" id="module-detex.getdata">
+<span id="detex-getdata-module"></span><h2>detex.getdata module<a class="headerlink" href="#module-detex.getdata" title="Permalink to this headline">¶</a></h2>
+<p>Created on Thu Nov 10 20:21:46 2015</p>
+<p>&#64;author: derrick</p>
+<dl class="class">
+<dt id="detex.getdata.DataFetcher">
+<em class="property">class </em><code class="descclassname">detex.getdata.</code><code class="descname">DataFetcher</code><span class="sig-paren">(</span><em>method, client=None, removeResponse=True, inventoryArg=None, directoryName=None, opType=u'VEL', prefilt=[0.05, 0.1, 15, 20], conDatDuration=3600, conBuff=120, timeBeforeOrigin=60, timeAfterOrigin=240, checkData=True, fillZeros=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/getdata.html#DataFetcher"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.getdata.DataFetcher" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Class to handle data acquisition</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>method</strong> (<em>str</em><em> or </em><em>int</em>) – <p>One of the approved methods for getting data as supported by detex
+Options are:</p>
+<blockquote>
+<div>”dir” : A data directory as created by makeDataDirectories
+“client” : an obspy client can be passed to get data
+useful if using an in-network database
+“iris” : an iris client is initiated, also uses IRIS for inventory
+“uuss” : A client attached to the university of utah
+seismograph stations is initiated using CWB for waveforms
+and IRIS is used for station inventories</div></blockquote>
+</li>
+<li><strong>client</strong> (<em>An obspy client object</em>) – Client object used to get data, from obspy.clients</li>
+<li><strong>removeResponse</strong> (<em>bool</em>) – If True remove response before returning stream.</li>
+<li><strong>inventoryArg</strong> (<em>None</em><em>, </em><em>obspy client object</em><em>, or </em><em>obspy Inventory object</em>) – A seperate client for station inventories, only used if
+removeResponse == True, also supports keyword “iris” for iris client</li>
+<li><strong>directoryName</strong> (<em>str</em>) – A path to the continuous waveforms directory or event waveforms
+directory. If None is passed default names are used
+(ContinuousWaveForms and EventWaveForms)</li>
+<li><strong>opType</strong> (<em>str</em>) – Output type after removing instrument response. Choices are:
+“DISP” (m), “VEL” (m/s), or “ACC” (m/s**2)</li>
+<li><strong>prefilt</strong> (<em>list of real numbers</em>) – Pre-filter parameters for removing instrument response.</li>
+<li><strong>conDatDuration</strong> (<em>int</em><em> or </em><em>float</em>) – Duration for continuous data in seconds</li>
+<li><strong>conBuff</strong> (<em>int</em><em> or </em><em>float</em>) – The amount of data, in seconds, to download at the end of the
+conDatDuration. Ideally should be equal to template length, important
+in order to avoid missing potential events at the end of a stream</li>
+<li><strong>timeBeforeOrigin</strong> (<em>int</em><em> or </em><em>float</em>) – Seconds before origin of each event to fetch (used in getTemData)</li>
+<li><strong>timeAfterOrigin</strong> (<em>int</em><em> or </em><em>float</em>) – Seconds after origin of each event to fetch (used in getTemData)</li>
+<li><strong>checkData</strong> (<em>bool</em>) – If True apply some data checks before returning streams, can be useful
+for older data sets.</li>
+<li><strong>fillZeros</strong> (<em>bool</em>) – If True fill data that are not available with 0s (provided some data are
+available)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#detex.getdata.DataFetcher.getConData" title="detex.getdata.DataFetcher.getConData"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getConData</span></code></a>(self,&nbsp;stakey[,&nbsp;secBuff,&nbsp;…])</td>
+<td>Get continuous data defined by the stations and time range in the station key</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.getdata.DataFetcher.getStream" title="detex.getdata.DataFetcher.getStream"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getStream</span></code></a>(self,&nbsp;start,&nbsp;end,&nbsp;net,&nbsp;sta[,&nbsp;…])</td>
+<td>function for getting data.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#detex.getdata.DataFetcher.getTemData" title="detex.getdata.DataFetcher.getTemData"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getTemData</span></code></a>(self,&nbsp;temkey,&nbsp;stakey[,&nbsp;tb4,&nbsp;…])</td>
+<td>Take detex station keys and template keys and yield stream objects of all possible combinations</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="detex.getdata.DataFetcher.getConData">
+<code class="descname">getConData</code><span class="sig-paren">(</span><em>self</em>, <em>stakey</em>, <em>secBuff=None</em>, <em>returnName=False</em>, <em>returnTimes=False</em>, <em>conDir=None</em>, <em>skipIfExists=False</em>, <em>utcstart=None</em>, <em>utcend=None</em>, <em>duration=None</em>, <em>randSamps=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/getdata.html#DataFetcher.getConData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.getdata.DataFetcher.getConData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get continuous data defined by the stations and time range in
+the station key</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>stakey</strong> (<em>str</em><em> or </em><em>pd.DataFrame</em>) – A path to the stationkey or a loaded DF of the stationkey</li>
+<li><strong>secBuff</strong> (<em>int</em>) – A buffer in seconds to add to end of continuous data chunk
+so that consecutive files overlap by secBuf</li>
+<li><strong>returnName</strong> (<em>bool</em>) – If True return the name of the file and expected path</li>
+<li><strong>CondDir</strong> (<em>str</em>) – Path to Continuous data directory if it exists. Used to check
+if a file already exists so it can be skipped if skipIfExists</li>
+<li><strong>skipIfExists</strong> (<em>bool</em>) – If True files already exists wont be downloaded again</li>
+<li><strong>utcstart</strong> (<em>None</em><em>, </em><em>int</em><em>, </em><em>str</em><em> or </em><em>obspy.UTCDateTime instance</em>) – An object readable by obspy.UTCDateTime class which is the start
+time of continuous data to fetch. If None use time in station key</li>
+<li><strong>utcend</strong> (<em>None</em><em>, </em><em>int</em><em> or </em><em>str</em><em>, or </em><em>obspy.UTCDateTime instance</em>) – An object readable by obspy.UTCDateTime class which is the end
+time of continuous data to fetch. If None use time in station key</li>
+<li><strong>duration</strong> (<em>None</em><em>, </em><em>int</em><em>, or </em><em>float</em>) – The duration of each continuous data chunk to fetch, if None
+use conDataDuration attribute of DataFetcher instance</li>
+<li><strong>randSamps</strong> (<em>None</em><em> or </em><em>int</em>) – If not None, return random number of traces rather than whole
+range</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Yields:</th><td class="field-body"><p class="first last"><em>Obspy trace and other requested parameters</em></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.getdata.DataFetcher.getStream">
+<code class="descname">getStream</code><span class="sig-paren">(</span><em>self</em>, <em>start</em>, <em>end</em>, <em>net</em>, <em>sta</em>, <em>chan=u'???'</em>, <em>loc=u'??'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/getdata.html#DataFetcher.getStream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.getdata.DataFetcher.getStream" title="Permalink to this definition">¶</a></dt>
+<dd><p>function for getting data.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>start</strong> (<em>obspy.UTCDateTime object</em>) – Start time to fetch</li>
+<li><strong>end</strong> (<em>obspy.UTCDateTime object</em>) – End time to fetch</li>
+<li><strong>net</strong> (<em>str</em>) – Network code, usually 2 letters</li>
+<li><strong>sta</strong> (<em>str</em>) – Station code</li>
+<li><strong>chan</strong> (<em>str</em><em> or </em><em>list of str</em><em> (</em><em>should support wildcard</em><em>)</em>) – Channels to fetch</li>
+<li><strong>loc</strong> (<em>str</em>) – Location code for station</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><ul class="simple">
+<li><em>An instance of obspy.Stream populated with requested data, or None if</em></li>
+<li><em>not available.</em></li>
+</ul>
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.getdata.DataFetcher.getTemData">
+<code class="descname">getTemData</code><span class="sig-paren">(</span><em>self</em>, <em>temkey</em>, <em>stakey</em>, <em>tb4=None</em>, <em>taft=None</em>, <em>returnName=True</em>, <em>temDir=None</em>, <em>skipIfExists=False</em>, <em>skipDict=None</em>, <em>returnTimes=False</em>, <em>phases=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/getdata.html#DataFetcher.getTemData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.getdata.DataFetcher.getTemData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take detex station keys and template keys and yield stream objects of
+all possible combinations</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>temkey</strong> (<em>pd DataFrame</em>) – Detex template key</li>
+<li><strong>stakey</strong> (<em>pd DataFrame</em>) – Detex station key</li>
+<li><strong>tb4</strong> (<em>None</em><em>, or </em><em>real number</em>) – Time before origin (or first phase pick if phases is not None)</li>
+<li><strong>taft</strong> (<em>None</em><em> or </em><em>real number</em>) – Time after origin (or first phase pick if phases is not None)</li>
+<li><strong>returnName</strong> (<em>bool</em>) – If True return name of event as found in template key</li>
+<li><strong>returnNames</strong> (<em>bool</em>) – If True return event names and template names</li>
+<li><strong>temDir</strong> (<em>str</em><em> or </em><em>None</em>) – Name of template directory, used to check if exists</li>
+<li><strong>skipIfExists</strong> (<em>bool</em>) – If True dont return if file is in temDir</li>
+<li><strong>skipDict</strong> (<em>dict</em>) – Dictionary of stations (keys, net.sta) and events (values)
+to skip</li>
+<li><strong>returnTimes</strong> (<em>bool</em>) – If True return times of data</li>
+<li><strong>phases</strong> (<em>None</em><em>, </em><em>str</em><em>, or </em><em>DataFrame</em>) – If not None must be a path to a phasePick file, in the same format
+as detex.util.pickPhases, or a path to a saved csv of the same.
+tb4 and taft will be referenced to the first arrival for each
+event and station, or the origin if none are available.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Yields:</th><td class="field-body"><ul class="first last simple">
+<li><em>Stream objects of possible combination if data are fetchable and event</em></li>
+<li><em>names if returnName == True or times of data if returnTimes == True</em></li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="detex.getdata.DataFetcher.supMethods">
+<code class="descname">supMethods</code><em class="property"> = [u'dir', u'client', u'uuss', u'iris']</em><a class="headerlink" href="#detex.getdata.DataFetcher.supMethods" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.getdata.getAllData">
+<code class="descclassname">detex.getdata.</code><code class="descname">getAllData</code><span class="sig-paren">(</span><em>templateKey=u'TemplateKey.csv', stationKey=u'StationKey.csv', fetch=u'IRIS', formatOut=u'mseed', templateDir=u'EventWaveForms', timeBeforeOrigin=60, timeAfterOrigin=240, conDir=u'ContinuousWaveForms', secBuf=120, conDatDuration=3600, multiPro=False, getContinuous=True, getTemplates=True, removeResponse=True, opType=u'VEL', prefilt=[0.05, 0.1, 15, 20]</em><span class="sig-paren">)</span><a class="headerlink" href="#detex.getdata.getAllData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function designed to fetch data needed for detex and store them in local
+directories. StationKey.csv and TemplateKey.csv indicate which events to
+download and for which stations. Organizes ContinuousWaveForms and
+EventWaveForms directories.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>template_key</strong> (<em>str</em><em> or </em><em>pd DataFrame</em>) – The path to the TemplateKey csv</li>
+<li><strong>station_key</strong> (<em>str</em><em> or </em><em>pd DataFrame</em>) – The path to the station key</li>
+<li><strong>fetch</strong> (<em>str</em><em> or </em><em>FetchData instance</em>) – String for method argument of FetchData class or FetchData instance</li>
+<li><strong>formatOut</strong> (<em>str</em>) – Seismic data file format, most obspy formats acceptable, options are:
+‘mseed’,’sac’,’GSE2’,’sacxy’,’q’,’sh_asc’,’ slist’, ‘tspair’,’segy’,
+‘su’, ‘pickle’, ‘h5’ (h5 only if obspyh5 module installed)</li>
+<li><strong>tempalateDir</strong> (<em>str</em>) – The name of the template directory. Using the default is recommended
+else the templateDir parameter will have to be set in calling most
+other detex functions</li>
+<li><strong>timeBeforeOrigin</strong> (<em>real number</em>) – The time in seconds before the reported origin of each template that
+is downloaded.</li>
+<li><strong>timeAfterOrigin</strong> (<em>real number</em><em>(</em><em>int</em><em>, </em><em>float</em><em>, </em><em>etc.</em><em>)</em>) – The time in seconds to download after the origin time of each template.</li>
+<li><strong>conDir</strong> (<em>str</em>) – The name of the continuous waveform directory. Using the default is
+recommended</li>
+<li><strong>secBuf</strong> (<em>real number</em><em> (</em><em>int</em><em>, </em><em>float</em><em>, </em><em>etc.</em><em>)</em>) – The number of seconds to download after each hour of continuous data.
+This might be non-zero in order to capture some detections that would
+normally be overlooked if data did not overlap somewhat.</li>
+<li><strong>conDatDuration</strong> (<em>real number</em><em> (</em><em>int</em><em>, </em><em>float</em><em>, </em><em>etc.</em><em>)</em>) – The duration of the continuous data to download in seconds.</li>
+<li><strong>multiPro</strong> (<em>bool</em>) – If True fork several processes to get data at once, potentially much
+faster but a bit inconsiderate on the server hosting the data</li>
+<li><strong>getContinuous</strong> (<em>bool</em>) – If True fetch continuous data with station and date ranges listed in
+the station key</li>
+<li><strong>getTemplates</strong> (<em>bool</em>) – If True get template data with stations listed in the station key
+and events listed in the template key</li>
+<li><strong>removeResponse</strong> (<em>bool</em>) – If true remove instrument response</li>
+<li><strong>opType</strong> (<em>str</em>) – Output type after removing instrument response. Choices are:
+“DISP” (m), “VEL” (m/s), or “ACC” (m/s**2)</li>
+<li><strong>prefilt</strong> (<em>list 4 real numbers</em>) – Pre-filter parameters for removing instrument response, response is
+flat from corners 2 to 3.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.getdata.indexDirectory">
+<code class="descclassname">detex.getdata.</code><code class="descname">indexDirectory</code><span class="sig-paren">(</span><em>dirPath</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/getdata.html#indexDirectory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.getdata.indexDirectory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an index (.index.db) for a directory with stored waveform files
+which also contains quality info of each file</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>dirPath</strong> (<em>str</em>) – The path to the directory containing waveform data (any structure)</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.getdata.makeDataDirectories">
+<code class="descclassname">detex.getdata.</code><code class="descname">makeDataDirectories</code><span class="sig-paren">(</span><em>templateKey=u'TemplateKey.csv', stationKey=u'StationKey.csv', fetch=u'IRIS', formatOut=u'mseed', templateDir=u'EventWaveForms', timeBeforeOrigin=60, timeAfterOrigin=240, conDir=u'ContinuousWaveForms', secBuf=120, conDatDuration=3600, multiPro=False, getContinuous=True, getTemplates=True, removeResponse=True, opType=u'VEL', prefilt=[0.05, 0.1, 15, 20]</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/getdata.html#makeDataDirectories"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.getdata.makeDataDirectories" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function designed to fetch data needed for detex and store them in local
+directories. StationKey.csv and TemplateKey.csv indicate which events to
+download and for which stations. Organizes ContinuousWaveForms and
+EventWaveForms directories.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>template_key</strong> (<em>str</em><em> or </em><em>pd DataFrame</em>) – The path to the TemplateKey csv</li>
+<li><strong>station_key</strong> (<em>str</em><em> or </em><em>pd DataFrame</em>) – The path to the station key</li>
+<li><strong>fetch</strong> (<em>str</em><em> or </em><em>FetchData instance</em>) – String for method argument of FetchData class or FetchData instance</li>
+<li><strong>formatOut</strong> (<em>str</em>) – Seismic data file format, most obspy formats acceptable, options are:
+‘mseed’,’sac’,’GSE2’,’sacxy’,’q’,’sh_asc’,’ slist’, ‘tspair’,’segy’,
+‘su’, ‘pickle’, ‘h5’ (h5 only if obspyh5 module installed)</li>
+<li><strong>tempalateDir</strong> (<em>str</em>) – The name of the template directory. Using the default is recommended
+else the templateDir parameter will have to be set in calling most
+other detex functions</li>
+<li><strong>timeBeforeOrigin</strong> (<em>real number</em>) – The time in seconds before the reported origin of each template that
+is downloaded.</li>
+<li><strong>timeAfterOrigin</strong> (<em>real number</em><em>(</em><em>int</em><em>, </em><em>float</em><em>, </em><em>etc.</em><em>)</em>) – The time in seconds to download after the origin time of each template.</li>
+<li><strong>conDir</strong> (<em>str</em>) – The name of the continuous waveform directory. Using the default is
+recommended</li>
+<li><strong>secBuf</strong> (<em>real number</em><em> (</em><em>int</em><em>, </em><em>float</em><em>, </em><em>etc.</em><em>)</em>) – The number of seconds to download after each hour of continuous data.
+This might be non-zero in order to capture some detections that would
+normally be overlooked if data did not overlap somewhat.</li>
+<li><strong>conDatDuration</strong> (<em>real number</em><em> (</em><em>int</em><em>, </em><em>float</em><em>, </em><em>etc.</em><em>)</em>) – The duration of the continuous data to download in seconds.</li>
+<li><strong>multiPro</strong> (<em>bool</em>) – If True fork several processes to get data at once, potentially much
+faster but a bit inconsiderate on the server hosting the data</li>
+<li><strong>getContinuous</strong> (<em>bool</em>) – If True fetch continuous data with station and date ranges listed in
+the station key</li>
+<li><strong>getTemplates</strong> (<em>bool</em>) – If True get template data with stations listed in the station key
+and events listed in the template key</li>
+<li><strong>removeResponse</strong> (<em>bool</em>) – If true remove instrument response</li>
+<li><strong>opType</strong> (<em>str</em>) – Output type after removing instrument response. Choices are:
+“DISP” (m), “VEL” (m/s), or “ACC” (m/s**2)</li>
+<li><strong>prefilt</strong> (<em>list 4 real numbers</em>) – Pre-filter parameters for removing instrument response, response is
+flat from corners 2 to 3.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.getdata.quickFetch">
+<code class="descclassname">detex.getdata.</code><code class="descname">quickFetch</code><span class="sig-paren">(</span><em>fetch_arg</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/getdata.html#quickFetch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.getdata.quickFetch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Instantiate a DataFetcher using as little information as possible.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>fetch_arg</strong> (<em>str</em><em> or </em><em>DataFetcher instance</em>) – fetch_arg can be one of three things:
+1. An instance of DataFetcher
+2. A valid DataFetcher Method other than dir
+3. A path to a directory containing waveform data
+fetch_arg is checked in that order, so if you are trying to use a
+data directory make sure it does not share names with a valid
+DataFetcher method</li>
+<li><strong>are passed to the DataFetcher class</strong><strong>, </strong><strong>see DataFetcher</strong> (<em>kwargs</em>) – </li>
+<li><strong>for details</strong> (<em>docs</em>) – </li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">An instance of DataFetcher</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>For client methods (eg ‘uuss’, ‘iris’) remove response is assumed True
+with the default prelim. filter. If you don’t want this make a custom
+instance of DataFetcher.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.getdata.read">
+<code class="descclassname">detex.getdata.</code><code class="descname">read</code><span class="sig-paren">(</span><em>path</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/getdata.html#read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.getdata.read" title="Permalink to this definition">¶</a></dt>
+<dd><p>function to read a file from a path. If IOError or TypeError simply try
+appending os.set to start</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-detex.results">
+<span id="detex-results-module"></span><h2>detex.results module<a class="headerlink" href="#module-detex.results" title="Permalink to this headline">¶</a></h2>
+<p>Created on Fri May 23 17:55:01 2014</p>
+<p>&#64;author: Derrick</p>
+<dl class="class">
+<dt id="detex.results.SSResults">
+<em class="property">class </em><code class="descclassname">detex.results.</code><code class="descname">SSResults</code><span class="sig-paren">(</span><em>Dets</em>, <em>Autos</em>, <em>Vers</em>, <em>ss_info</em>, <em>ss_filt</em>, <em>temkey</em>, <em>stakey</em>, <em>templateKey</em>, <em>fetcher</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/results.html#SSResults"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.results.SSResults" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p class="rubric">Methods</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#detex.results.SSResults.writeDetections" title="detex.results.SSResults.writeDetections"><code class="xref py py-obj docutils literal notranslate"><span class="pre">writeDetections</span></code></a>(self[,&nbsp;onlyVerified,&nbsp;minDS,&nbsp;…])</td>
+<td>Function to make all of the eligable new detections templates.</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="detex.results.SSResults.writeDetections">
+<code class="descname">writeDetections</code><span class="sig-paren">(</span><em>self</em>, <em>onlyVerified=None</em>, <em>minDS=None</em>, <em>minMag=None</em>, <em>eventDir=u'EventWaveForms'</em>, <em>updateTemKey=True</em>, <em>temkeyPath=None</em>, <em>timeBeforeOrigin=60</em>, <em>timeAfterOrigin=240</em>, <em>waveFormat=u'mseed'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/results.html#SSResults.writeDetections"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.results.SSResults.writeDetections" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to make all of the eligable new detections templates. New
+event directories will be added to eventDir and the template key
+will be updated with detected events having a lower case “d”
+before the name</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>onlyVerified</strong> (<em>boolean</em>) – If true only use detections that are verified</li>
+<li><strong>minDS</strong> (<em>None</em><em> or </em><em>float between 0.0 and 1.0</em>) – If float only use detections with average detection statistics
+above minDSave</li>
+<li><strong>minMag</strong> (<em>false</em><em> or </em><em>float</em>) – If float only use detections with estimated magnitudes above minMag</li>
+<li><strong>eventDir</strong> (<em>None</em><em> or </em><em>str</em>) – If None new waveforms of detections are stored in default
+event directory (usually EventWaveForms).
+If str then the str must be path to new directory in which detected
+event waveforms will be stored. If it does not exist it will be
+created</li>
+<li><strong>updateTemKey</strong> (<em>boolean</em>) – If true update the template key with the new detections</li>
+<li><strong>temkeyPath</strong> (<em>None</em><em> or </em><em>str</em>) – if None use the default path to the template key, else new path
+to templatekey, if it does not exist it will be created</li>
+<li><strong>timeBeforeOrigin</strong> (<em>real number</em><em> (</em><em>float</em><em> or </em><em>int</em><em>)</em>) – Seconds before predicted origin to get (default is the same as
+the getData.getAllData defaults)</li>
+<li><strong>timeAfterOrigin</strong> (<em>real number</em><em> (</em><em>float</em><em> or </em><em>int</em><em>)</em>) – Seconds after predicted origin to get</li>
+<li><strong>= str</strong> (<em>waveFormat</em>) – Format to save files, “mseed”, “pickle”, “sac”, and “Q” supported</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.results.detResults">
+<code class="descclassname">detex.results.</code><code class="descname">detResults</code><span class="sig-paren">(</span><em>trigCon=0</em>, <em>trigParameter=0</em>, <em>associateReq=0</em>, <em>ss_associateBuffer=1</em>, <em>sg_associateBuffer=2.5</em>, <em>requiredNumStations=4</em>, <em>veriBuffer=1</em>, <em>ssDB=u'SubSpace.db'</em>, <em>templateKey=u'TemplateKey.csv'</em>, <em>stationKey=u'StationKey.csv'</em>, <em>veriFile=None</em>, <em>includeAllVeriColumns=True</em>, <em>reduceDets=True</em>, <em>Pf=False</em>, <em>stations=None</em>, <em>starttime=None</em>, <em>endtime=None</em>, <em>fetch=u'ContinuousWaveForms'</em>, <em>exceptionalThreshold=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/results.html#detResults"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.results.detResults" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to create an instance of the CorResults class. Used to associate
+detections across multiple stations into coherent events. CorResults class
+also has some useful methods for creating input files for location
+programs such as hypoDD and hypoInverse</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>trigCon</strong> (<em>int 0</em><em> or </em><em>1</em>) – trigCon is used for filtering the events in the corDB. Currently
+only options are 0, raw detection statistic value or 1, STA/LTA
+value of DS as reported in the corDB. This parameter might be
+useful if there are a large number of detections in corDB with low
+STA/LTA or correlation coeficient values.</li>
+<li><strong>trigParameter</strong> (<em>number</em>) – if trigCon==0 trigParameter is the minimum correlation for a
+detection to be loaded from the CorDB if trigCon==1 trigParameter is
+the minimum STA/LTA value for a detection to be loaded from the CorDB.
+Regardless of trigCon if trigParameter == 0 all detections in CorDB
+will be loaded and processed</li>
+<li><strong>associateReq</strong> (<em>int</em>) – The association requirement which is the minimum number of events
+that must be shared by subspaces in order to permit event association.
+For example, subspace 0 (SS0) on station 1 was created using events
+A,B,C. subspace 0 (SS0) on station 2 was created using events C, D.
+If both subspace share a detection and associateReq=0 or 1 the
+detections will be associated into a coherent event. If assiciateReq
+== 2, however, the detections will not be associated.</li>
+<li><strong>ss_associateBuffer</strong> (<em>real number</em><em> (</em><em>int</em><em> or </em><em>float</em><em>)</em>) – The buffertime applied to subspace event assocaition in seconds</li>
+<li><strong>sg_associateBuffer</strong> (<em>real number</em><em> (</em><em>int</em><em> or </em><em>float</em><em>)</em>) – The buffertime applied to singleton event assocaition in seconds</li>
+<li><strong>requiredNumStations</strong> (<em>int</em>) – The required number of a stations on which a detection must occur
+in order to be classified as an event</li>
+<li><strong>veriBuffer</strong> (<em>real number</em><em> (</em><em>int</em><em>, </em><em>float</em><em>)</em>) – Same as associate buffer but for associating detections with events
+in the verification file</li>
+<li><strong>ssDB</strong> (<em>str</em>) – Path the the database created by detex.xcorr.correlate function</li>
+<li><strong>templateKey</strong> (<em>str</em>) – Path to the template key</li>
+<li><strong>stationKey</strong> (<em>str</em>) – Path to template key</li>
+<li><strong>veriFile</strong> (<em>None</em><em> (</em><em>not used</em><em>) or </em><em>str</em><em> (</em><em>optional</em><em>)</em>) – Path to a file in the TemplateKey format for verifying the detection
+by origin time association. veriFile can either be an sqlite database
+with table name ‘verify’, a CSV, or a pickled pandas dataframe. The
+following fields must be present: ‘TIME’,’NAME’,’LAT’,’LON’,’MAG’.
+Any additional columns may be present with any name that will be
+included in the verification dataframe depending on
+includeAllVeriColumns</li>
+<li><strong>includeAllVeriColumns</strong> (<em>bool</em>) – If true include all columns that are in the veriFile in the verify
+dataframe that will be part of the SSResults object.</li>
+<li><strong>reduceDets</strong> (<em>bool</em>) – If true loop over each station and delete detections of the same
+event that don’t have the highest detection Stat value.
+It is recommended this be left as True unless there a specific
+reason lower DS detections are wanted</li>
+<li><strong>Pf</strong> (<em>float</em><em> or </em><em>False</em>) – The probability of false detection accepted. Uses the pickled
+subspace object to get teh FAS class and corresponding fitted beta
+in order to only keep detections with thresholds above some Pf,
+defiend for each subspace station pair. If used values of 10**-8
+and greater generally work well</li>
+<li><strong>stations</strong> (<em>list of str</em><em> or </em><em>None</em>) – If not None, a list or tuple of stations to be used in the
+associations. All others will be discarded</li>
+<li><strong>starttime</strong> (<em>None</em><em> or </em><em>obspy.UTCDateTime readable object</em>) – If not None, then sets a lower bound on the MSTAMPmin column loaded
+from the dataframe</li>
+<li><strong>endtime</strong> (<em>None</em><em> or </em><em>obspy.UTCDateTime readable object</em>) – If not None, then sets a lower bound on the MSTAMPmin column loaded
+from the dataframe</li>
+<li><strong>fetch</strong> (<em>str</em><em> or </em><em>instance of detex.getdata.DataFetcher</em>) – Used to determine where to get waveforms, fed into
+detex.getdata.quickfetch</li>
+<li><strong>exceptionalThreshold</strong> (<em>None</em><em>, </em><em>float</em><em>, or </em><em>dict</em>) – If float the threshold required for a detection to be considered legit
+regardless of the number of stations. Can also be a dict where the
+keys are the stations (net.station) and the values are the thresholds
+to consider exceptional for that station.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-detex.subspace">
+<span id="detex-subspace-module"></span><h2>detex.subspace module<a class="headerlink" href="#module-detex.subspace" title="Permalink to this headline">¶</a></h2>
+<p>Created on Tue Jul 08 21:24:18 2014</p>
+<p>&#64;author: Derrick
+Module containing import detex classes</p>
+<dl class="class">
+<dt id="detex.subspace.Cluster">
+<em class="property">class </em><code class="descclassname">detex.subspace.</code><code class="descname">Cluster</code><span class="sig-paren">(</span><em>clustStream</em>, <em>station</em>, <em>temkey</em>, <em>eventList</em>, <em>link</em>, <em>ccReq</em>, <em>filt</em>, <em>decimate</em>, <em>trim</em>, <em>DFcc</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#Cluster"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.Cluster" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p class="rubric">Methods</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.Cluster.dendro" title="detex.subspace.Cluster.dendro"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dendro</span></code></a>(self[,&nbsp;hideEventLabels,&nbsp;show,&nbsp;…])</td>
+<td>Function to plot dendrograms of the clusters</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.Cluster.plotEvents" title="detex.subspace.Cluster.plotEvents"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotEvents</span></code></a>(self[,&nbsp;projection,&nbsp;plotSingles])</td>
+<td>Plot the event locations for each station using basemap.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.Cluster.simMatrix" title="detex.subspace.Cluster.simMatrix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">simMatrix</span></code></a>(self[,&nbsp;groupClusts,&nbsp;savename,&nbsp;…])</td>
+<td>Function to create basic similarity matrix of the values in the cluster object</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.Cluster.updateReqCC" title="detex.subspace.Cluster.updateReqCC"><code class="xref py py-obj docutils literal notranslate"><span class="pre">updateReqCC</span></code></a>(self,&nbsp;newccReq)</td>
+<td>Function to update the required correlation coeficient for this station :param newccReq: Required correlation coef :type newccReq: float (between 0 and 1)</td>
+</tr>
+</tbody>
+</table>
+<table border="1" class="docutils">
+<colgroup>
+<col width="55%" />
+<col width="45%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><strong>printAtr</strong></td>
+<td>&#160;</td>
+</tr>
+<tr class="row-even"><td><strong>write</strong></td>
+<td>&#160;</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="detex.subspace.Cluster.dendro">
+<code class="descname">dendro</code><span class="sig-paren">(</span><em>self</em>, <em>hideEventLabels=True</em>, <em>show=True</em>, <em>saveName=False</em>, <em>legend=True</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#Cluster.dendro"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.Cluster.dendro" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to plot dendrograms of the clusters</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>hideEventLabels</strong> (<em>bool</em>) – turns x axis labeling on/off. Better set to false
+if many events are in event pool</li>
+<li><strong>show</strong> (<em>bool</em>) – If true call plt.show</li>
+<li><strong>saveName</strong> (<em>str</em><em> or </em><em>False</em>) – path to save figure. Extention denotes format. See plt.savefig
+for details</li>
+<li><strong>legend</strong> (<em>bool</em>) – If true plot a legend on the side of the dendrogram</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">kwargs are passed to scipy.cluster.hierarchy.dendrogram, see docs
+for acceptable arguments and descriptions</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.Cluster.plotEvents">
+<code class="descname">plotEvents</code><span class="sig-paren">(</span><em>self</em>, <em>projection=u'merc'</em>, <em>plotSingles=True</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#Cluster.plotEvents"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.Cluster.plotEvents" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot the event locations for each station using basemap. Calls the
+plotEvents method of the Cluster class, see its docs for accepted
+kwargs.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>projection</strong> (<em>str</em>) – The pojection type to pass to basemap</li>
+<li><strong>plotSingles</strong> (<em>bool</em>) – If True also plot the singletons (events that dont cluster)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>kwargs are passed to basemap
+If no working installation of basemap is found an ImportError will
+be raised. See the following URL for tips on installing it:
+<a class="reference external" href="http://matplotlib.org/basemap/users/installing.html">http://matplotlib.org/basemap/users/installing.html</a>, good luck!</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.Cluster.printAtr">
+<code class="descname">printAtr</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#Cluster.printAtr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.Cluster.printAtr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.Cluster.simMatrix">
+<code class="descname">simMatrix</code><span class="sig-paren">(</span><em>self</em>, <em>groupClusts=False</em>, <em>savename=False</em>, <em>returnMat=False</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#Cluster.simMatrix"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.Cluster.simMatrix" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to create basic similarity matrix of the values
+in the cluster object</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>groupClusts</strong> (<em>boolean</em>) – If True order by clusters on the simmatrix with the
+singletons coming last</li>
+<li><strong>savename</strong> (<em>str</em><em> or </em><em>False</em>) – If not False, a path used by plt.savefig to save the current
+figure. The extension is necesary for specifying format. See
+plt.savefig for details</li>
+<li><strong>returnMat</strong> (<em>boolean</em>) – If true return the similarity matrix</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.Cluster.updateReqCC">
+<code class="descname">updateReqCC</code><span class="sig-paren">(</span><em>self</em>, <em>newccReq</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#Cluster.updateReqCC"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.Cluster.updateReqCC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to update the required correlation coeficient for
+this station
+:param newccReq: Required correlation coef
+:type newccReq: float (between 0 and 1)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.Cluster.write">
+<code class="descname">write</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#Cluster.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.Cluster.write" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="detex.subspace.ClusterStream">
+<em class="property">class </em><code class="descclassname">detex.subspace.</code><code class="descname">ClusterStream</code><span class="sig-paren">(</span><em>trdf</em>, <em>temkey</em>, <em>stakey</em>, <em>fetcher</em>, <em>eventList</em>, <em>ccReq</em>, <em>filt</em>, <em>decimate</em>, <em>trim</em>, <em>fileName</em>, <em>eventsOnAllStations</em>, <em>enforceOrigin</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#ClusterStream"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.ClusterStream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A container for multiple cluster objects, should only be called with
+detex.construct.createCluster</p>
+<p class="rubric">Methods</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.ClusterStream.dendro" title="detex.subspace.ClusterStream.dendro"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dendro</span></code></a>(self,&nbsp;\*\*kwargs)</td>
+<td>Create dendrograms for each station</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.ClusterStream.plotEvents" title="detex.subspace.ClusterStream.plotEvents"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotEvents</span></code></a>(self[,&nbsp;projection,&nbsp;plotSingles])</td>
+<td>Plot the event locations for each station using basemap.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.ClusterStream.simMatrix" title="detex.subspace.ClusterStream.simMatrix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">simMatrix</span></code></a>(self[,&nbsp;groupClusts,&nbsp;savename,&nbsp;…])</td>
+<td>Function to create similarity matrix of each event pair</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.ClusterStream.updateReqCC" title="detex.subspace.ClusterStream.updateReqCC"><code class="xref py py-obj docutils literal notranslate"><span class="pre">updateReqCC</span></code></a>(self,&nbsp;reqCC)</td>
+<td>Updates the required correlation coefficient for clusters to form on all stations or individual stations.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.ClusterStream.write" title="detex.subspace.ClusterStream.write"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write</span></code></a>(self)</td>
+<td>Write instance to file (name is the filename attribute)</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.ClusterStream.writeSimpleHypoDDInput" title="detex.subspace.ClusterStream.writeSimpleHypoDDInput"><code class="xref py py-obj docutils literal notranslate"><span class="pre">writeSimpleHypoDDInput</span></code></a>(self[,&nbsp;fileName,&nbsp;…])</td>
+<td>Create a hypoDD cross correlation file (EG dt.cc), assuming the lag times are pure S times (should be true if S amplitude is dominant)</td>
+</tr>
+</tbody>
+</table>
+<table border="1" class="docutils">
+<colgroup>
+<col width="55%" />
+<col width="45%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><strong>printAtr</strong></td>
+<td>&#160;</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="detex.subspace.ClusterStream.dendro">
+<code class="descname">dendro</code><span class="sig-paren">(</span><em>self</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#ClusterStream.dendro"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.ClusterStream.dendro" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create dendrograms for each station</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.ClusterStream.plotEvents">
+<code class="descname">plotEvents</code><span class="sig-paren">(</span><em>self</em>, <em>projection=u'merc'</em>, <em>plotSingles=True</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#ClusterStream.plotEvents"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.ClusterStream.plotEvents" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot the event locations for each station using basemap. Calls the
+plotEvents method of the Cluster class, see its docs for accepted
+kwargs.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>projection</strong> (<em>str</em>) – The pojection type to pass to basemap</li>
+<li><strong>plotSingles</strong> (<em>bool</em>) – If True also plot the singletons (events that dont cluster)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>kwargs are passed to basemap</p>
+<p>If no working installation of basemap is found an ImportError will
+be raised. See the following URL for tips on installing it:
+<a class="reference external" href="http://matplotlib.org/basemap/users/installing.html">http://matplotlib.org/basemap/users/installing.html</a>, good luck!</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.ClusterStream.printAtr">
+<code class="descname">printAtr</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#ClusterStream.printAtr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.ClusterStream.printAtr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.ClusterStream.simMatrix">
+<code class="descname">simMatrix</code><span class="sig-paren">(</span><em>self</em>, <em>groupClusts=False</em>, <em>savename=False</em>, <em>returnMat=False</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#ClusterStream.simMatrix"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.ClusterStream.simMatrix" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to create similarity matrix of each event pair</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>groupClusts</strong> (<em>bool</em>) – If True order by clusters on the simmatrix with the singletons
+coming last</li>
+<li><strong>savename</strong> (<em>str</em><em> or </em><em>False</em>) – If not False, a path used by plt.savefig to save the current
+figure. The extension is necesary for specifying format.
+See plt.savefig for details</li>
+<li><strong>returnMat</strong> (<em>bool</em>) – If true return the similarity matrix</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.ClusterStream.updateReqCC">
+<code class="descname">updateReqCC</code><span class="sig-paren">(</span><em>self</em>, <em>reqCC</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#ClusterStream.updateReqCC"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.ClusterStream.updateReqCC" title="Permalink to this definition">¶</a></dt>
+<dd><p>Updates the required correlation coefficient for clusters to form on
+all stations or individual stations.
+:param reqCC: if reqCC is a float the required correlation coeficient for</p>
+<blockquote>
+<div>clusters to form will be set to reqCC on all stations.
+If dict keys must be indicies for each cluster object (IE net.sta,
+sta, or int index) and values are the reqCC for that station.</div></blockquote>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>The Cluster class also have a similar method that can be more
+intuitive to use, as in the tutorial</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.ClusterStream.write">
+<code class="descname">write</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#ClusterStream.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.ClusterStream.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write instance to file (name is the filename attribute)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.ClusterStream.writeSimpleHypoDDInput">
+<code class="descname">writeSimpleHypoDDInput</code><span class="sig-paren">(</span><em>self</em>, <em>fileName=u'dt.cc'</em>, <em>coef=1</em>, <em>minCC=0.35</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#ClusterStream.writeSimpleHypoDDInput"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.ClusterStream.writeSimpleHypoDDInput" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a hypoDD cross correlation file (EG dt.cc), assuming the lag
+times are pure S times (should be true if S amplitude is dominant)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>fileName</strong> (<em>str</em>) – THe path to the new file to be created</li>
+<li><strong>coef</strong> (<em>float</em><em> or </em><em>int</em>) – The exponential coeficient to apply to the correlation
+coeficient when creating file, usefull to downweight lower cc
+values</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="detex.subspace.SubSpace">
+<em class="property">class </em><code class="descclassname">detex.subspace.</code><code class="descname">SubSpace</code><span class="sig-paren">(</span><em>singlesDict</em>, <em>subSpaceDict</em>, <em>cl</em>, <em>dtype</em>, <em>Pf</em>, <em>cfetcher</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Class used to hold subspaces for detector
+Holds both subspaces (as defined from the SScluster object) and
+single event clusters, or singles</p>
+<p class="rubric">Methods</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.SubSpace.SVD" title="detex.subspace.SubSpace.SVD"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SVD</span></code></a>(self[,&nbsp;selectCriteria,&nbsp;selectValue,&nbsp;…])</td>
+<td>Function to perform SVD on the alligned waveforms and select which of the SVD basis are to be used in event detection.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.SubSpace.attachPickTimes" title="detex.subspace.SubSpace.attachPickTimes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">attachPickTimes</span></code></a>(self[,&nbsp;pksFile,&nbsp;function,&nbsp;…])</td>
+<td>Rather than picking times manually attach a file (either csv or pkl of pandas dataframe) with pick times.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.SubSpace.detex" title="detex.subspace.SubSpace.detex"><code class="xref py py-obj docutils literal notranslate"><span class="pre">detex</span></code></a>(self[,&nbsp;utcStart,&nbsp;utcEnd,&nbsp;subspaceDB,&nbsp;…])</td>
+<td>function to run subspace detection over continuous data and store results in SQL database subspaceDB</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.SubSpace.getFAS" title="detex.subspace.SubSpace.getFAS"><code class="xref py py-obj docutils literal notranslate"><span class="pre">getFAS</span></code></a>(self,&nbsp;conDatNum[,&nbsp;LTATime,&nbsp;STATime,&nbsp;…])</td>
+<td>Function to initialize a FAS (false alarm statistic) instance, used primarily for sampling and characterizing the null space of the subspaces and singletons.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.SubSpace.pickTimes" title="detex.subspace.SubSpace.pickTimes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pickTimes</span></code></a>(self[,&nbsp;duration,&nbsp;traceLimit,&nbsp;…])</td>
+<td>Calls a modified version of obspyck (<a class="reference external" href="https://github.com/megies/obspyck">https://github.com/megies/obspyck</a>) , a GUI for picking phases, so user can manually select start times (trim) of unclustered and clustered events.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.SubSpace.plotAlignedEvents" title="detex.subspace.SubSpace.plotAlignedEvents"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotAlignedEvents</span></code></a>(self)</td>
+<td>Plots the aligned events for each station in each cluster.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.SubSpace.plotBasisVectors" title="detex.subspace.SubSpace.plotBasisVectors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotBasisVectors</span></code></a>(self[,&nbsp;onlyused])</td>
+<td>Plots the basis vectors selected after performing the SVD If SVD has not been called will throw error</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.SubSpace.plotFracEnergy" title="detex.subspace.SubSpace.plotFracEnergy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotFracEnergy</span></code></a>(self)</td>
+<td>Method to plot the fractional energy captured of by the subspace for various dimensions of rep.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.SubSpace.plotOffsetTimes" title="detex.subspace.SubSpace.plotOffsetTimes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotOffsetTimes</span></code></a>(self)</td>
+<td>Function to loop through each station/subspace pair and make histograms of offset times</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.SubSpace.plotThresholds" title="detex.subspace.SubSpace.plotThresholds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plotThresholds</span></code></a>(self,&nbsp;conDatNum[,&nbsp;xlim])</td>
+<td>Function to sample the continuous data and plot the thresholds calculated with the SVD call with a histogram of detex’s best estimate of the null space (see getFAS for more details)</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.SubSpace.printOffsets" title="detex.subspace.SubSpace.printOffsets"><code class="xref py py-obj docutils literal notranslate"><span class="pre">printOffsets</span></code></a>(self)</td>
+<td>Function to print out the offset min max and ranges for each station/subpace pair</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.SubSpace.setSinglesThresholds" title="detex.subspace.SubSpace.setSinglesThresholds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">setSinglesThresholds</span></code></a>(self[,&nbsp;conDatNum,&nbsp;…])</td>
+<td>Set thresholds for the singletons (unclustered events) by fitting a beta distribution to estimation of null space</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#detex.subspace.SubSpace.validateClusters" title="detex.subspace.SubSpace.validateClusters"><code class="xref py py-obj docutils literal notranslate"><span class="pre">validateClusters</span></code></a>(self)</td>
+<td>Method to check for misaligned waveforms and discard those that no longer meet the required correlation coeficient for each cluster.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#detex.subspace.SubSpace.write" title="detex.subspace.SubSpace.write"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write</span></code></a>(self[,&nbsp;filename])</td>
+<td>pickle the subspace class :param filename: Path of the file to be created :type filename: str</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="detex.subspace.SubSpace.SVD">
+<code class="descname">SVD</code><span class="sig-paren">(</span><em>self</em>, <em>selectCriteria=2</em>, <em>selectValue=0.9</em>, <em>conDatNum=100</em>, <em>threshold=None</em>, <em>normalize=False</em>, <em>useSingles=True</em>, <em>validateWaveforms=True</em>, <em>backupThreshold=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.SVD"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.SVD" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to perform SVD on the alligned waveforms and select which
+of the SVD basis are to be used in event detection. Also assigns
+a detection threshold to each subspace-station pair.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>selctionCriteria</strong> (<em>int</em><em>, </em><em>selectValue : number</em>) – <p>selectCriteria is the method for selecting which basis vectors
+will be used as detectors. selectValue depends on selectCriteria
+Valid options are:</p>
+<p>0 - using the given Pf, find number of dimensions to maximize
+detection probability !!! NOT YET IMPLIMENTED!!!</p>
+<blockquote>
+<div>selectValue - Not used
+(Need to find a way to use the doubly-non central F
+distribution in python)</div></blockquote>
+<p>1 - Failed implementation, not supported</p>
+<p>2 - select basis number based on an average fractional signal
+energy captured (see Figure 8 of Harris 2006). Then calculate
+an empirical distribution of the detection statistic by running
+each subspace over random continuous data with no high amplitude
+signals (see getFAS method). A beta distribution is then fit to
+the data and the DS value that sets the probability of false
+detection to the Pf defined in the subspace instance is selected
+as the threshold.</p>
+<blockquote>
+<div>selectValue - Average fractional energy captured,
+can range from 0 (use no basis vectors) to 1
+(use all basis vectors). A value between 0.75 and 0.95
+is recommended.</div></blockquote>
+<p>3 - select basis number based on an average fractional signal
+energy captured (see Figure 8 of Harris 2006).
+Then set detection threshold to a percentage of the minimum
+fractional energy captured. This method is a bit quick and dirty
+but ensures all events in the waveform pool will be detected.</p>
+<blockquote>
+<div>select value is a fraction representing the fraction of
+the minum fractional energy captured (between 0 and 1).</div></blockquote>
+<p>4 - use a user defined number of basis vectors, beginning with the
+most significant (Barrett and Beroza 2014 use first two basis
+vectors as an “empirical” subspace detector). Then use the same
+technique in method one to set threshold</p>
+<blockquote>
+<div>selectValue - can range from 0 to number of events in
+subspace, if selectValue is greater than number of events
+all events are used</div></blockquote>
+</li>
+<li><strong>conDatNum</strong> (<em>int</em>) – The number of continuous data chunks to use to estimate the
+effective dimension of the signal space or to estimate the null
+distribution. Used if selectCriteria == 1,2,4</li>
+<li><strong>threshold</strong> (<em>float</em><em> or </em><em>None</em>) – Used to set each subspace at a user defined threshold. If any
+value is set it overrides any of the previously defined methods and
+avoids estimating the effective dimension of representation or
+distribution of the null space. Can be useful if problems arise
+in the false alarm statistic calculation</li>
+<li><strong>normalize</strong> (<em>bool</em>) – If true normalize the amplitude of all the training events before
+preforming the SVD. Keeps higher amplitude events from dominating
+the SVD vectors but can over emphasize noise. Haris 2006 recomends
+using normalization but the personal experience of the author has
+found normalization can increase the detector’s propensity to
+return false detections.</li>
+<li><strong>useSingles</strong> (<em>bool</em>) – If True also calculate the thresholds for singles</li>
+<li><strong>validateWaveforms</strong> (<em>bool</em>) – If True call the validateClusters method before the performing SVD
+to make sure each trimed aligned waveform still meets the
+required correlation coeficient. Any waveforms that do not will
+be discarded.</li>
+<li><strong>backupThreshold</strong> (<em>None</em><em> or </em><em>float</em>) – A backup threshold to use if approximation fails. Typically,
+using the default detex settings, a reasonable value would be
+0.25</li>
+<li><strong>are passed to the getFAS call</strong><strong> (</strong><strong>if used</strong><strong>)</strong> (<em>kwargs</em>) – </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.attachPickTimes">
+<code class="descname">attachPickTimes</code><span class="sig-paren">(</span><em>self</em>, <em>pksFile=u'PhasePicks.csv'</em>, <em>function=u'median'</em>, <em>defaultDuration=30</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.attachPickTimes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.attachPickTimes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rather than picking times manually attach a file (either csv or pkl
+of pandas dataframe) with pick times. Pick time file must have the
+following fields:  TimeStamp, Station, Event, Phase.
+This file can be created by detex.util.pickPhases. If trims are
+already defined attachPickTimes will not override.
+———-
+pksFile : str</p>
+<blockquote>
+<div>Path to the input file (either csv or pickle)</div></blockquote>
+<dl class="docutils">
+<dt>function <span class="classifier-delimiter">:</span> <span class="classifier">str  (‘Average’,’Max’, or ‘Min’)</span></dt>
+<dd><p class="first">Describes how to handle selecting a common pick time for
+subspace groups (each event in a subspace cannot be treated
+independently as the entire group is aligned to maximize
+similarity). Does not apply for singles.
+mean - Trims the group to the sample corresponding to the</p>
+<blockquote>
+<div>average of the first arriving phase</div></blockquote>
+<dl class="docutils">
+<dt>median - Trims the group to the sample corresponding to the</dt>
+<dd>median of the first arriving phase</dd>
+</dl>
+<p class="last">max - trim to max value of start times for group
+min - trim to min value of end times for group</p>
+</dd>
+<dt>defaultDuration <span class="classifier-delimiter">:</span> <span class="classifier">int or None</span></dt>
+<dd>if Int, the default duration (in seconds) to trim the signal to
+starting from the first arrival in pksFile for each event or
+subspace group. If None, then durations are defined by first
+arriving phase (start) and last arriving phase (stop) for each
+event</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.detex">
+<code class="descname">detex</code><span class="sig-paren">(</span><em>self</em>, <em>utcStart=None</em>, <em>utcEnd=None</em>, <em>subspaceDB=u'SubSpace.db'</em>, <em>trigCon=0</em>, <em>triggerLTATime=5</em>, <em>triggerSTATime=0</em>, <em>multiprocess=False</em>, <em>delOldCorrs=True</em>, <em>calcHist=True</em>, <em>useSubSpaces=True</em>, <em>useSingles=False</em>, <em>estimateMags=True</em>, <em>classifyEvents=None</em>, <em>eventCorFile=u'EventCors'</em>, <em>utcSaves=None</em>, <em>fillZeros=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.detex"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.detex" title="Permalink to this definition">¶</a></dt>
+<dd><p>function to run subspace detection over continuous data and store
+results in SQL database subspaceDB</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>utcStart</strong> (<em>str</em><em> or </em><em>num</em>) – An obspy.core.UTCDateTime readable object defining the start time
+of the correlations if not all avaliable data are to be used</li>
+<li><strong>utcEnd</strong> (<em>str num</em>) – An obspy.core.UTCDateTime readable object defining the end time
+of the correlations</li>
+<li><strong>subspaceDB</strong> (<em>str</em>) – Path to the SQLite database to store detections in. If it already
+exists delOldCorrs parameters governs if it will be deleted before
+running new detections, or appended to.</li>
+<li><strong>is the condition for which detections should trigger.</strong> (<em>trigCon</em>) – <dl class="docutils">
+<dt>Once the condition is set the variable minCoef is used:</dt>
+<dd>0 is based on the detection statistic threshold
+1 is based on the STA/LTA of the detection statistic threshold
+(Only 0 is currently supported)</dd>
+</dl>
+</li>
+<li><strong>triggerLTATime</strong> (<em>number</em>) – The long term average for the STA/LTA calculations in seconds.</li>
+<li><strong>triggerSTATime</strong> (<em>number</em>) – The short term average for the STA/LTA calculations in seconds.
+If ==0 then one sample is used.</li>
+<li><strong>multiprocess</strong> (<em>bool</em>) – Determine if each station should be forked into its own process
+for potential speed ups. Currently not implemented.</li>
+<li><strong>delOldCorrs</strong> (<em>bool</em>) – Determines if subspaceDB should be deleted before performing
+detections. If False old database is appended to.</li>
+<li><strong>calcHist</strong> (<em>boolean</em>) – If True calculates the histagram for every point of the detection
+statistic vectors (all hours, stations and subspaces) by keeping a
+a cumulative bin count. Only slows the detections down slightly
+and can be useful for threshold sanity checks. The histograms are
+then returned to the main DataFrame in the SubSpace instance
+as the column histSubSpaces, and saved in the subspaceDB under the
+ss_hist and sg_hists tables for subspacs and singletons.</li>
+<li><strong>useSubspace</strong> (<em>bool</em>) – If True the subspaces will be used as detectors to scan
+continuous data</li>
+<li><strong>useSingles</strong> (<em>bool</em>) – If True the singles (events that did not cluster) will be used as
+detectors to scan continuous data</li>
+<li><strong>estimateMags</strong> (<em>bool</em>) – If True, magnitudes will be estimated for each detection by using
+two methods. The first is using standard deviation ratios, and the
+second uses projected energy ratios (see chambers et al. 2015 for
+details).</li>
+<li><strong>classifyEvents</strong> (<em>None</em><em>, </em><em>str</em><em>, or </em><em>DataFrame</em>) – If None subspace detectors will be run over continuous data.
+Else, detex will be run over event waveforms in order to classify
+events into groups bassed on which subspace they are most similar
+to. In the latter case the classifyEvents argument must be a
+str (path to template key like csv) or DataFrame (loaded template
+key file). The same event DataFetcher attached to the cluster
+object will be used to get the data. This feature is Experimental.</li>
+<li><strong>eventCorFile</strong> (<em>str</em>) – A path to a new pickled DataFrame created when the eventDir option
+is used. Records the highest detection statistic in the file
+for each event, station, and subspace. Useful when trying to
+characterize events.</li>
+<li><strong>utcSaves</strong> (<em>None</em><em> or </em><em>list of obspy DateTime readable objects</em>) – Either none (not used) or an iterrable of objects readable by
+obspy.UTCDateTime. When the detections are run if the continous
+data cover a time indicated in UTCSaves then the continuous data
+and detection statistic vectors,are saved to a pickled dataframe
+of the name “UTCsaves.pkl”. This can be useful for debugging, or
+extracting the DS vector for a time of interest.</li>
+<li><strong>fillZeros</strong> (<em>bool</em>) – If true fill the gaps in continuous data with 0s. If True
+STA/LTA of detection statistic cannot be calculated in order to
+avoid dividing by 0.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>The same filter and decimation parameters that were used in the
+ClusterStream instance will be applied.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.getFAS">
+<code class="descname">getFAS</code><span class="sig-paren">(</span><em>self</em>, <em>conDatNum</em>, <em>LTATime=5</em>, <em>STATime=0.5</em>, <em>staltalimit=8.0</em>, <em>useSubSpaces=True</em>, <em>useSingles=False</em>, <em>numBins=401</em>, <em>recalc=False</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.getFAS"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.getFAS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to initialize a FAS (false alarm statistic) instance, used
+primarily for sampling and characterizing the null space of the
+subspaces and singletons. Random samples of the continuous data are
+loaded, examined for high amplitude signals with a basic STA/LTA
+method, and any traces with STA/LTA ratios higher than the
+staltalimit parameter are rejected. The continuous DataFetcher
+already attached to the SubSpace instance will be used to get
+the continuous data.
+:param ConDatNum: The number of continuous data files (by default in hour chunks)</p>
+<blockquote>
+<div>to use.</div></blockquote>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>LTATime</strong> (<em>float</em>) – The long term average time window in seconds used for
+checking continuous data</li>
+<li><strong>STATime</strong> (<em>float</em>) – The short term average time window in seconds for checking
+continuous data</li>
+<li><strong>staltalimit</strong> (<em>int</em><em> or </em><em>float</em>) – The value at which continuous data gets rejected as too noisey
+(IE transient signals are present)</li>
+<li><strong>useSubSpaces</strong> (<em>bool</em>) – If True calculate FAS for subspaces</li>
+<li><strong>useSingles</strong> (<em>bool</em>) – If True calculate FAS for singles</li>
+<li><strong>numBins</strong> (<em>int</em>) – Number of bins for binning distributions (so distribution can be
+loaded and plotted later)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The results are stored in a DataFrame for each subspace/singleton
+under the “FAS” column of the main DataFrame</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.pickTimes">
+<code class="descname">pickTimes</code><span class="sig-paren">(</span><em>self</em>, <em>duration=30</em>, <em>traceLimit=15</em>, <em>repick=False</em>, <em>subspace=True</em>, <em>singles=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.pickTimes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.pickTimes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calls a modified version of obspyck (<a class="reference external" href="https://github.com/megies/obspyck">https://github.com/megies/obspyck</a>)
+, a GUI for picking phases, so user can manually select start times
+(trim) of unclustered and clustered events.
+Triming down each waveform group to only include event phases,
+and not pre and post event noise, will significantly decrease the
+runtime for the subspace detection (called with detex method).
+Trimming is required for singletons as any singletons without trim
+times will not be used as detectors).
+:param duration: the time after the first pick (in seconds) to trim waveforms.</p>
+<blockquote>
+<div>The fact that the streams are multiplexed is taken into account.
+If None is passed then the last pick will be used as the end time
+for truncating waveforms.</div></blockquote>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>traceLimit</strong> (<em>int</em>) – Limits the number of traces that will show up to be manually
+picked to traceLimit events. Avoids bogging down and/or killing
+the GUI with too many events.</li>
+<li><strong>repick</strong> (<em>boolean</em>) – If true repick times that already have sample trim times, else
+only pick those that do not.</li>
+<li><strong>subspace</strong> (<em>boolean</em>) – If true pick subspaces</li>
+<li><strong>singles</strong> (<em>boolean</em>) – If true pick singletons</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.plotAlignedEvents">
+<code class="descname">plotAlignedEvents</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.plotAlignedEvents"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.plotAlignedEvents" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots the aligned events for each station in each cluster.
+Will trim waveforms if trim times (by pickTimes or attachPickTimes)
+are defined.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.plotBasisVectors">
+<code class="descname">plotBasisVectors</code><span class="sig-paren">(</span><em>self</em>, <em>onlyused=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.plotBasisVectors"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.plotBasisVectors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots the basis vectors selected after performing the SVD
+If SVD has not been called will throw error</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>onlyUsed</strong> (<em>bool</em>) – If true only the selected basis vectors will be plotted. See
+SVD for how detex selects basis vectors.
+If false all will be plotted (used in blue, unused in red)</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.plotFracEnergy">
+<code class="descname">plotFracEnergy</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.plotFracEnergy"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.plotFracEnergy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method to plot the fractional energy captured of by the subspace for
+various dimensions of rep. Each event is plotted as a grey dotted
+line, the average as a red solid line, and the chosen degree of rep.
+is plotted as a solid green vertical line.
+Similar to Harris 2006 Fig 8</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.plotOffsetTimes">
+<code class="descname">plotOffsetTimes</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.plotOffsetTimes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.plotOffsetTimes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to loop through each station/subspace pair and make
+histograms of offset times</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.plotThresholds">
+<code class="descname">plotThresholds</code><span class="sig-paren">(</span><em>self, conDatNum, xlim=[-0.01, 0.5], **kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.plotThresholds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.plotThresholds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to sample the continuous data and plot the thresholds
+calculated with the SVD call with a histogram of detex’s best
+estimate of the null space (see getFAS for more details)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>conDatNum</strong> (<em>int</em>) – The number of continuous data chunks to use in the sampling,
+duration of chunks defined in data fetcher</li>
+<li><strong>xlim</strong> (<em>list</em><em> (</em><em>number</em><em>, </em><em>number</em><em>)</em>) – The x limits on the plot (often it is useful to zoom in around 0)</li>
+<li><strong>are passed to the getFAS call</strong> (<em>**kwargs</em>) – </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.printOffsets">
+<code class="descname">printOffsets</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.printOffsets"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.printOffsets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to print out the offset min max and ranges for each
+station/subpace pair</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.setSinglesThresholds">
+<code class="descname">setSinglesThresholds</code><span class="sig-paren">(</span><em>self</em>, <em>conDatNum=50</em>, <em>recalc=False</em>, <em>threshold=None</em>, <em>backupThreshold=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.setSinglesThresholds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.setSinglesThresholds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set thresholds for the singletons (unclustered events) by fitting
+a beta distribution to estimation of null space</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>condatNum</strong> (<em>int</em>) – The number of continuous data chunks to use to fit PDF</li>
+<li><strong>recalc</strong> (<em>boolean</em>) – If true recalculate the the False Alarm Statistics</li>
+<li><strong>threshold</strong> (<em>None</em><em> or </em><em>float between 0 and 1</em>) – If number, don’t call getFAS simply use given threshold</li>
+<li><strong>backupThreshold</strong> (<em>None</em><em> or </em><em>float</em>) – If approximate a threshold fails then use backupThreshold. If None
+then raise.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Any singles without pick times will not be used. In this way singles
+can be rejected</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.validateClusters">
+<code class="descname">validateClusters</code><span class="sig-paren">(</span><em>self</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.validateClusters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.validateClusters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method to check for misaligned waveforms and discard those that no
+longer meet the required correlation coeficient for each cluster.
+See Issue 25 (www.github.com/d-chambers/detex) for why this might
+be useful.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="detex.subspace.SubSpace.write">
+<code class="descname">write</code><span class="sig-paren">(</span><em>self</em>, <em>filename=u'subspace.pkl'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/subspace.html#SubSpace.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.subspace.SubSpace.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>pickle the subspace class
+:param filename: Path of the file to be created
+:type filename: str</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-detex.util">
+<span id="detex-util-module"></span><h2>detex.util module<a class="headerlink" href="#module-detex.util" title="Permalink to this headline">¶</a></h2>
+<p>Created on Thu May 29 16:41:48 2014</p>
+<p>&#64;author: Derrick</p>
+<dl class="function">
+<dt id="detex.util.EQSearch2TemplateKey">
+<code class="descclassname">detex.util.</code><code class="descname">EQSearch2TemplateKey</code><span class="sig-paren">(</span><em>eq=u'eqsrchsum'</em>, <em>oname=u'eqTemplateKey.csv'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#EQSearch2TemplateKey"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.EQSearch2TemplateKey" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write a template key from the eqsearch sum file (produced by the
+University of Utah seismograph stations code EQsearch)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>eq</strong> (<em>str</em>) – eqsearch sum. file</li>
+<li><strong>oname</strong> (<em>str</em>) – name of the template key</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>Code assimes any year code above 50 belongs to 1900, and any year code
+less than 50 belongs to 2000 (since eqsrchsum is not y2k compliant)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.catalog2Templatekey">
+<code class="descclassname">detex.util.</code><code class="descname">catalog2Templatekey</code><span class="sig-paren">(</span><em>cat</em>, <em>fileName=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#catalog2Templatekey"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.catalog2Templatekey" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to get build the Detex required file TemplateKey.csv
+from an obspy catalog object</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>catalog</strong> (<em>instance of obspy.core.event.Catalog</em>) – The catalog to use in the template key creation</li>
+<li><strong>filename</strong> (<em>str</em><em> or </em><em>None</em>) – If None no file is saved, if str then path to the template key to
+save. Default is StationKey.csv.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><ul class="simple">
+<li><em>A pandas DataFrame of the template key information found in the</em></li>
+<li><em>catalog object</em></li>
+</ul>
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>obspy catalog object docs at:
+<a class="reference external" href="http://docs.obspy.org/packages/autogen/obspy.fdsn.client.Client.get_events">http://docs.obspy.org/packages/autogen/obspy.fdsn.client.Client.get_events</a>
+.html#obspy.fdsn.client.Client.get_events</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.get_number_channels">
+<code class="descclassname">detex.util.</code><code class="descname">get_number_channels</code><span class="sig-paren">(</span><em>st</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#get_number_channels"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.get_number_channels" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take an obspy stream and get the number of unique channels in stream
+(stream must have only one station)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.inventory2StationKey">
+<code class="descclassname">detex.util.</code><code class="descname">inventory2StationKey</code><span class="sig-paren">(</span><em>inv</em>, <em>starttime</em>, <em>endtime</em>, <em>fileName=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#inventory2StationKey"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.inventory2StationKey" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to create a station key from an obspy station inventory</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>inv</strong> (<em>an obspy.core.inventory.Inventory instance</em>) – The inventory to use to create the station key, level of inventory
+must be at least “channel”</li>
+<li><strong>starttime</strong> (<em>obspy.UTCDateTime instance</em>) – The start time to be written to station key</li>
+<li><strong>endtime</strong> (<em>obspy.UTCDateTime instance</em>) – The end time to be written to the station key</li>
+<li><strong>fileName</strong> (<em>None</em><em> or </em><em>str</em>) – If str then path to file to save (as csv), default name is
+StationKey.csv</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">A pandas DataFrame of the station key</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.loadClusters">
+<code class="descclassname">detex.util.</code><code class="descname">loadClusters</code><span class="sig-paren">(</span><em>filename=u'clust.pkl'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#loadClusters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.loadClusters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function that uses pandas.read_pickle to load a pickled cluster
+(instance of detex.subspace.ClusterStream)
+:param filename: Path to the saved cluster isntance
+:type filename: str</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">An instance of detex.subspace.ClusterStream</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.loadSQLite">
+<code class="descclassname">detex.util.</code><code class="descname">loadSQLite</code><span class="sig-paren">(</span><em>corDB</em>, <em>tableName</em>, <em>sql=None</em>, <em>readExcpetion=False</em>, <em>silent=True</em>, <em>convertNumeric=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#loadSQLite"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.loadSQLite" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to load sqlite database</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>corDB</strong> (<em>str</em>) – Path to the database</li>
+<li><strong>tablename</strong> (<em>str</em>) – Table to load from sqlite database</li>
+<li><strong>sql</strong> (<em>str</em>) – sql arguments to pass directly to database query</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">A pandas dataframe with loaded table or None if DB or table does not exist</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.loadSubSpace">
+<code class="descclassname">detex.util.</code><code class="descname">loadSubSpace</code><span class="sig-paren">(</span><em>filename=u'subspace.pkl'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#loadSubSpace"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.loadSubSpace" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function that uses pandas.read_pickle to load a pickled subspace
+(instance of detex.subspace.SubSpaceStream)
+:param filename: Path to the saved subspace instance
+:type filename: str</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">An instance of detex.subspace.SubSpaceStream</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.makeHypoInversePhaseFile">
+<code class="descclassname">detex.util.</code><code class="descname">makeHypoInversePhaseFile</code><span class="sig-paren">(</span><em>phases, evekey, outname, fix=0, usePhases=[u'P'], fixFirstStation=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#makeHypoInversePhaseFile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.makeHypoInversePhaseFile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write a hypoinverse phase file used by hypoinverse, format defined
+on page 113 of the manual for version 1.39, using the phase file created
+by detex.util.pickPhases. Format for this file is free csv with the
+following fields: TimeStamp (epoch time in seconds), Station (net.sta),
+Event (unique event id, usually datestring, must be the same in
+templatekey), Phase (phase identifier, generally only P or S)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>phases</strong> (<em>pandas dataframe</em><em> or </em><em>path to csv</em>) – Phase input from AssociatePhases script</li>
+<li><strong>evekey</strong> (<em>pandas dataframe</em><em> or </em><em>csv</em>) – Event info</li>
+<li><strong>outname</strong> (<em>str</em>) – File name (path) to write</li>
+<li><strong>fix</strong> (<em>int</em>) – if fix==0 nothing is fixed, fix==1 depths are fixed, fix==2
+hypocenters fixed, fix==3 hypocenters and origin time fixed</li>
+<li><strong>usePhases</strong> (<em>list</em>) – List of phases to use, all other phases will be skipped</li>
+<li><strong>fixFirstStation</strong> (<em>bool</em>) – If True do not set any lat, lon, or depth on each terminator
+line. HypoInverse will then use the first hit station as the
+starting location with some reasonable depth (a few kilometers)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Assumes the channel to be ZENZ for writing file.</p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.makeHypoInverseStationFile">
+<code class="descclassname">detex.util.</code><code class="descname">makeHypoInverseStationFile</code><span class="sig-paren">(</span><em>stationKey</em>, <em>outname</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#makeHypoInverseStationFile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.makeHypoInverseStationFile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make a hypoinverse station file as defined in station data format #2,
+p. 30 of hyp1.41 user’s manual</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>stationKey</strong> (<em>str</em><em> or </em><em>DataFrame</em>) – Path to station key csv or loaded dataframe with required columns</li>
+<li><strong>outname</strong> (<em>str</em>) – The file to write</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.pickPhases">
+<code class="descclassname">detex.util.</code><code class="descname">pickPhases</code><span class="sig-paren">(</span><em>fetch=u'EventWaveForms'</em>, <em>templatekey=u'TemplateKey.csv'</em>, <em>stationkey=u'StationKey.csv'</em>, <em>pickFile=u'PhasePicks.csv'</em>, <em>skipIfExists=True</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#pickPhases"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.pickPhases" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uses streamPicks to parse the templates and allow user to manually pick
+phases for events. Only P,S, Pend, and Send are supported phases under
+the current GUI, but other phases can be manually input to this format.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>EveDir</strong> (<em>str</em>) – Input to detex.getdata.quickFetch, defaults to using the default
+directory structure for</li>
+<li><strong>templatekey</strong> (<em>str</em><em> or </em><em>pandas DataFrame</em>) – Path to the template key or template key loaded in DataFrame</li>
+<li><strong>stationkey</strong> (<em>str</em><em> or </em><em>pandas DataFrame</em>) – Path to the station key or station key loaded in DataFrame</li>
+<li><strong>pickFile</strong> (<em>str</em>) – Path to newly created csv containing phase times. If the file already
+exists it will be read so that picks already made do not have to be
+re-picked</li>
+<li><strong>skipIfExists</strong> (<em>bool</em>) – If True skip any events/stations that already have any phase picks</li>
+<li><strong>passed to quickFetch</strong><strong>, </strong><strong>see detex.getdata.quickFetch for details</strong> (<em>kwargs</em>) – </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>Required columns are : TimeStamp, Station, Event, Phase
+Station field is net.sta (eg TA.M17A)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.readHypo2000Sum">
+<code class="descclassname">detex.util.</code><code class="descname">readHypo2000Sum</code><span class="sig-paren">(</span><em>sumfile</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#readHypo2000Sum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.readHypo2000Sum" title="Permalink to this definition">¶</a></dt>
+<dd><p>read a sum file from hyp2000 and return DataFrame with info loaded into,
+you guessed it, a DataFrame</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>sumfile</strong> (<em>str</em>) – Path to the summary file to read</li>
+<li><strong>a sum file from hyp2000 and return lat</strong><strong>, </strong><strong>long</strong><strong>, </strong><strong>depth</strong><strong>, </strong><strong>mag</strong><strong>, </strong><strong>and RMS and</strong> (<em>Read</em>) – </li>
+<li><strong>as pd dataframe</strong> (<em>TSTMP</em>) – </li>
+<li><strong>WARNING</strong> (<em>Assumes western hemisphere</em>) – </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.readHypo71Sum">
+<code class="descclassname">detex.util.</code><code class="descname">readHypo71Sum</code><span class="sig-paren">(</span><em>sumfile</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#readHypo71Sum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.readHypo71Sum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read a summary file from hypoinverse in the y2k compliant hypo71
+format</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>sumfile</strong> (<em>str</em>) – Path the the sum file</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">DataFrame populated with sumfile info</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.readKey">
+<code class="descclassname">detex.util.</code><code class="descname">readKey</code><span class="sig-paren">(</span><em>dfkey</em>, <em>key_type=u'template'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#readKey"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.readKey" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read a template key csv and perform checks for required columns
+:param dfkey: A path to the template key csv or the DataFrame itself
+:type dfkey: str or pandas DataFrame
+:param key_type: “template” for template key or “station” for station key
+:type key_type: str</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">A pandas DataFrame if required columns exist, else raise Exception</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.readLog">
+<code class="descclassname">detex.util.</code><code class="descname">readLog</code><span class="sig-paren">(</span><em>logpath=u'detex_log.log'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#readLog"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.readLog" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the standard detex log into a dataframe. Columns are: Time, Mod,
+Level, and Msg.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>logpath</strong> (<em>str</em>) – Path the the log file</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">DataFrame with log info</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.saveSQLite">
+<code class="descclassname">detex.util.</code><code class="descname">saveSQLite</code><span class="sig-paren">(</span><em>DF</em>, <em>CorDB</em>, <em>Tablename</em>, <em>silent=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#saveSQLite"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.saveSQLite" title="Permalink to this definition">¶</a></dt>
+<dd><p>Basic function to save pandas dataframe to SQL</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>DF</strong> (<em>pandas DataFrame</em>) – The data frame instance to save</li>
+<li><strong>CorDB</strong> (<em>str</em>) – Path to the database</li>
+<li><strong>Tablename</strong> (<em>str</em>) – Name of the table to which DF will be saved</li>
+<li><strong>silent</strong> (<em>bool</em>) – If True will suppress the any messages from database writing</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.seeWaveFroms">
+<code class="descclassname">detex.util.</code><code class="descname">seeWaveFroms</code><span class="sig-paren">(</span><em>fetch=u'ContinuousWaveForms'</em>, <em>templatekey=u'TemplateKey.csv'</em>, <em>outFile=u'PhasePicks.csv'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#seeWaveFroms"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.seeWaveFroms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uses streamPicks to parse the templates and allow user to manually pick
+phases for events. Only P,S, Pend, and Send are supported phases under
+the current GUI, but other phases can be manually input to this format.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>fetch</strong> (<em>str</em><em> or </em><em>instance of detex.getdata.DataFetcher</em>) – Input to detex.getdata.quickFetch, defaults to using the default
+directory structure</li>
+<li><strong>templatekey</strong> (<em>str</em><em> or </em><em>pandas DataFrame</em>) – Path to the template key or template key loaded in DataFrame</li>
+<li><strong>outFile</strong> (<em>str</em>) – Path to newly created csv containing events (in df) as index and
+stations as columns</li>
+<li><strong>----------</strong> – </li>
+<li><strong>columns are</strong> (<em>Required</em>) – </li>
+<li><strong>field is net.sta</strong><strong> (</strong><strong>eg TA.M17A</strong><strong>)</strong> (<em>Station</em>) – </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.templateKey2Catalog">
+<code class="descclassname">detex.util.</code><code class="descname">templateKey2Catalog</code><span class="sig-paren">(</span><em>temkey=u'TemplateKey.csv'</em>, <em>picks=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#templateKey2Catalog"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.templateKey2Catalog" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to convert a templatekey and optionally a phase picks file to
+an obspy catalog instance</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>temeky</strong> (<em>str</em><em>, </em><em>pd.DataFrame</em>) – The standard template key (or path to it)</li>
+<li><strong>picks</strong> (<em>str</em><em>, </em><em>pd.DataFrame</em>) – A picks file in same format as created by pickPhases</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">An Obspy.Catalog object</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.writeHypoDDEventInput">
+<code class="descclassname">detex.util.</code><code class="descname">writeHypoDDEventInput</code><span class="sig-paren">(</span><em>temkey</em>, <em>fileName=u'event.dat'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#writeHypoDDEventInput"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.writeHypoDDEventInput" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write a hypoDD event file (event.dat)
+:param temkey: If str then path to template key, else loaded template key
+:type temkey: str or pandas DataFrame</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.writeHypoDDStationInput">
+<code class="descclassname">detex.util.</code><code class="descname">writeHypoDDStationInput</code><span class="sig-paren">(</span><em>stakey</em>, <em>fileName=u'station.dat'</em>, <em>useElevations=True</em>, <em>inFt=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#writeHypoDDStationInput"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.writeHypoDDStationInput" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write the station input file for hypoDD (station.dat)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>stakey</strong> (<em>str</em><em> or </em><em>DataFrame</em>) – Path to station key or instance of DataFrame with station key loaded</li>
+<li><strong>fileName</strong> (<em>str</em>) – Path to the output file</li>
+<li><strong>useElevations</strong> (<em>boolean</em>) – If true also print elevations</li>
+<li><strong>inFt</strong> (<em>boolean</em>) – If true elevations in station key are in ft, convert to meters</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.writeKMLFromArcDF">
+<code class="descclassname">detex.util.</code><code class="descname">writeKMLFromArcDF</code><span class="sig-paren">(</span><em>df</em>, <em>outname=u'Arc.kml'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#writeKMLFromArcDF"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.writeKMLFromArcDF" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="detex.util.writeKMLFromDF">
+<code class="descclassname">detex.util.</code><code class="descname">writeKMLFromDF</code><span class="sig-paren">(</span><em>DF</em>, <em>outname=u'map.kml'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#writeKMLFromDF"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.writeKMLFromDF" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write a KML file from a pandas data frame with the same format as
+readSum output</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.writeKMLFromEQSearchSum">
+<code class="descclassname">detex.util.</code><code class="descname">writeKMLFromEQSearchSum</code><span class="sig-paren">(</span><em>eqsum=u'eqsrchsum'</em>, <em>outname=u'eqsearch.kml'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#writeKMLFromEQSearchSum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.writeKMLFromEQSearchSum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write a KML from the eqsearch sum file (produced by the University
+of Utah seismograph stations code EQsearch)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>eqsum</strong> (<em>str</em>) – eqsearch sum. file</li>
+<li><strong>outname</strong> (<em>str</em>) – name of the kml file</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Notes</p>
+<p>Code assimes any year code above 50 belongs to 1900, and any year code
+less than 50 belongs to 2000 (since eqsrchsum is not y2k compliant)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.writeKMLFromHypDD">
+<code class="descclassname">detex.util.</code><code class="descname">writeKMLFromHypDD</code><span class="sig-paren">(</span><em>hypreloc=u'hypoDD.reloc'</em>, <em>outname=u'hypo.kml'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#writeKMLFromHypDD"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.writeKMLFromHypDD" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uses simplekml to create a KML file (used by Google Earth,
+Google Maps, etc) of the results from hypoDD</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.writeKMLFromHypInv">
+<code class="descclassname">detex.util.</code><code class="descname">writeKMLFromHypInv</code><span class="sig-paren">(</span><em>hypout=u'sum2000'</em>, <em>outname=u'hypoInv.kml'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#writeKMLFromHypInv"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.writeKMLFromHypInv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uses simplekml to create a KML file (used by Google Earth, Google Maps,
+etc) of the results from hypoInverse 2000</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.writeKMLFromStationKey">
+<code class="descclassname">detex.util.</code><code class="descname">writeKMLFromStationKey</code><span class="sig-paren">(</span><em>df=u'StationKey.csv'</em>, <em>outname=u'stations.kml'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#writeKMLFromStationKey"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.writeKMLFromStationKey" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write a KML file from a station key</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>DF</strong> (<em>str</em><em> or </em><em>pandas Dataframe</em>) – If str then the path to the station key. If dataframe then
+station key loaded with readKey function with key_type=’template’</li>
+<li><strong>outname</strong> (<em>str</em>) – name of the kml file</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.writeKMLFromTemplateKey">
+<code class="descclassname">detex.util.</code><code class="descname">writeKMLFromTemplateKey</code><span class="sig-paren">(</span><em>df=u'TemplateKey.csv'</em>, <em>outname=u'templates.kml'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#writeKMLFromTemplateKey"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.writeKMLFromTemplateKey" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write a KML file from a templateKey</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>DF</strong> (<em>str</em><em> or </em><em>pandas Dataframe</em>) – If str then the path to the template key csv. If dataframe then
+template key loaded with readKey function with key_type=’template’</li>
+<li><strong>outname</strong> (<em>str</em>) – path of the kml file</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.util.writeKMLfromHYPInput">
+<code class="descclassname">detex.util.</code><code class="descname">writeKMLfromHYPInput</code><span class="sig-paren">(</span><em>hypin=u'test.pha'</em>, <em>outname=u'hypoInInv.kml'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#writeKMLfromHYPInput"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.writeKMLfromHYPInput" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="detex.util.writePhaseNLL">
+<code class="descclassname">detex.util.</code><code class="descname">writePhaseNLL</code><span class="sig-paren">(</span><em>phases</em>, <em>evekey</em>, <em>NLLoc_dir</em>, <em>useP=True</em>, <em>useS=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex/util.html#writePhaseNLL"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.util.writePhaseNLL" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write a y2k complient phase file used by hypoinverse 2000, format defined
+on page 113 of the manual for version 1.39
+:param phases: Phase input from AssociatePhases script
+:type phases: pandas dataframe or path to csv
+:param evekey: Event info
+:type evekey: pandas dataframe or csv
+:param outname: File name (path) to write
+:type outname: str
+:param useP: If true write P phases
+:type useP: bool
+:param useS: If true write S phases
+:type useS: bool</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-detex">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-detex" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="detex-a-python-toolbox-for-running-subspace-detections">
+<h3>deTex: A Python Toolbox for running subspace detections.<a class="headerlink" href="#detex-a-python-toolbox-for-running-subspace-detections" title="Permalink to this headline">¶</a></h3>
+<dl class="function">
+<dt id="detex.closeLogger">
+<code class="descclassname">detex.</code><code class="descname">closeLogger</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex.html#closeLogger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.closeLogger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="detex.log">
+<code class="descclassname">detex.</code><code class="descname">log</code><span class="sig-paren">(</span><em>name</em>, <em>msg</em>, <em>level=u'info'</em>, <em>pri=False</em>, <em>close=False</em>, <em>e=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex.html#log"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.log" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to log important events as detex runs
+:param name: should always be set to __name__ from the log call. This will enable</p>
+<blockquote>
+<div>inspect to trace back to where the call initially came from and
+record it in the log</div></blockquote>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>msg</strong> (<em>str</em>) – A message to log</li>
+<li><strong>level</strong> (<em>str</em>) – level of event (info, debug, warning, critical, or error)</li>
+<li><strong>pri</strong> (<em>bool</em>) – If true print msg to screen without entire log info</li>
+<li><strong>close</strong> (<em>bool</em>) – If true close the logger so the log file can be opened</li>
+<li><strong>e</strong> (<em>Exception class</em><em> or </em><em>None</em>) – If level == “error” and Exception is raised, e is the type of
+exception</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="detex.setLogger">
+<code class="descclassname">detex.</code><code class="descname">setLogger</code><span class="sig-paren">(</span><em>fileName=u'detex_log.log'</em>, <em>deleteOld=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/detex.html#setLogger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#detex.setLogger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to set up the logger used across Detex</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>fileName</strong> (<em>str</em>) – Path to log file to be created</li>
+<li><strong>deleteOld</strong> (<em>bool</em>) – If True, delete any file of fileName if exists</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">detex</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">detex package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-detex.construct">detex.construct module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-detex.detect">detex.detect module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-detex.fas">detex.fas module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-detex.getdata">detex.getdata module</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-detex.results">detex.results module</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-detex.subspace">detex.subspace module</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#module-detex.util">detex.util module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-detex">Module contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#detex-a-python-toolbox-for-running-subspace-detections">deTex: A Python Toolbox for running subspace detections.</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Detex</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Derrick Chambers.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/detex.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,1148 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>detex.getdata &#8212; detex __version__ = 1.0.9 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for detex.getdata</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Created on Thu Nov 10 20:21:46 2015</span>
+
+<span class="sd">@author: derrick</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">print_function</span><span class="p">,</span> <span class="n">absolute_import</span><span class="p">,</span> <span class="n">unicode_literals</span><span class="p">,</span> <span class="n">division</span>
+
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">random</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">obspy</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">six</span> <span class="k">import</span> <span class="n">string_types</span>
+
+<span class="kn">import</span> <span class="nn">detex</span>
+<span class="c1"># client imports</span>
+<span class="kn">import</span> <span class="nn">obspy.clients.fdsn</span>
+<span class="kn">import</span> <span class="nn">obspy.clients.neic</span>
+<span class="kn">import</span> <span class="nn">obspy.clients.earthworm</span>
+
+<span class="n">conDirDefault</span> <span class="o">=</span> <span class="s1">&#39;ContinuousWaveForms&#39;</span>
+<span class="n">eveDirDefault</span> <span class="o">=</span> <span class="s1">&#39;EventWaveForms&#39;</span>
+
+<span class="c1"># extension key to map obspy output type to extension. Add more here</span>
+<span class="n">formatKey</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;mseed&#39;</span><span class="p">:</span> <span class="s1">&#39;msd&#39;</span><span class="p">,</span> <span class="s1">&#39;pickle&#39;</span><span class="p">:</span> <span class="s1">&#39;pkl&#39;</span><span class="p">,</span> <span class="s1">&#39;sac&#39;</span><span class="p">:</span> <span class="s1">&#39;sac&#39;</span><span class="p">,</span> <span class="s1">&#39;Q&#39;</span><span class="p">:</span> <span class="s1">&#39;Q&#39;</span><span class="p">}</span>
+
+
+<div class="viewcode-block" id="read"><a class="viewcode-back" href="../../detex.html#detex.getdata.read">[docs]</a><span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    function to read a file from a path. If IOError or TypeError simply try</span>
+<span class="sd">    appending os.set to start</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">st</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">st</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">sep</span><span class="p">,</span> <span class="n">path</span><span class="p">))</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">IOError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Cannot read </span><span class="si">%s</span><span class="s1">, the file may be corrupt, skipping it&#39;</span> <span class="o">%</span> <span class="n">path</span>
+            <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;warn&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">st</span></div>
+
+
+<div class="viewcode-block" id="quickFetch"><a class="viewcode-back" href="../../detex.html#detex.getdata.quickFetch">[docs]</a><span class="k">def</span> <span class="nf">quickFetch</span><span class="p">(</span><span class="n">fetch_arg</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Instantiate a DataFetcher using as little information as possible.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fetch_arg : str or DataFetcher instance </span>
+<span class="sd">        fetch_arg can be one of three things:</span>
+<span class="sd">        1. An instance of DataFetcher</span>
+<span class="sd">        2. A valid DataFetcher Method other than dir</span>
+<span class="sd">        3. A path to a directory containing waveform data</span>
+<span class="sd">        fetch_arg is checked in that order, so if you are trying to use a</span>
+<span class="sd">        data directory make sure it does not share names with a valid</span>
+<span class="sd">        DataFetcher method</span>
+
+<span class="sd">    kwargs are passed to the DataFetcher class, see DataFetcher</span>
+<span class="sd">    docs for details</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    An instance of DataFetcher</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    --------</span>
+<span class="sd">    For client methods (eg &#39;uuss&#39;, &#39;iris&#39;) remove response is assumed True</span>
+<span class="sd">    with the default prelim. filter. If you don&#39;t want this make a custom</span>
+<span class="sd">    instance of DataFetcher. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fetch_arg</span><span class="p">,</span> <span class="n">DataFetcher</span><span class="p">):</span>
+        <span class="n">dat_fet</span> <span class="o">=</span> <span class="n">fetch_arg</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fetch_arg</span><span class="p">,</span> <span class="n">string_types</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">fetch_arg</span> <span class="ow">in</span> <span class="n">DataFetcher</span><span class="o">.</span><span class="n">supMethods</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">fetch_arg</span> <span class="o">==</span> <span class="s1">&#39;dir&#39;</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;If using method dir you must pass a path to directory&#39;</span>
+                <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">)</span>
+            <span class="n">dat_fet</span> <span class="o">=</span> <span class="n">DataFetcher</span><span class="p">(</span><span class="n">fetch_arg</span><span class="p">,</span> <span class="n">removeResponse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fetch_arg</span><span class="p">):</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Directory </span><span class="si">%s</span><span class="s1"> does not exist&#39;</span> <span class="o">%</span> <span class="n">fetch_arg</span>
+                <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">)</span>
+            <span class="n">dat_fet</span> <span class="o">=</span> <span class="n">DataFetcher</span><span class="p">(</span><span class="s1">&#39;dir&#39;</span><span class="p">,</span> <span class="n">directoryName</span><span class="o">=</span><span class="n">fetch_arg</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Input not understood, read docs and try again&#39;</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dat_fet</span></div>
+
+
+<div class="viewcode-block" id="makeDataDirectories"><a class="viewcode-back" href="../../detex.html#detex.getdata.makeDataDirectories">[docs]</a><span class="k">def</span> <span class="nf">makeDataDirectories</span><span class="p">(</span><span class="n">templateKey</span><span class="o">=</span><span class="s1">&#39;TemplateKey.csv&#39;</span><span class="p">,</span>
+                        <span class="n">stationKey</span><span class="o">=</span><span class="s1">&#39;StationKey.csv&#39;</span><span class="p">,</span>
+                        <span class="n">fetch</span><span class="o">=</span><span class="s1">&#39;IRIS&#39;</span><span class="p">,</span>
+                        <span class="n">formatOut</span><span class="o">=</span><span class="s1">&#39;mseed&#39;</span><span class="p">,</span>
+                        <span class="n">templateDir</span><span class="o">=</span><span class="n">eveDirDefault</span><span class="p">,</span>
+                        <span class="n">timeBeforeOrigin</span><span class="o">=</span><span class="mi">1</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span>
+                        <span class="n">timeAfterOrigin</span><span class="o">=</span><span class="mi">4</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span>
+                        <span class="n">conDir</span><span class="o">=</span><span class="n">conDirDefault</span><span class="p">,</span>
+                        <span class="n">secBuf</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
+                        <span class="n">conDatDuration</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>
+                        <span class="n">multiPro</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">getContinuous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">getTemplates</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">removeResponse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">opType</span><span class="o">=</span><span class="s1">&#39;VEL&#39;</span><span class="p">,</span>
+                        <span class="n">prefilt</span><span class="o">=</span><span class="p">[</span><span class="o">.</span><span class="mi">05</span><span class="p">,</span> <span class="o">.</span><span class="mi">1</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">20</span><span class="p">]):</span>
+    <span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">    Function designed to fetch data needed for detex and store them in local </span>
+<span class="sd">    directories. StationKey.csv and TemplateKey.csv indicate which events to</span>
+<span class="sd">    download and for which stations. Organizes ContinuousWaveForms and </span>
+<span class="sd">    EventWaveForms directories.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ------------    </span>
+<span class="sd">    template_key : str or pd DataFrame</span>
+<span class="sd">        The path to the TemplateKey csv</span>
+<span class="sd">    station_key : str or pd DataFrame</span>
+<span class="sd">        The path to the station key</span>
+<span class="sd">    fetch : str or FetchData instance</span>
+<span class="sd">        String for method argument of FetchData class or FetchData instance</span>
+<span class="sd">    formatOut : str</span>
+<span class="sd">        Seismic data file format, most obspy formats acceptable, options are:</span>
+<span class="sd">        &#39;mseed&#39;,&#39;sac&#39;,&#39;GSE2&#39;,&#39;sacxy&#39;,&#39;q&#39;,&#39;sh_asc&#39;,&#39; slist&#39;, &#39;tspair&#39;,&#39;segy&#39;,</span>
+<span class="sd">        &#39;su&#39;, &#39;pickle&#39;, &#39;h5&#39; (h5 only if obspyh5 module installed)</span>
+<span class="sd">    tempalateDir : str</span>
+<span class="sd">        The name of the template directory. Using the default is recommended </span>
+<span class="sd">        else the templateDir parameter will have to be set in calling most </span>
+<span class="sd">        other detex functions</span>
+<span class="sd">    timeBeforeOrigin: real number</span>
+<span class="sd">        The time in seconds before the reported origin of each template that </span>
+<span class="sd">        is downloaded. </span>
+<span class="sd">    timeAfterOrigin : real number(int, float, etc.)</span>
+<span class="sd">        The time in seconds to download after the origin time of each template.</span>
+<span class="sd">    conDir : str</span>
+<span class="sd">        The name of the continuous waveform directory. Using the default is </span>
+<span class="sd">        recommended</span>
+<span class="sd">    secBuf : real number (int, float, etc.)</span>
+<span class="sd">        The number of seconds to download after each hour of continuous data. </span>
+<span class="sd">        This might be non-zero in order to capture some detections that would </span>
+<span class="sd">        normally be overlooked if data did not overlap somewhat. </span>
+<span class="sd">    conDatDuration : real number (int, float, etc.)</span>
+<span class="sd">        The duration of the continuous data to download in seconds. </span>
+<span class="sd">    multiPro : bool</span>
+<span class="sd">        If True fork several processes to get data at once, potentially much </span>
+<span class="sd">        faster but a bit inconsiderate on the server hosting the data</span>
+<span class="sd">    getContinuous : bool</span>
+<span class="sd">        If True fetch continuous data with station and date ranges listed in </span>
+<span class="sd">        the station key</span>
+<span class="sd">    getTemplates : bool</span>
+<span class="sd">        If True get template data with stations listed in the station key</span>
+<span class="sd">        and events listed in the template key</span>
+<span class="sd">    removeResponse : bool</span>
+<span class="sd">        If true remove instrument response</span>
+<span class="sd">    opType : str</span>
+<span class="sd">        Output type after removing instrument response. Choices are:</span>
+<span class="sd">        &quot;DISP&quot; (m), &quot;VEL&quot; (m/s), or &quot;ACC&quot; (m/s**2)</span>
+<span class="sd">    prefilt : list 4 real numbers</span>
+<span class="sd">        Pre-filter parameters for removing instrument response, response is</span>
+<span class="sd">        flat from corners 2 to 3. </span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">temkey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="n">templateKey</span><span class="p">,</span> <span class="s1">&#39;template&#39;</span><span class="p">)</span>
+    <span class="n">stakey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="n">stationKey</span><span class="p">,</span> <span class="s1">&#39;station&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Check output type</span>
+    <span class="k">if</span> <span class="n">formatOut</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">formatKey</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> is not an acceptable format, choices are </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span>
+               <span class="p">(</span><span class="n">formatOut</span><span class="p">,</span> <span class="n">formatKey</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Configure data fetcher</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fetch</span><span class="p">,</span> <span class="n">detex</span><span class="o">.</span><span class="n">getdata</span><span class="o">.</span><span class="n">DataFetcher</span><span class="p">):</span>
+        <span class="n">fetcher</span> <span class="o">=</span> <span class="n">fetch</span>
+        <span class="c1"># Make sure DataFetcher is on same page as function inputs</span>
+        <span class="n">fetcher</span><span class="o">.</span><span class="n">opType</span> <span class="o">=</span> <span class="n">opType</span>
+        <span class="n">fetcher</span><span class="o">.</span><span class="n">removeResponse</span> <span class="o">=</span> <span class="n">removeResponse</span>
+        <span class="n">fetcher</span><span class="o">.</span><span class="n">prefilt</span> <span class="o">=</span> <span class="n">prefilt</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">fetcher</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">getdata</span><span class="o">.</span><span class="n">DataFetcher</span><span class="p">(</span><span class="n">fetch</span><span class="p">,</span>
+                                            <span class="n">removeResponse</span><span class="o">=</span><span class="n">removeResponse</span><span class="p">,</span>
+                                            <span class="n">opType</span><span class="o">=</span><span class="n">opType</span><span class="p">,</span>
+                                            <span class="n">prefilt</span><span class="o">=</span><span class="n">prefilt</span><span class="p">)</span>
+    <span class="c1">## Get templates</span>
+    <span class="k">if</span> <span class="n">getTemplates</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Getting template waveforms&#39;</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;info&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">_getTemData</span><span class="p">(</span><span class="n">temkey</span><span class="p">,</span> <span class="n">stakey</span><span class="p">,</span> <span class="n">templateDir</span><span class="p">,</span> <span class="n">formatOut</span><span class="p">,</span>
+                    <span class="n">fetcher</span><span class="p">,</span> <span class="n">timeBeforeOrigin</span><span class="p">,</span> <span class="n">timeAfterOrigin</span><span class="p">)</span>
+
+    <span class="c1">## Get continuous data</span>
+    <span class="k">if</span> <span class="n">getContinuous</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Getting continuous data&#39;</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;info&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">_getConData</span><span class="p">(</span><span class="n">fetcher</span><span class="p">,</span> <span class="n">stakey</span><span class="p">,</span> <span class="n">conDir</span><span class="p">,</span> <span class="n">secBuf</span><span class="p">,</span> <span class="n">opType</span><span class="p">,</span> <span class="n">formatOut</span><span class="p">,</span>
+                    <span class="n">duration</span><span class="o">=</span><span class="n">conDatDuration</span><span class="p">)</span>
+
+        <span class="c1">## Log finish</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;finished makeDataDirectories call&quot;</span>
+    <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;info&#39;</span><span class="p">,</span> <span class="n">close</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_getTemData</span><span class="p">(</span><span class="n">temkey</span><span class="p">,</span> <span class="n">stakey</span><span class="p">,</span> <span class="n">temDir</span><span class="p">,</span> <span class="n">formatOut</span><span class="p">,</span> <span class="n">fetcher</span><span class="p">,</span> <span class="n">tb4</span><span class="p">,</span> <span class="n">taft</span><span class="p">):</span>
+    <span class="n">streamGenerator</span> <span class="o">=</span> <span class="n">fetcher</span><span class="o">.</span><span class="n">getTemData</span><span class="p">(</span><span class="n">temkey</span><span class="p">,</span> <span class="n">stakey</span><span class="p">,</span> <span class="n">tb4</span><span class="p">,</span> <span class="n">taft</span><span class="p">,</span>
+                                         <span class="n">returnName</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">temDir</span><span class="o">=</span><span class="n">temDir</span><span class="p">,</span>
+                                         <span class="n">skipIfExists</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">st</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">streamGenerator</span><span class="p">:</span>
+        <span class="n">netsta</span> <span class="o">=</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">network</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">station</span>
+        <span class="n">fname</span> <span class="o">=</span> <span class="n">netsta</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">formatKey</span><span class="p">[</span><span class="n">formatOut</span><span class="p">]</span>
+        <span class="n">fdir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temDir</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fdir</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">fdir</span><span class="p">)</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fdir</span><span class="p">,</span> <span class="n">fname</span><span class="p">),</span> <span class="n">formatOut</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temDir</span><span class="p">,</span> <span class="s1">&#39;.index.db&#39;</span><span class="p">)):</span>
+        <span class="n">indexDirectory</span><span class="p">(</span><span class="n">temDir</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_getConData</span><span class="p">(</span><span class="n">fetcher</span><span class="p">,</span> <span class="n">stakey</span><span class="p">,</span> <span class="n">conDir</span><span class="p">,</span> <span class="n">secBuf</span><span class="p">,</span> <span class="n">opType</span><span class="p">,</span> <span class="n">formatOut</span><span class="p">,</span>
+                <span class="n">duration</span><span class="o">=</span><span class="mi">3600</span><span class="p">):</span>
+    <span class="n">streamGenerator</span> <span class="o">=</span> <span class="n">fetcher</span><span class="o">.</span><span class="n">getConData</span><span class="p">(</span><span class="n">stakey</span><span class="p">,</span>
+                                         <span class="n">secBuf</span><span class="p">,</span>
+                                         <span class="n">returnName</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                         <span class="n">conDir</span><span class="o">=</span><span class="n">conDir</span><span class="p">,</span>
+                                         <span class="n">skipIfExists</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                         <span class="n">duration</span><span class="o">=</span><span class="n">duration</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">st</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">fname</span> <span class="ow">in</span> <span class="n">streamGenerator</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">st</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># if data were returned</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="n">fname</span> <span class="o">=</span> <span class="n">fname</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">formatKey</span><span class="p">[</span><span class="n">formatOut</span><span class="p">]</span>
+            <span class="n">st</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">fname</span><span class="p">),</span> <span class="n">formatOut</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">conDir</span><span class="p">,</span> <span class="s1">&#39;.index.db&#39;</span><span class="p">)):</span>
+        <span class="n">indexDirectory</span><span class="p">(</span><span class="n">conDir</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="DataFetcher"><a class="viewcode-back" href="../../detex.html#detex.getdata.DataFetcher">[docs]</a><span class="k">class</span> <span class="nc">DataFetcher</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    \n</span>
+<span class="sd">    Class to handle data acquisition</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters </span>
+<span class="sd">    ----------</span>
+<span class="sd">    method : str or int</span>
+<span class="sd">        One of the approved methods for getting data as supported by detex</span>
+<span class="sd">        Options are:</span>
+<span class="sd">            &quot;dir&quot; : A data directory as created by makeDataDirectories</span>
+<span class="sd">            &quot;client&quot; : an obspy client can be passed to get data</span>
+<span class="sd">            useful if using an in-network database </span>
+<span class="sd">            &quot;iris&quot; : an iris client is initiated, also uses IRIS for inventory</span>
+<span class="sd">            &quot;uuss&quot; : A client attached to the university of utah </span>
+<span class="sd">            seismograph stations is initiated using CWB for waveforms</span>
+<span class="sd">            and IRIS is used for station inventories</span>
+<span class="sd">    client : An obspy client object</span>
+<span class="sd">        Client object used to get data, from obspy.clients</span>
+<span class="sd">    removeResponse : bool</span>
+<span class="sd">        If True remove response before returning stream.</span>
+<span class="sd">    inventoryArg : None, obspy client object, or obspy Inventory object</span>
+<span class="sd">        A seperate client for station inventories, only used if </span>
+<span class="sd">        removeResponse == True, also supports keyword &quot;iris&quot; for iris client</span>
+<span class="sd">    directoryName : str</span>
+<span class="sd">        A path to the continuous waveforms directory or event waveforms</span>
+<span class="sd">        directory. If None is passed default names are used </span>
+<span class="sd">        (ContinuousWaveForms and EventWaveForms)</span>
+<span class="sd">    opType : str</span>
+<span class="sd">        Output type after removing instrument response. Choices are:</span>
+<span class="sd">        &quot;DISP&quot; (m), &quot;VEL&quot; (m/s), or &quot;ACC&quot; (m/s**2)</span>
+<span class="sd">    prefilt : list of real numbers</span>
+<span class="sd">        Pre-filter parameters for removing instrument response. </span>
+<span class="sd">    conDatDuration : int or float</span>
+<span class="sd">        Duration for continuous data in seconds</span>
+<span class="sd">    conBuff : int or float</span>
+<span class="sd">        The amount of data, in seconds, to download at the end of the </span>
+<span class="sd">        conDatDuration. Ideally should be equal to template length, important </span>
+<span class="sd">        in order to avoid missing potential events at the end of a stream</span>
+<span class="sd">    timeBeforeOrigin : int or float</span>
+<span class="sd">        Seconds before origin of each event to fetch (used in getTemData)</span>
+<span class="sd">    timeAfterOrigin : int or float</span>
+<span class="sd">        Seconds after origin of each event to fetch (used in getTemData)</span>
+<span class="sd">    checkData : bool</span>
+<span class="sd">        If True apply some data checks before returning streams, can be useful</span>
+<span class="sd">        for older data sets. </span>
+<span class="sd">    fillZeros : bool</span>
+<span class="sd">        If True fill data that are not available with 0s (provided some data are</span>
+<span class="sd">        available)</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">supMethods</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;dir&#39;</span><span class="p">,</span> <span class="s1">&#39;client&#39;</span><span class="p">,</span> <span class="s1">&#39;uuss&#39;</span><span class="p">,</span> <span class="s1">&#39;iris&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">client</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">removeResponse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">inventoryArg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">directoryName</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">opType</span><span class="o">=</span><span class="s1">&#39;VEL&#39;</span><span class="p">,</span>
+                 <span class="n">prefilt</span><span class="o">=</span><span class="p">[</span><span class="o">.</span><span class="mi">05</span><span class="p">,</span> <span class="o">.</span><span class="mi">1</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">20</span><span class="p">],</span> <span class="n">conDatDuration</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span> <span class="n">conBuff</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
+                 <span class="n">timeBeforeOrigin</span><span class="o">=</span><span class="mi">1</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="n">timeAfterOrigin</span><span class="o">=</span><span class="mi">4</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="n">checkData</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">fillZeros</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">locals</span><span class="p">())</span>  <span class="c1"># Instantiate all inputs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inventory</span> <span class="o">=</span> <span class="n">_getInventory</span><span class="p">(</span><span class="n">inventoryArg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkInputs</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">removeResponse</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">inventory</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;dir&#39;</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;Cannot remove response without a valid inventoryArg, &#39;</span>
+                       <span class="s1">&#39;setting removeResponse to False&#39;</span><span class="p">)</span>
+                <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;warning&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">removeResponse</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">_checkInputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">,</span> <span class="n">string_types</span><span class="p">):</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;method must be a string. options:</span><span class="se">\n</span><span class="s1"> </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">supMethods</span>
+            <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="n">e</span><span class="o">=</span><span class="ne">TypeError</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>  <span class="c1"># parameter to lowercase</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="ow">in</span> <span class="n">DataFetcher</span><span class="o">.</span><span class="n">supMethods</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;method </span><span class="si">%s</span><span class="s1"> not supported. Options are:</span><span class="se">\n</span><span class="s1"> </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span>
+                   <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">supMethods</span><span class="p">))</span>
+            <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="n">e</span><span class="o">=</span><span class="ne">ValueError</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;dir&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">directoryName</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">directoryName</span> <span class="o">=</span> <span class="n">conDirDefault</span>
+            <span class="n">dirPath</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">directoryName</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dirPath</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;directory </span><span class="si">%s</span><span class="s1"> not found make sure path is correct&#39;</span> <span class="o">%</span>
+                       <span class="bp">self</span><span class="o">.</span><span class="n">directoryName</span><span class="p">)</span>
+                <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="n">e</span><span class="o">=</span><span class="ne">IOError</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">directory</span> <span class="o">=</span> <span class="n">dirPath</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_getStream</span> <span class="o">=</span> <span class="n">_loadDirectoryData</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;client&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Method </span><span class="si">%s</span><span class="s1"> requires a valid obspy client&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span>
+                <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="n">e</span><span class="o">=</span><span class="ne">ValueError</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_getStream</span> <span class="o">=</span> <span class="n">_assignClientFunction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;iris&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">fdsn</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="s2">&quot;IRIS&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_getStream</span> <span class="o">=</span> <span class="n">_assignClientFunction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;uuss&#39;</span><span class="p">:</span>  <span class="c1"># uuss setting</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">neic</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="s1">&#39;128.110.129.227&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_getStream</span> <span class="o">=</span> <span class="n">_assignClientFunction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">inventory</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">fdsn</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="s1">&#39;iris&#39;</span><span class="p">)</span>  <span class="c1"># use iris for resps</span>
+
+<div class="viewcode-block" id="DataFetcher.getTemData"><a class="viewcode-back" href="../../detex.html#detex.getdata.DataFetcher.getTemData">[docs]</a>    <span class="k">def</span> <span class="nf">getTemData</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">temkey</span><span class="p">,</span> <span class="n">stakey</span><span class="p">,</span> <span class="n">tb4</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">taft</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">returnName</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                   <span class="n">temDir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">skipIfExists</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">skipDict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                   <span class="n">returnTimes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">phases</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Take detex station keys and template keys and yield stream objects of</span>
+<span class="sd">        all possible combinations</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        temkey : pd DataFrame</span>
+<span class="sd">            Detex template key</span>
+<span class="sd">        stakey : pd DataFrame</span>
+<span class="sd">            Detex station key</span>
+<span class="sd">        tb4 : None, or real number</span>
+<span class="sd">            Time before origin (or first phase pick if phases is not None)</span>
+<span class="sd">        taft : None or real number</span>
+<span class="sd">            Time after origin (or first phase pick if phases is not None)</span>
+<span class="sd">        returnName : bool</span>
+<span class="sd">            If True return name of event as found in template key</span>
+<span class="sd">        returnNames : bool</span>
+<span class="sd">            If True return event names and template names</span>
+<span class="sd">        temDir : str or None</span>
+<span class="sd">            Name of template directory, used to check if exists</span>
+<span class="sd">        skipIfExists : bool</span>
+<span class="sd">            If True dont return if file is in temDir</span>
+<span class="sd">        skipDict : dict</span>
+<span class="sd">            Dictionary of stations (keys, net.sta) and events (values) </span>
+<span class="sd">            to skip</span>
+<span class="sd">        returnTimes : bool</span>
+<span class="sd">            If True return times of data</span>
+<span class="sd">        phases : None, str, or DataFrame</span>
+<span class="sd">            If not None must be a path to a phasePick file, in the same format</span>
+<span class="sd">            as detex.util.pickPhases, or a path to a saved csv of the same.            </span>
+<span class="sd">            tb4 and taft will be referenced to the first arrival for each</span>
+<span class="sd">            event and station, or the origin if none are available. </span>
+<span class="sd">            </span>
+<span class="sd">        Yields</span>
+<span class="sd">        --------</span>
+<span class="sd">        Stream objects of possible combination if data are fetchable and event</span>
+<span class="sd">        names if returnName == True or times of data if returnTimes == True</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">tb4</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">tb4</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeBeforeOrigin</span>
+        <span class="k">if</span> <span class="n">taft</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">taft</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">timeAfterOrigin</span>
+        <span class="k">if</span> <span class="n">skipDict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">skipDict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">skipDict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">stakey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="n">stakey</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="s1">&#39;station&#39;</span><span class="p">)</span>
+        <span class="n">temkey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="n">temkey</span><span class="p">,</span> <span class="n">key_type</span><span class="o">=</span><span class="s1">&#39;template&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">phases</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">phases</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="n">phases</span><span class="p">,</span> <span class="s2">&quot;phases&quot;</span><span class="p">)</span>
+
+        <span class="n">indexiter</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="n">stakey</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">temkey</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="c1"># iter through each station/event pair and fetch data</span>
+        <span class="k">for</span> <span class="n">stain</span><span class="p">,</span> <span class="n">temin</span> <span class="ow">in</span> <span class="n">indexiter</span><span class="p">:</span>
+            <span class="n">ser</span> <span class="o">=</span> <span class="n">temkey</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">temin</span><span class="p">]</span><span class="o">.</span><span class="n">combine_first</span><span class="p">(</span><span class="n">stakey</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">stain</span><span class="p">])</span>
+            <span class="n">netsta</span> <span class="o">=</span> <span class="n">ser</span><span class="o">.</span><span class="n">NETWORK</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">ser</span><span class="o">.</span><span class="n">STATION</span>
+            <span class="c1"># Skip event/station combos in skipDict</span>
+            <span class="k">if</span> <span class="n">skipDict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">netsta</span> <span class="ow">in</span> <span class="n">skipDict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">vals</span> <span class="o">=</span> <span class="n">skipDict</span><span class="p">[</span><span class="n">netsta</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">ser</span><span class="o">.</span><span class="n">NAME</span> <span class="ow">in</span> <span class="n">vals</span><span class="p">:</span>
+                    <span class="k">continue</span>
+            <span class="c1"># skip events that already have files</span>
+            <span class="k">if</span> <span class="n">skipIfExists</span><span class="p">:</span>
+                <span class="n">pfile</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temDir</span><span class="p">,</span> <span class="n">ser</span><span class="o">.</span><span class="n">NAME</span><span class="p">,</span> <span class="n">netsta</span> <span class="o">+</span> <span class="s1">&#39;*&#39;</span><span class="p">))</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pfile</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">continue</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ser</span><span class="o">.</span><span class="n">TIME</span><span class="p">,</span> <span class="n">string_types</span><span class="p">)</span> <span class="ow">and</span> <span class="s1">&#39;T&#39;</span> <span class="ow">in</span> <span class="n">ser</span><span class="o">.</span><span class="n">TIME</span><span class="p">:</span>
+                <span class="n">time</span> <span class="o">=</span> <span class="n">ser</span><span class="o">.</span><span class="n">TIME</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">time</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ser</span><span class="o">.</span><span class="n">TIME</span><span class="p">)</span>
+
+            <span class="n">net</span> <span class="o">=</span> <span class="n">ser</span><span class="o">.</span><span class="n">NETWORK</span>
+            <span class="n">sta</span> <span class="o">=</span> <span class="n">ser</span><span class="o">.</span><span class="n">STATION</span>
+            <span class="n">chan</span> <span class="o">=</span> <span class="n">ser</span><span class="o">.</span><span class="n">CHANNELS</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">)</span>
+
+            <span class="c1"># if phases option is used then find first phase and use it</span>
+            <span class="k">if</span> <span class="n">phases</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">con1</span> <span class="o">=</span> <span class="p">(</span><span class="n">phases</span><span class="o">.</span><span class="n">Event</span> <span class="o">==</span> <span class="n">ser</span><span class="o">.</span><span class="n">NAME</span><span class="p">)</span>
+                <span class="n">con2</span> <span class="o">=</span> <span class="p">(</span><span class="n">phases</span><span class="o">.</span><span class="n">Station</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">.</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">))</span>
+                <span class="n">curEve</span> <span class="o">=</span> <span class="n">phases</span><span class="p">[</span><span class="n">con1</span> <span class="o">&amp;</span> <span class="n">con2</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">curEve</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># if event station pair not in phases</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="p">((</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> on </span><span class="si">%s</span><span class="s1"> was not in phase file, using origin&#39;</span><span class="p">)</span>
+                           <span class="o">%</span> <span class="p">(</span><span class="n">ser</span><span class="o">.</span><span class="n">NAME</span><span class="p">,</span> <span class="n">sta</span><span class="p">))</span>
+                    <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;info&#39;</span><span class="p">)</span>
+                    <span class="n">t</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">utcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">curEve</span><span class="o">.</span><span class="n">TimeStamp</span><span class="p">]</span>
+                    <span class="n">t</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">utcs</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">t</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">t</span> <span class="o">-</span> <span class="n">tb4</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">t</span> <span class="o">+</span> <span class="n">taft</span>
+
+            <span class="n">st</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getStream</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">chan</span><span class="p">,</span> <span class="s1">&#39;??&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">st</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># skip if returns nothing</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">returnName</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">st</span><span class="p">,</span> <span class="n">ser</span><span class="o">.</span><span class="n">NAME</span>
+            <span class="k">elif</span> <span class="n">returnTimes</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">st</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">st</span></div>
+
+<div class="viewcode-block" id="DataFetcher.getConData"><a class="viewcode-back" href="../../detex.html#detex.getdata.DataFetcher.getConData">[docs]</a>    <span class="k">def</span> <span class="nf">getConData</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stakey</span><span class="p">,</span> <span class="n">secBuff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">returnName</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                   <span class="n">returnTimes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">conDir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">skipIfExists</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                   <span class="n">utcstart</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">utcend</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">randSamps</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get continuous data defined by the stations and time range in </span>
+<span class="sd">        the station key</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+<span class="sd">        stakey : str or pd.DataFrame</span>
+<span class="sd">            A path to the stationkey or a loaded DF of the stationkey</span>
+<span class="sd">        secBuff : int</span>
+<span class="sd">            A buffer in seconds to add to end of continuous data chunk</span>
+<span class="sd">            so that consecutive files overlap by secBuf</span>
+<span class="sd">        returnName : bool</span>
+<span class="sd">            If True return the name of the file and expected path</span>
+<span class="sd">        CondDir : str</span>
+<span class="sd">            Path to Continuous data directory if it exists. Used to check</span>
+<span class="sd">            if a file already exists so it can be skipped if skipIfExists</span>
+<span class="sd">        skipIfExists : bool</span>
+<span class="sd">            If True files already exists wont be downloaded again </span>
+<span class="sd">        utcstart : None, int, str or obspy.UTCDateTime instance</span>
+<span class="sd">            An object readable by obspy.UTCDateTime class which is the start</span>
+<span class="sd">            time of continuous data to fetch. If None use time in station key</span>
+<span class="sd">        utcend : None, int or str, or obspy.UTCDateTime instance</span>
+<span class="sd">            An object readable by obspy.UTCDateTime class which is the end </span>
+<span class="sd">            time of continuous data to fetch. If None use time in station key</span>
+<span class="sd">        duration : None, int, or float</span>
+<span class="sd">            The duration of each continuous data chunk to fetch, if None</span>
+<span class="sd">            use conDataDuration attribute of DataFetcher instance</span>
+<span class="sd">        randSamps : None or int</span>
+<span class="sd">            If not None, return random number of traces rather than whole </span>
+<span class="sd">            range</span>
+<span class="sd">        </span>
+<span class="sd">        Yields</span>
+<span class="sd">        --------</span>
+<span class="sd">        Obspy trace and other requested parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">stakey</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">readKey</span><span class="p">(</span><span class="n">stakey</span><span class="p">,</span> <span class="s1">&#39;station&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">secBuff</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">secBuff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conBuff</span>
+        <span class="k">if</span> <span class="n">duration</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">duration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conDatDuration</span>
+
+        <span class="k">for</span> <span class="n">num</span><span class="p">,</span> <span class="n">ser</span> <span class="ow">in</span> <span class="n">stakey</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+            <span class="n">netsta</span> <span class="o">=</span> <span class="n">ser</span><span class="o">.</span><span class="n">NETWORK</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">ser</span><span class="o">.</span><span class="n">STATION</span>
+            <span class="k">if</span> <span class="n">utcstart</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">ts1</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">ser</span><span class="o">.</span><span class="n">STARTTIME</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ts1</span> <span class="o">=</span> <span class="n">utcstart</span>
+            <span class="k">if</span> <span class="n">utcend</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">ts2</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">ser</span><span class="o">.</span><span class="n">ENDTIME</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ts2</span> <span class="o">=</span> <span class="n">utcend</span>
+            <span class="n">utcs</span> <span class="o">=</span> <span class="n">_divideIntoChunks</span><span class="p">(</span><span class="n">ts1</span><span class="p">,</span> <span class="n">ts2</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">randSamps</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">utc</span> <span class="ow">in</span> <span class="n">utcs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">conDir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">path</span><span class="p">,</span> <span class="n">fil</span> <span class="o">=</span> <span class="n">_makePathFile</span><span class="p">(</span><span class="n">conDir</span><span class="p">,</span> <span class="n">netsta</span><span class="p">,</span> <span class="n">utc</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">skipIfExists</span><span class="p">:</span>
+                    <span class="n">pfile</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">fil</span> <span class="o">+</span> <span class="s1">&#39;*&#39;</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pfile</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># if already exists then skip</span>
+                        <span class="k">continue</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">utc</span>
+                <span class="n">end</span> <span class="o">=</span> <span class="n">utc</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">conDatDuration</span> <span class="o">+</span> <span class="n">secBuff</span>
+                <span class="n">net</span> <span class="o">=</span> <span class="n">ser</span><span class="o">.</span><span class="n">NETWORK</span>
+                <span class="n">sta</span> <span class="o">=</span> <span class="n">ser</span><span class="o">.</span><span class="n">STATION</span>
+                <span class="n">chan</span> <span class="o">=</span> <span class="n">ser</span><span class="o">.</span><span class="n">CHANNELS</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">)</span>
+                <span class="n">st</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getStream</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">chan</span><span class="p">,</span> <span class="s1">&#39;*&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">st</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">st</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">utcend</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">utcend</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">&lt;</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">endtime</span><span class="o">.</span><span class="n">timestamp</span><span class="p">:</span>  <span class="c1"># trim if needed</span>
+                        <span class="n">st</span><span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="n">endtime</span><span class="o">=</span><span class="n">utcend</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">st</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">returnName</span> <span class="ow">and</span> <span class="n">returnTimes</span><span class="p">:</span>
+                    <span class="n">path</span><span class="p">,</span> <span class="n">fname</span> <span class="o">=</span> <span class="n">_makePathFile</span><span class="p">(</span><span class="n">conDir</span><span class="p">,</span> <span class="n">netsta</span><span class="p">,</span> <span class="n">utc</span><span class="p">)</span>
+                    <span class="k">yield</span> <span class="n">st</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">fname</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span>
+                <span class="k">elif</span> <span class="n">returnName</span><span class="p">:</span>
+                    <span class="n">path</span><span class="p">,</span> <span class="n">fname</span> <span class="o">=</span> <span class="n">_makePathFile</span><span class="p">(</span><span class="n">conDir</span><span class="p">,</span> <span class="n">netsta</span><span class="p">,</span> <span class="n">utc</span><span class="p">)</span>
+                    <span class="k">yield</span> <span class="n">st</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">fname</span>
+                <span class="k">elif</span> <span class="n">returnTimes</span><span class="p">:</span>
+                    <span class="k">yield</span> <span class="n">st</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">yield</span> <span class="n">st</span></div>
+
+<div class="viewcode-block" id="DataFetcher.getStream"><a class="viewcode-back" href="../../detex.html#detex.getdata.DataFetcher.getStream">[docs]</a>    <span class="k">def</span> <span class="nf">getStream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">chan</span><span class="o">=</span><span class="s1">&#39;???&#39;</span><span class="p">,</span> <span class="n">loc</span><span class="o">=</span><span class="s1">&#39;??&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        function for getting data.\n</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        </span>
+<span class="sd">        start : obspy.UTCDateTime object</span>
+<span class="sd">            Start time to fetch</span>
+<span class="sd">        end : obspy.UTCDateTime object</span>
+<span class="sd">            End time to fetch</span>
+<span class="sd">        net : str</span>
+<span class="sd">            Network code, usually 2 letters</span>
+<span class="sd">        sta : str</span>
+<span class="sd">            Station code</span>
+<span class="sd">        chan : str or list of str (should support wildcard)</span>
+<span class="sd">            Channels to fetch</span>
+<span class="sd">        loc : str</span>
+<span class="sd">            Location code for station</span>
+<span class="sd">        </span>
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">        An instance of obspy.Stream populated with requested data, or None if</span>
+<span class="sd">        not available.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># make sure start and end are UTCDateTimes </span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+
+        <span class="c1"># check that chan input is ok</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">chan</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">chan</span><span class="p">,</span> <span class="n">string_types</span><span class="p">):</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;chan must be a string or list of strings&#39;</span>
+                <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">)</span>
+            <span class="n">chan</span> <span class="o">=</span> <span class="p">[</span><span class="n">chan</span><span class="p">]</span>
+
+        <span class="c1"># fetch stream</span>
+        <span class="n">st</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_getStream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">chan</span><span class="p">,</span> <span class="n">loc</span><span class="p">)</span>
+
+        <span class="c1"># perform checks if required            </span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkData</span><span class="p">:</span>
+            <span class="n">st</span> <span class="o">=</span> <span class="n">_dataCheck</span><span class="p">(</span><span class="n">st</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+
+            <span class="c1"># if no data return None</span>
+        <span class="k">if</span> <span class="n">st</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">st</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># attach response</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">removeResponse</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">inventory</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_hasResponse</span><span class="p">(</span><span class="n">st</span><span class="p">):</span>
+                <span class="n">st</span> <span class="o">=</span> <span class="n">_attachResponse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">st</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">loc</span><span class="p">,</span> <span class="n">chan</span><span class="p">)</span>
+
+        <span class="c1"># remove response</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">removeResponse</span><span class="p">:</span>
+            <span class="n">st</span> <span class="o">=</span> <span class="n">_removeInstrumentResponse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">st</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">st</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># return None if response removal failed</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># trims and zero fills</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="n">starttime</span><span class="o">=</span><span class="n">start</span><span class="p">,</span> <span class="n">endtime</span><span class="o">=</span><span class="n">end</span><span class="p">)</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># merge and split to overwrite overlaps</span>
+
+        <span class="n">st</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">detrend</span><span class="p">(</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fillZeros</span><span class="p">:</span>
+            <span class="n">st</span><span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="n">starttime</span><span class="o">=</span><span class="n">start</span><span class="p">,</span> <span class="n">endtime</span><span class="o">=</span><span class="n">end</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+            <span class="n">st</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">st</span></div></div>
+
+    <span class="c1">########## Functions for loading data based on selected methods ###########</span>
+
+
+<span class="k">def</span> <span class="nf">_loadDirectoryData</span><span class="p">(</span><span class="n">fet</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">chan</span><span class="p">,</span> <span class="n">loc</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to load continuous data from the detex directory structure</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># get times with slight buffer</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">start</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span>
+    <span class="n">t2</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">end</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span>
+    <span class="n">buf</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">fet</span><span class="o">.</span><span class="n">conDatDuration</span>
+    <span class="n">dfind</span> <span class="o">=</span> <span class="n">_loadIndexDb</span><span class="p">(</span><span class="n">fet</span><span class="o">.</span><span class="n">directoryName</span><span class="p">,</span> <span class="n">net</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">sta</span><span class="p">,</span> <span class="n">t1</span> <span class="o">-</span> <span class="n">buf</span><span class="p">,</span> <span class="n">t2</span> <span class="o">+</span> <span class="n">buf</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">dfind</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">t1p</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">t1</span><span class="p">)</span>
+        <span class="n">t2p</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">t2</span><span class="p">)</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;data from </span><span class="si">%s</span><span class="s1"> to </span><span class="si">%s</span><span class="s1"> on </span><span class="si">%s</span><span class="s1"> not found in </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">t1p</span><span class="p">,</span> <span class="n">t2p</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span>
+                                                            <span class="n">fet</span><span class="o">.</span><span class="n">directoryName</span><span class="p">)</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;warning&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="c1"># define conditions in which condata should not be loaded</span>
+    <span class="c1"># con1 and con2 - No overlap (other than 10%)</span>
+    <span class="n">tra</span> <span class="o">=</span> <span class="n">t2</span> <span class="o">-</span> <span class="n">t1</span>  <span class="c1"># time range</span>
+    <span class="n">con1</span> <span class="o">=</span> <span class="p">((</span><span class="n">dfind</span><span class="o">.</span><span class="n">Starttime</span> <span class="o">&lt;=</span> <span class="n">t1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">dfind</span><span class="o">.</span><span class="n">Endtime</span> <span class="o">-</span> <span class="n">tra</span> <span class="o">*</span> <span class="o">.</span><span class="mi">1</span> <span class="o">&lt;</span> <span class="n">t1</span><span class="p">)</span> <span class="o">&amp;</span>
+            <span class="p">(</span><span class="n">dfind</span><span class="o">.</span><span class="n">Starttime</span> <span class="o">&lt;</span> <span class="n">t2</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">dfind</span><span class="o">.</span><span class="n">Endtime</span> <span class="o">&lt;</span> <span class="n">t2</span><span class="p">))</span>
+    <span class="n">con2</span> <span class="o">=</span> <span class="p">((</span><span class="n">dfind</span><span class="o">.</span><span class="n">Starttime</span> <span class="o">&gt;</span> <span class="n">t1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">dfind</span><span class="o">.</span><span class="n">Endtime</span> <span class="o">&gt;</span> <span class="n">t1</span><span class="p">)</span> <span class="o">&amp;</span>
+            <span class="p">(</span><span class="n">dfind</span><span class="o">.</span><span class="n">Starttime</span> <span class="o">+</span> <span class="n">tra</span> <span class="o">*</span> <span class="o">.</span><span class="mi">1</span> <span class="o">&gt;</span> <span class="n">t2</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">dfind</span><span class="o">.</span><span class="n">Endtime</span> <span class="o">&gt;=</span> <span class="n">t2</span><span class="p">))</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">dfind</span><span class="p">[</span><span class="o">~</span><span class="p">(</span><span class="n">con1</span> <span class="o">|</span> <span class="n">con2</span><span class="p">)]</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">t1p</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">t1</span><span class="p">)</span>
+        <span class="n">t2p</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">t2</span><span class="p">)</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;data from </span><span class="si">%s</span><span class="s1"> to </span><span class="si">%s</span><span class="s1"> on </span><span class="si">%s</span><span class="s1"> not found in </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">t1p</span><span class="p">,</span> <span class="n">t2p</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span>
+                                                            <span class="n">fet</span><span class="o">.</span><span class="n">directoryName</span><span class="p">)</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;warning&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">st</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">Stream</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># if no event fits description</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">path</span><span class="p">,</span> <span class="n">fname</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">Path</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">FileName</span><span class="p">):</span>
+        <span class="n">fil</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">fname</span><span class="p">)</span>
+        <span class="n">st1</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">fil</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">st1</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">st</span> <span class="o">+=</span> <span class="n">st1</span>
+    <span class="c1"># st.trim(starttime=start, endtime=end)</span>
+    <span class="c1"># check if chan variable is string else iterate</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">chan</span><span class="p">,</span> <span class="n">string_types</span><span class="p">):</span>
+        <span class="n">stout</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">chan</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">stout</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">Stream</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">cha</span> <span class="ow">in</span> <span class="n">chan</span><span class="p">:</span>
+            <span class="n">stout</span> <span class="o">+=</span> <span class="n">st</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">channel</span><span class="o">=</span><span class="n">cha</span><span class="p">)</span>
+
+    <span class="n">loc</span> <span class="o">=</span> <span class="s1">&#39;*&#39;</span> <span class="k">if</span> <span class="n">loc</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;???&#39;</span><span class="p">,</span> <span class="s1">&#39;??&#39;</span><span class="p">]</span> <span class="k">else</span> <span class="n">loc</span>  <span class="c1"># convert ? to *</span>
+    <span class="n">stout</span> <span class="o">=</span> <span class="n">stout</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">location</span><span class="o">=</span><span class="n">loc</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">stout</span>
+
+
+<span class="k">def</span> <span class="nf">_assignClientFunction</span><span class="p">(</span><span class="n">client</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    function to take an obspy client FDSN, NEIC, EW, etc. return the </span>
+<span class="sd">    correct loadFromClient function for getting data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">obspy</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">fdsn</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_loadFromFDSN</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">obspy</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">neic</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_loadFromNEIC</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">obspy</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">earthworm</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_loadFromEarthworm</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;Client type not supported&#39;</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">,</span> <span class="n">e</span><span class="o">=</span><span class="ne">TypeError</span><span class="p">)</span>
+
+
+<span class="c1">## load from client functions, this is needed because the APIs are not the same</span>
+
+<span class="k">def</span> <span class="nf">_loadFromNEIC</span><span class="p">(</span><span class="n">fet</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">chan</span><span class="p">,</span> <span class="n">loc</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Use obspy.neic.Client to fetch waveforms</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">fet</span><span class="o">.</span><span class="n">client</span>
+    <span class="c1"># str reps of utc objects for error messages</span>
+    <span class="n">startstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+    <span class="n">endstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+    <span class="n">st</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">Stream</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">cha</span> <span class="ow">in</span> <span class="n">chan</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>  <span class="c1"># try neic client</span>
+            <span class="n">st</span> <span class="o">+=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_waveforms</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">loc</span><span class="p">,</span> <span class="n">cha</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;Could not fetch data on </span><span class="si">%s</span><span class="s1"> from </span><span class="si">%s</span><span class="s1"> to </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span>
+                   <span class="p">(</span><span class="n">net</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">sta</span><span class="p">,</span> <span class="n">startstr</span><span class="p">,</span> <span class="n">endstr</span><span class="p">))</span>
+            <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;warning&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">st</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">st</span>
+
+
+<span class="k">def</span> <span class="nf">_loadFromEarthworm</span><span class="p">(</span><span class="n">fet</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">chan</span><span class="p">,</span> <span class="n">loc</span><span class="p">):</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">fet</span><span class="o">.</span><span class="n">client</span>
+    <span class="n">startstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+    <span class="n">endstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+    <span class="n">st</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">Stream</span><span class="p">()</span>
+    <span class="k">if</span> <span class="s1">&#39;*&#39;</span> <span class="ow">in</span> <span class="n">loc</span> <span class="ow">or</span> <span class="s1">&#39;?&#39;</span> <span class="ow">in</span> <span class="n">loc</span><span class="p">:</span>  <span class="c1"># adjust for earthworm loc codes</span>
+        <span class="n">loc</span> <span class="o">=</span> <span class="s1">&#39;--&#39;</span>
+    <span class="k">for</span> <span class="n">cha</span> <span class="ow">in</span> <span class="n">chan</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>  <span class="c1"># try neic client</span>
+            <span class="n">st</span> <span class="o">+=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_waveforms</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">loc</span><span class="p">,</span> <span class="n">cha</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;Could not fetch data on </span><span class="si">%s</span><span class="s1"> from </span><span class="si">%s</span><span class="s1"> to </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span>
+                   <span class="p">(</span><span class="n">net</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">sta</span><span class="p">,</span> <span class="n">startstr</span><span class="p">,</span> <span class="n">endstr</span><span class="p">))</span>
+            <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;warning&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">st</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">st</span>
+
+
+<span class="k">def</span> <span class="nf">_loadFromFDSN</span><span class="p">(</span><span class="n">fet</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">chan</span><span class="p">,</span> <span class="n">loc</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Use obspy.clients.fdsn.Client to fetch waveforms</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">client</span> <span class="o">=</span> <span class="n">fet</span><span class="o">.</span><span class="n">client</span>
+    <span class="c1"># str reps of utc objects for error messages</span>
+    <span class="n">startstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+    <span class="n">endstr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+    <span class="c1"># convert channels to correct format (list seperated by ,)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">chan</span><span class="p">,</span> <span class="n">string_types</span><span class="p">):</span>
+        <span class="n">chan</span> <span class="o">=</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chan</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s1">&#39;-&#39;</span> <span class="ow">in</span> <span class="n">chan</span><span class="p">:</span>
+            <span class="n">chan</span> <span class="o">=</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chan</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">))</span>
+    <span class="c1"># try to get waveforms, else return None</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">st</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_waveforms</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">loc</span><span class="p">,</span> <span class="n">chan</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">attach_response</span><span class="o">=</span><span class="n">fet</span><span class="o">.</span><span class="n">removeResponse</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;Could not fetch data on </span><span class="si">%s</span><span class="s1"> from </span><span class="si">%s</span><span class="s1"> to </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span>
+               <span class="p">(</span><span class="n">net</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">sta</span><span class="p">,</span> <span class="n">startstr</span><span class="p">,</span> <span class="n">endstr</span><span class="p">))</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;warning&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">st</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">st</span>
+
+
+<span class="c1">########## MISC functions #############</span>
+
+<span class="k">def</span> <span class="nf">_attachResponse</span><span class="p">(</span><span class="n">fet</span><span class="p">,</span> <span class="n">st</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">sta</span><span class="p">,</span> <span class="n">loc</span><span class="p">,</span> <span class="n">chan</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to attach response from inventory or client</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">fet</span><span class="o">.</span><span class="n">removeResponse</span> <span class="ow">or</span> <span class="n">fet</span><span class="o">.</span><span class="n">inventory</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">st</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fet</span><span class="o">.</span><span class="n">inventory</span><span class="p">,</span> <span class="n">obspy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">inventory</span><span class="o">.</span><span class="n">Inventory</span><span class="p">):</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">attach_response</span><span class="p">(</span><span class="n">fet</span><span class="o">.</span><span class="n">inventory</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">inv</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">inventory</span><span class="o">.</span><span class="n">Inventory</span><span class="p">([],</span> <span class="s1">&#39;detex&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">cha</span> <span class="ow">in</span> <span class="n">chan</span><span class="p">:</span>
+            <span class="n">inv</span> <span class="o">+=</span> <span class="n">fet</span><span class="o">.</span><span class="n">inventory</span><span class="o">.</span><span class="n">get_stations</span><span class="p">(</span><span class="n">starttime</span><span class="o">=</span><span class="n">start</span><span class="p">,</span>
+                                              <span class="n">endtime</span><span class="o">=</span><span class="n">end</span><span class="p">,</span>
+                                              <span class="n">network</span><span class="o">=</span><span class="n">net</span><span class="p">,</span>
+                                              <span class="n">station</span><span class="o">=</span><span class="n">sta</span><span class="p">,</span>
+                                              <span class="n">loc</span><span class="o">=</span><span class="n">loc</span><span class="p">,</span>
+                                              <span class="n">channel</span><span class="o">=</span><span class="n">cha</span><span class="p">,</span>
+                                              <span class="n">level</span><span class="o">=</span><span class="s2">&quot;response&quot;</span><span class="p">)</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">attach_response</span><span class="p">(</span><span class="n">inv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">st</span>
+
+
+<span class="k">def</span> <span class="nf">_getInventory</span><span class="p">(</span><span class="n">invArg</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Take a string, Obspy client, or inventory object and return inventory</span>
+<span class="sd">    object used to attach responses to stream objects for response removal</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">invArg</span><span class="p">,</span> <span class="n">string_types</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">invArg</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;iris&#39;</span><span class="p">:</span>
+            <span class="n">invArg</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">fdsn</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="s1">&#39;IRIS&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">invArg</span><span class="p">):</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;if inventoryArg is str then it must be a client name, ie  &#39;</span>
+                   <span class="s1">&#39;IRIS, or a path to a station xml&#39;</span><span class="p">)</span>
+            <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">obspy</span><span class="o">.</span><span class="n">read_inventory</span><span class="p">(</span><span class="n">invArg</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">invArg</span><span class="p">,</span> <span class="n">obspy</span><span class="o">.</span><span class="n">station</span><span class="o">.</span><span class="n">inventory</span><span class="o">.</span><span class="n">Inventory</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">invArg</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">invArg</span><span class="p">,</span> <span class="n">obspy</span><span class="o">.</span><span class="n">clients</span><span class="o">.</span><span class="n">fdsn</span><span class="o">.</span><span class="n">Client</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">invArg</span>
+    <span class="k">elif</span> <span class="n">invArg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span> <span class="nf">_dataCheck</span><span class="p">(</span><span class="n">st</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
+    <span class="c1"># if none or empty return None</span>
+    <span class="k">if</span> <span class="n">st</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">st</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">netsta</span> <span class="o">=</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">network</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">station</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">starttime</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># check if data range is way off what was requested</span>
+    <span class="n">utcmin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">starttime</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">st</span><span class="p">])</span>
+    <span class="n">utcmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">endtime</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">st</span><span class="p">])</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">utcmax</span> <span class="o">-</span> <span class="n">utcmin</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">10</span><span class="p">:</span>  <span class="c1"># give 10 mine tolerance</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> starting on </span><span class="si">%s</span><span class="s1"> is shorter than expected&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">netsta</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Check sample rates</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">tr</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">%</span> <span class="mi">1</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">tr</span> <span class="ow">in</span> <span class="n">st</span><span class="p">]):</span>
+        <span class="k">for</span> <span class="n">tr</span> <span class="ow">in</span> <span class="n">st</span><span class="p">:</span>
+            <span class="n">tr</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">tr</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">)</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;Found non-int sampling_rates, rounded to nearest </span><span class="se">\</span>
+<span class="s1">                    int on </span><span class="si">%s</span><span class="s1"> around </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">netsta</span><span class="p">,</span> <span class="n">time</span><span class="p">))</span>
+            <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;warning&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">st</span><span class="p">]):</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;At least one channel is all 0s on </span><span class="si">%s</span><span class="s1"> around </span><span class="si">%s</span><span class="s1">, skipping&#39;</span> <span class="o">%</span>
+               <span class="p">(</span><span class="n">netsta</span><span class="p">,</span> <span class="n">time</span><span class="p">))</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;warn&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">st</span>
+
+
+<span class="k">def</span> <span class="nf">_hasResponse</span><span class="p">(</span><span class="n">st</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Test if all channels have responses of a stream, return bool</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">all</span><span class="p">([</span><span class="nb">hasattr</span><span class="p">(</span><span class="n">tr</span><span class="o">.</span><span class="n">stats</span><span class="p">,</span> <span class="s1">&#39;response&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">tr</span> <span class="ow">in</span> <span class="n">st</span><span class="p">])</span>
+
+
+<span class="k">def</span> <span class="nf">_removeInstrumentResponse</span><span class="p">(</span><span class="n">fet</span><span class="p">,</span> <span class="n">st</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">fet</span><span class="o">.</span><span class="n">removeResponse</span><span class="p">:</span>  <span class="c1"># pass stream back if no response removal</span>
+        <span class="k">return</span> <span class="n">st</span>
+    <span class="n">st</span><span class="o">.</span><span class="n">detrend</span><span class="p">(</span><span class="s1">&#39;linear&#39;</span><span class="p">)</span>  <span class="c1"># detrend</span>
+    <span class="n">st</span> <span class="o">=</span> <span class="n">_fftprep</span><span class="p">(</span><span class="n">st</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">st</span><span class="o">.</span><span class="n">remove_response</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="n">fet</span><span class="o">.</span><span class="n">opType</span><span class="p">,</span> <span class="n">pre_filt</span><span class="o">=</span><span class="n">fet</span><span class="o">.</span><span class="n">prefilt</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="n">utc1</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">starttime</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">utc2</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">endtime</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;RemoveResponse Failed for </span><span class="si">%s</span><span class="s1">,</span><span class="si">%s</span><span class="s1">, from </span><span class="si">%s</span><span class="s1"> to </span><span class="si">%s</span><span class="s1">, skipping&#39;</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">network</span><span class="p">,</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">station</span><span class="p">,</span> <span class="n">utc1</span><span class="p">,</span> <span class="n">utc2</span><span class="p">)</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;warning&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">st</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">st</span>
+
+
+<span class="k">def</span> <span class="nf">_fftprep</span><span class="p">(</span><span class="n">st</span><span class="p">):</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">data</span>
+    <span class="s2">&quot;data is numpy vector, makes sure it is not of odd length or fft drags&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">&gt;</span> <span class="mi">50</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">starttime</span> <span class="o">=</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">starttime</span> <span class="o">-</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">delta</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">&lt;</span> <span class="mi">50</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">starttime</span> <span class="o">=</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">starttime</span> <span class="o">+</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">delta</span>
+    <span class="k">return</span> <span class="n">st</span>
+
+
+<span class="k">def</span> <span class="nf">_divideIntoChunks</span><span class="p">(</span><span class="n">utc1</span><span class="p">,</span> <span class="n">utc2</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">randSamps</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to take two utc date time objects and create a generator to yield</span>
+<span class="sd">    all time in between by intercals of duration. If randSamps is not None</span>
+<span class="sd">    it will return a random subsample, still divisible by randSamps to make </span>
+<span class="sd">    loading files easier. The randSamps parameter can at most rep. </span>
+<span class="sd">    Inputs can be any obspy readable format</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">utc1</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">utc1</span><span class="p">)</span>
+    <span class="n">utc2</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">utc2</span><span class="p">)</span>
+    <span class="c1"># convert to time stamps (epoch time)</span>
+    <span class="n">ts1</span> <span class="o">=</span> <span class="n">utc1</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">-</span> <span class="n">utc1</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">%</span> <span class="n">duration</span>
+    <span class="n">ts2</span> <span class="o">=</span> <span class="n">utc2</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">-</span> <span class="n">utc2</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">%</span> <span class="n">duration</span>
+    <span class="k">if</span> <span class="n">randSamps</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">ts1</span>
+        <span class="k">while</span> <span class="n">t</span> <span class="o">&lt;=</span> <span class="n">ts2</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>  <span class="c1"># yield a value</span>
+            <span class="n">t</span> <span class="o">+=</span> <span class="n">duration</span>  <span class="c1"># add an hour</span>
+    <span class="k">else</span><span class="p">:</span>
+
+        <span class="n">utcList</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">utc1</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span> <span class="n">utc2</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span> <span class="n">duration</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">randSamps</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">utcList</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;Population too small for </span><span class="si">%d</span><span class="s1"> random samples, taking </span><span class="si">%d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="n">randSamps</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">utcList</span><span class="p">)))</span>
+            <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;info&#39;</span><span class="p">)</span>
+            <span class="n">randSamps</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">utcList</span><span class="p">)</span>
+        <span class="n">ranutc</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">utcList</span><span class="p">,</span> <span class="n">randSamps</span><span class="p">)</span>
+        <span class="n">rsamps</span> <span class="o">=</span> <span class="p">[</span><span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ranutc</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">samp</span> <span class="ow">in</span> <span class="n">rsamps</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">samp</span>
+
+
+<span class="k">def</span> <span class="nf">_makePathFile</span><span class="p">(</span><span class="n">conDir</span><span class="p">,</span> <span class="n">netsta</span><span class="p">,</span> <span class="n">utc</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Make the expected filename to see if continuous data chunk exists</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">utc</span> <span class="o">=</span> <span class="n">obspy</span><span class="o">.</span><span class="n">UTCDateTime</span><span class="p">(</span><span class="n">utc</span><span class="p">)</span>
+    <span class="n">year</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%04d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">utc</span><span class="o">.</span><span class="n">year</span>
+    <span class="n">jd</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%03d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">utc</span><span class="o">.</span><span class="n">julday</span>
+    <span class="n">hr</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%02d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">utc</span><span class="o">.</span><span class="n">hour</span>
+    <span class="n">mi</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%02d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">utc</span><span class="o">.</span><span class="n">minute</span>
+    <span class="n">se</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%02d</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">utc</span><span class="o">.</span><span class="n">second</span>
+
+    <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">conDir</span><span class="p">,</span> <span class="n">netsta</span><span class="p">,</span> <span class="n">year</span><span class="p">,</span> <span class="n">jd</span><span class="p">)</span>
+    <span class="n">fname</span> <span class="o">=</span> <span class="n">netsta</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">year</span> <span class="o">+</span> <span class="s1">&#39;-&#39;</span> <span class="o">+</span> <span class="n">jd</span> <span class="o">+</span> <span class="s1">&#39;T&#39;</span> <span class="o">+</span> <span class="s1">&#39;-&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">hr</span><span class="p">,</span> <span class="n">mi</span><span class="p">,</span> <span class="n">se</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">path</span><span class="p">,</span> <span class="n">fname</span>
+
+
+<span class="c1">###### Index directory functions ##########</span>
+<div class="viewcode-block" id="indexDirectory"><a class="viewcode-back" href="../../detex.html#detex.getdata.indexDirectory">[docs]</a><span class="k">def</span> <span class="nf">indexDirectory</span><span class="p">(</span><span class="n">dirPath</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create an index (.index.db) for a directory with stored waveform files</span>
+<span class="sd">    which also contains quality info of each file</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    __________</span>
+<span class="sd">    dirPath : str</span>
+<span class="sd">        The path to the directory containing waveform data (any structure)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Path&#39;</span><span class="p">,</span> <span class="s1">&#39;FileName&#39;</span><span class="p">,</span> <span class="s1">&#39;Starttime&#39;</span><span class="p">,</span> <span class="s1">&#39;Endtime&#39;</span><span class="p">,</span> <span class="s1">&#39;Gaps&#39;</span><span class="p">,</span> <span class="s1">&#39;Nc&#39;</span><span class="p">,</span> <span class="s1">&#39;Nt&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;Duration&#39;</span><span class="p">,</span> <span class="s1">&#39;Station&#39;</span><span class="p">]</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">columns</span><span class="p">)</span>  <span class="c1"># DataFrame for indexing</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;indexing, or updating index for </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">dirPath</span>
+    <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;info&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Create a list of possible path permutations to save space in database</span>
+    <span class="n">pathList</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># A list of lists with different path permutations</span>
+    <span class="k">for</span> <span class="n">dirpath</span><span class="p">,</span> <span class="n">dirname</span><span class="p">,</span> <span class="n">filenames</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">dirPath</span><span class="p">):</span>
+        <span class="n">dirList</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">dirpath</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">sep</span><span class="p">)</span>
+        <span class="c1"># Expand pathList if needed</span>
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">dirList</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">pathList</span><span class="p">):</span>
+            <span class="n">pathList</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="c1"># loop and put info in pathList that isnt already there</span>
+        <span class="k">for</span> <span class="n">ind</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dirList</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="p">[[</span><span class="n">value</span><span class="p">]]</span>
+            <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">value</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">va</span> <span class="ow">in</span> <span class="n">val</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">va</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pathList</span><span class="p">[</span><span class="n">ind</span><span class="p">]:</span>
+                        <span class="n">pathList</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">va</span><span class="p">)</span>
+        <span class="c1"># Loop over file names perform quality checks</span>
+        <span class="k">for</span> <span class="n">fname</span> <span class="ow">in</span> <span class="n">filenames</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">fname</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;.&#39;</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">fpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="o">*</span><span class="n">dirList</span><span class="p">)</span>
+            <span class="n">fullpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fpath</span><span class="p">,</span> <span class="n">fname</span><span class="p">)</span>
+            <span class="n">qualDict</span> <span class="o">=</span> <span class="n">_checkQuality</span><span class="p">(</span><span class="n">fullpath</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">qualDict</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># If file is not obspy readable</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;obspy failed to read </span><span class="si">%s</span><span class="s1"> , skipping&#39;</span> <span class="o">%</span> <span class="n">fullpath</span>
+                <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;warning&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">continue</span>  <span class="c1"># skip to next file</span>
+            <span class="n">pathInts</span> <span class="o">=</span> <span class="p">[</span><span class="n">pathList</span><span class="p">[</span><span class="n">num</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">num</span><span class="p">,</span>
+                                                   <span class="n">x</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dirList</span><span class="p">)]</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">),</span> <span class="s1">&#39;Path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">pathInts</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">qualDict</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+                <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;FileName&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fname</span>
+            <span class="c1"># Create path index key</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pathList</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;No obspy readable files found in </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">dirPath</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">)</span>
+    <span class="n">dfInd</span> <span class="o">=</span> <span class="n">_createIndexDF</span><span class="p">(</span><span class="n">pathList</span><span class="p">)</span>
+    <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">saveSQLite</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dirPath</span><span class="p">,</span> <span class="s1">&#39;.index.db&#39;</span><span class="p">),</span> <span class="s1">&#39;ind&#39;</span><span class="p">)</span>
+    <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">saveSQLite</span><span class="p">(</span><span class="n">dfInd</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dirPath</span><span class="p">,</span> <span class="s1">&#39;.index.db&#39;</span><span class="p">),</span> <span class="s1">&#39;indkey&#39;</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_createIndexDF</span><span class="p">(</span><span class="n">pathList</span><span class="p">):</span>
+    <span class="n">indLength</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pathList</span><span class="p">)</span>
+    <span class="n">colLength</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">pathList</span><span class="p">])</span>
+    <span class="n">ind</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">indLength</span><span class="p">)]</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;col_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">colLength</span><span class="p">)]</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">ind</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">ind1</span><span class="p">,</span> <span class="n">pl</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pathList</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">ind2</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pl</span><span class="p">):</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">ind1</span><span class="p">,</span> <span class="s1">&#39;col_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">ind2</span><span class="p">)]</span> <span class="o">=</span> <span class="n">item</span>
+
+    <span class="k">return</span> <span class="n">df</span>
+
+
+<span class="k">def</span> <span class="nf">_checkQuality</span><span class="p">(</span><span class="n">stPath</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    load a path to an obspy trace and check quality</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">st</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">stPath</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">st</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">lengthStream</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">st</span><span class="p">)</span>
+    <span class="n">gaps</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">get_gaps</span><span class="p">()</span>
+    <span class="n">gapsum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">gaps</span><span class="p">])</span>
+    <span class="n">starttime</span> <span class="o">=</span> <span class="nb">min</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">starttime</span><span class="o">.</span><span class="n">timestamp</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">st</span><span class="p">])</span>
+    <span class="n">endtime</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">endtime</span><span class="o">.</span><span class="n">timestamp</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">st</span><span class="p">])</span>
+    <span class="n">duration</span> <span class="o">=</span> <span class="n">endtime</span> <span class="o">-</span> <span class="n">starttime</span>
+    <span class="n">nc</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">channel</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">st</span><span class="p">])))</span>
+    <span class="n">netsta</span> <span class="o">=</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">network</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">st</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">stats</span><span class="o">.</span><span class="n">station</span>
+    <span class="n">outDict</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;Gaps&#39;</span><span class="p">:</span> <span class="n">gapsum</span><span class="p">,</span> <span class="s1">&#39;Starttime&#39;</span><span class="p">:</span> <span class="n">starttime</span><span class="p">,</span> <span class="s1">&#39;Endtime&#39;</span><span class="p">:</span> <span class="n">endtime</span><span class="p">,</span>
+               <span class="s1">&#39;Duration&#39;</span><span class="p">:</span> <span class="n">duration</span><span class="p">,</span> <span class="s1">&#39;Nc&#39;</span><span class="p">:</span> <span class="n">nc</span><span class="p">,</span> <span class="s1">&#39;Nt&#39;</span><span class="p">:</span> <span class="n">lengthStream</span><span class="p">,</span>
+               <span class="s1">&#39;Station&#39;</span><span class="p">:</span> <span class="n">netsta</span><span class="p">}</span>
+    <span class="k">return</span> <span class="n">outDict</span>
+
+
+<span class="k">def</span> <span class="nf">_loadIndexDb</span><span class="p">(</span><span class="n">dirPath</span><span class="p">,</span> <span class="n">station</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">):</span>
+    <span class="n">indexFile</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dirPath</span><span class="p">,</span> <span class="s1">&#39;.index.db&#39;</span><span class="p">))</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">indexFile</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> is not currently indexed, indexing now&#39;</span> <span class="o">%</span> <span class="n">dirPath</span>
+        <span class="n">detex</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s1">&#39;info&#39;</span><span class="p">,</span> <span class="n">pri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">indexDirectory</span><span class="p">(</span><span class="n">dirPath</span><span class="p">)</span>
+        <span class="n">indexFile</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dirPath</span><span class="p">,</span> <span class="s1">&#39;.index.db&#39;</span><span class="p">))</span>
+    <span class="n">sql</span> <span class="o">=</span> <span class="p">((</span><span class="s1">&#39;SELECT </span><span class="si">%s</span><span class="s1"> FROM </span><span class="si">%s</span><span class="s1"> WHERE Starttime&gt;=</span><span class="si">%f</span><span class="s1"> AND &#39;</span> <span class="o">+</span>
+            <span class="s1">&#39;Endtime&lt;=</span><span class="si">%f</span><span class="s1"> AND Station=&quot;</span><span class="si">%s</span><span class="s1">&quot;&#39;</span><span class="p">)</span> <span class="o">%</span>
+           <span class="p">(</span><span class="s1">&#39;*&#39;</span><span class="p">,</span> <span class="s1">&#39;ind&#39;</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">station</span><span class="p">))</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">loadSQLite</span><span class="p">(</span><span class="n">indexFile</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;ind&#39;</span><span class="p">,</span> <span class="n">sql</span><span class="o">=</span><span class="n">sql</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">df</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># if not in database</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">dfin</span> <span class="o">=</span> <span class="n">detex</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">loadSQLite</span><span class="p">(</span><span class="n">indexFile</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;indkey&#39;</span><span class="p">,</span> <span class="n">convertNumeric</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">dfin</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">dfin</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="n">dfin</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">dfin</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
+
+    <span class="c1"># reconstruct path</span>
+    <span class="n">df</span><span class="p">[</span><span class="s1">&#39;Path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">_associatePathList</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dfin</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;Path&#39;</span><span class="p">]]</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s1">&#39;FileName&#39;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">df</span>
+
+
+<span class="k">def</span> <span class="nf">_associatePathList</span><span class="p">(</span><span class="n">pathList</span><span class="p">,</span> <span class="n">dfin</span><span class="p">):</span>
+    <span class="n">pl</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">pathList</span><span class="p">)</span>
+    <span class="n">pat</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">num</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pl</span><span class="p">):</span>
+        <span class="n">pat</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dfin</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">num</span><span class="p">,</span> <span class="n">p</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="o">*</span><span class="n">pat</span><span class="p">)</span>
+
+
+<span class="n">getAllData</span> <span class="o">=</span> <span class="n">makeDataDirectories</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">detex</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../detex.html">detex package</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  <li><a href="../detex.html">detex</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Derrick Chambers.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

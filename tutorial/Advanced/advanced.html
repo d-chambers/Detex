@@ -1,0 +1,168 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Advanced Tutorial &#8212; detex __version__ = 1.0.9 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="advanced-tutorial">
+<h1>Advanced Tutorial<a class="headerlink" href="#advanced-tutorial" title="Permalink to this headline">¶</a></h1>
+<p>Welcome to the advanced tutorial for detex. At this point you should:</p>
+<ol class="simple">
+<li>have a working knowledge of python</li>
+<li>have some experience with the python package pandas or have gone through the <a class="reference external" href="http://pandas.pydata.org/pandas-docs/stable/10min.html">10 minute pandas tutorial</a></li>
+<li>have completed (or at least looked through) the <a class="reference external" href="intro">introductory tutorial</a></li>
+<li>have read, or skimmed through, <a class="reference external" href="https://e-reports-ext.llnl.gov/pdf/335299.pdf">Dave Harris’ subspace paper</a></li>
+<li>have read, or skimmed through, <a class="reference external" href="http://gji.oxfordjournals.org/content/203/2/1388.full?keytype=ref&amp;ijkey=5HUaTUw3o0Xikhs">my subspace paper</a> which explains what detex is doing under the hood</li>
+</ol>
+<p>The purpose of this tutorial is to guide you through the workflow of detex with much greater detail than the introductory tutorial.</p>
+<p>Note that each of the segments of this tutorial, as well as the introductory tutorial, where created using <a class="reference external" href="http://ipython.org/notebook.html">ipython notebook</a>. I have left the notebook files for each segment so that you can run them directly.</p>
+</div>
+<div class="section" id="detex-organization">
+<h1>Detex Organization<a class="headerlink" href="#detex-organization" title="Permalink to this headline">¶</a></h1>
+<p>First, a word about the organization of detex. There are several important modules and classes that merit some discussion.</p>
+<div class="section" id="the-modules">
+<h2>The modules<a class="headerlink" href="#the-modules" title="Permalink to this headline">¶</a></h2>
+<p>Here are the modules in detex and a brief description of what they do as of version 1.0.4. More modules may be added in the future.</p>
+<ul class="simple">
+<li><strong>Init</strong> - called when importing detex. Imports the other modules explicitly and is used to start the logger. Controls several parameters for verbosity and log file length.</li>
+<li><strong>getdata</strong> - home of the DataFetcher class which serves all data to other detex functions and classes. Also has functions to download data to create local directories and index the directories with an SQLite database.</li>
+<li><strong>construct</strong> - contains the functions for creating the cluster and subspace objects. Performs waveform correlation and alignment, as well as various data checks.</li>
+<li><strong>subspace</strong> - home of the cluster classes (ClusterStream, Cluster) and subspace classes (SubSpace) which are the main objects used to control the waveform clustering and subspace detection.</li>
+<li><strong>fas</strong> - module to handle the estimation of false alarm statistics. Is called from the SubSpace class to parse random continuous data and try to fit a distribution to the null space in order to set detection statistic thresholds.</li>
+<li><strong>detect</strong> - module called by SubSpace class to preform the subspace detection, magnitude estimation, etc.</li>
+<li><strong>results</strong> - used to associate potential detections together from various stations. Home of the SSResults class.</li>
+<li><strong>util</strong> - module with various functions that can be useful in data prep, setting up files, visualization, etc. but are not part of the main work flow.</li>
+<li><strong>streamPick</strong> - a light GUI used for making manual phase picks for both individual events and whole subspaces. The GUI was created by <a class="reference external" href="miili">miili</a> and the original project can be found <a class="reference external" href="https://github.com/miili/StreamPick">here</a>. In order to use streamPick in the context of detex, however, it required several modification that would hinder its use in the application it was designed for, so the modified code included in detex.</li>
+<li><strong>pandasdbms</strong> - a script for writing pandas DataFrames to SQLite databases. The original script can be found <a class="reference external" href="https://gist.github.com/catawbasam/3164289">here</a>.</li>
+<li><strong>qualitycheck</strong> - A module still in the works for checking on quality of available data. Ideally it will inform the user of data gaps, missing responses, etc. and include some visualization methods. Currently it is not complete.</li>
+</ul>
+</div>
+<div class="section" id="the-classes">
+<h2>The classes<a class="headerlink" href="#the-classes" title="Permalink to this headline">¶</a></h2>
+<p>There are few important classes worth mentioning:</p>
+<ul class="simple">
+<li><strong>DataFetcher</strong> - used to serve data to all other detex functions. Can get data from obspy clients (FDSN, NEIC, Earthworm, etc.) or local data directories.</li>
+<li><strong>ClusterStream</strong> - container for Cluster instances.</li>
+<li><strong>Cluster</strong> - the waveform similarity for a single station. Contains the lag times, correlation coefficients, etc.</li>
+<li><strong>SubSpace</strong> - controller for handling subspace operations. Takes a ClusterStream as input.</li>
+<li><strong>SSResults</strong> - results class, used for associating detections together.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="detex-workflow">
+<h1>Detex workflow<a class="headerlink" href="#detex-workflow" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="logging">
+<h2><a class="reference internal" href="Logging/logging.html"><span class="doc">Logging</span></a><a class="headerlink" href="#logging" title="Permalink to this headline">¶</a></h2>
+<p>Introduces logging and explains how to check the version number.</p>
+</div>
+<div class="section" id="required-files">
+<h2><a class="reference internal" href="RequiredFiles/required_files.html"><span class="doc">Required Files</span></a><a class="headerlink" href="#required-files" title="Permalink to this headline">¶</a></h2>
+<p>reviews the format of the two required files: the station key and the template key. Also highlights some methods for creating the keys (from station inventories and catalog objects for example).</p>
+</div>
+<div class="section" id="getdata">
+<h2><a class="reference internal" href="GetData/get_data.html"><span class="doc">Getdata</span></a><a class="headerlink" href="#getdata" title="Permalink to this headline">¶</a></h2>
+<p>Covers the various methods of getting seismic data in detex using the DataFetcher class.</p>
+</div>
+<div class="section" id="clustering">
+<h2><a class="reference internal" href="Clustering/clustering.html"><span class="doc">Clustering</span></a><a class="headerlink" href="#clustering" title="Permalink to this headline">¶</a></h2>
+<p>Covers the waveform similarity clustering process required to form subspaces.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">detex</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../detex.html">detex package</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Derrick Chambers.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../../_sources/tutorial/Advanced/advanced.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
