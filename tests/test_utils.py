@@ -12,13 +12,16 @@ import detex
 import os
 import obspy
 import glob
+from pathlib2 import Path
 from collections import namedtuple
 
+here = Path(__file__).parent
+
 # set paths for data
-test_data = os.path.join('test_data', 'test_utils')
-temkeys = sorted(glob.glob(os.path.join(test_data, 'template_keys', '*')))
-stakeys = sorted(glob.glob(os.path.join(test_data, 'station_keys', '*')))
-picks = sorted(glob.glob(os.path.join(test_data, 'picks', '*')))
+test_data = here / 'test_data' / 'test_utils'
+temkeys = [str(x) for x in (test_data / 'template_keys').glob('*')]
+stakeys = [str(x) for x in (test_data / 'station_keys').glob('*')]
+picks = [str(x) for x in (test_data / 'picks').glob('*')]
 # make sure some files were found, require stakeys and tempkeys to be equal
 assert len(temkeys) and len(temkeys) == len(stakeys) == len(picks)
 
@@ -29,7 +32,7 @@ file_sets = zip(temkeys, stakeys, picks)
 def key_files(request):
     nt = namedtuple('KeyFiles', 'temkey, stakey, picks')
     return nt(*request.param)
-    
+
 # read in the key files and serve named tuple of their classes
 @pytest.fixture(scope='session')
 def key_Dfs(key_files):
@@ -44,7 +47,7 @@ def key_Dfs(key_files):
 def temkey2catalog(key_Dfs):
     temkey, picks = key_Dfs.temkey, key_Dfs.picks
     return detex.util.templateKey2Catalog(temkey, picks=picks)
-    
+
 # class to test functionality of template key to catalog function
 class Test_templateKey2Catalog:
     def test_cat_type(self, temkey2catalog):

@@ -23,8 +23,8 @@ import detex
 def _initFAS(TRDF, conDatNum, cluster, fetcher, LTATime=5,
              STATime=0.5, numBins=401, dtype='double', staltalimit=7.5,
              issubspace=True, utcstart=None, utcend=None):
-    """ Function to randomly scan through continuous data and fit statistical 
-    distributions in order to get a DS threshold for each subspace/station 
+    """ Function to randomly scan through continuous data and fit statistical
+    distributions in order to get a DS threshold for each subspace/station
     pair"""
 
     results = [{}] * len(TRDF)
@@ -174,7 +174,7 @@ def _loadMPSubSpace(row, conLen):
 
 def _checkSTALTA(st, filt, STATime, LTATime, limit):
     """
-    Take a stream and make sure it's vert. component (or first comp 
+    Take a stream and make sure it's vert. component (or first comp
     if no vert) does not exceed limit given STATime and LTATime
     Return True if passes, false if fails
     """
@@ -192,11 +192,7 @@ def _checkSTALTA(st, filt, STATime, LTATime, limit):
     sr = sz.stats.sampling_rate
     ltaSamps = LTATime * sr
     staSamps = STATime * sr
-    try:
-        cft = classic_sta_lta(sz.data, staSamps, ltaSamps)
-    except:
-        return False
-        detex.deb([sz, staSamps, ltaSamps])
+    cft = classic_sta_lta(sz.data, staSamps, ltaSamps)
     if np.max(cft) <= limit:
         return True
     else:
